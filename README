@@ -1,0 +1,12 @@
+For the main plugin :
+
+- in a shell, place yourself in the same folder as this readme
+- launch the correct prep... command for your platform with the arguments "projects" and "build" :
+	./firebreath/prepmac.sh projects build
+	firebreath\prep2010.cmd projects build
+
+- open the project generated in the new "build" directory :
+	FireBreath.xcode
+	FireBreath.sln
+
+Good luck !	...
