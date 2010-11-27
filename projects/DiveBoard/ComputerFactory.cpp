@@ -1,0 +1,324 @@
+#include "stdafx.h"
+#include "ComputerFactory.h"
+
+#ifdef _WIN32
+#include <setupapi.h>
+#endif
+
+#include "Logger.h"
+
+#include "ComputerSuunto.h"
+#include "ComputerMares.h"
+
+#include <stdio.h>
+#include <dirent.h>
+#include <iostream>
+#include <errno.h>
+
+ComputerFactory::ComputerFactory(void)
+{
+}
+
+
+ComputerFactory::~ComputerFactory(void)
+{
+}
+
+
+bool IsNumeric(WCHAR *pszString, BOOL bIgnoreColon)
+{
+  size_t nLen = wcslen(pszString);
+  if (nLen == 0)
+    return FALSE;
+
+  //What will be the return value from this function (assume the best)
+  BOOL bNumeric = TRUE;
+
+  for (size_t i=0; i<nLen && bNumeric; i++)
+  {
+    bNumeric = (isdigit(static_cast<int>(pszString[i])) != 0);
+    if (bIgnoreColon && (pszString[i] == ':'))
+      bNumeric = TRUE;
+  }
+
+  return bNumeric;
+}
+
+
+#ifdef WIN32
+
+typedef HKEY (__stdcall SETUPDIOPENDEVREGKEY)(HDEVINFO, PSP_DEVINFO_DATA, DWORD, DWORD, DWORD, REGSAM);
+typedef BOOL (__stdcall SETUPDICLASSGUIDSFROMNAME)(LPCTSTR, LPGUID, DWORD, PDWORD);
+typedef BOOL (__stdcall SETUPDIDESTROYDEVICEINFOLIST)(HDEVINFO);
+typedef BOOL (__stdcall SETUPDIENUMDEVICEINFO)(HDEVINFO, DWORD, PSP_DEVINFO_DATA);
+typedef HDEVINFO (__stdcall SETUPDIGETCLASSDEVS)(LPGUID, LPCTSTR, HWND, DWORD);
+typedef BOOL (__stdcall SETUPDIGETDEVICEREGISTRYPROPERTY)(HDEVINFO, PSP_DEVINFO_DATA, DWORD, PDWORD, PBYTE, DWORD, PDWORD);
+
+//This function gets a list of all COM ports
+//////
+//Copyright (c) 1998 - 2010 by PJ Naughter (Web: www.naughter.com, Email: pjna@naughter.com)
+//
+//All rights reserved.
+//
+//Copyright / Usage Details:
+//
+//You are allowed to include the source code in any product (commercial, shareware, freeware or otherwise) 
+//when your product is released in binary form. You are allowed to modify the source code in any way you want 
+//except you cannot modify the copyright details at the top of each module. If you want to distribute source 
+//code with your application, then you are only allowed to distribute versions released by the author. This is 
+//to maintain a single distribution point for the source code. 
+//
+bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<CString>& friendlyNames)
+{
+  //Make sure we clear out any elements which may already be in the array(s)
+  ports.RemoveAll();
+  friendlyNames.RemoveAll();
+
+  //Get the various function pointers we require from setupapi.dll
+  HINSTANCE hSetupAPI = LoadLibrary(_T("SETUPAPI.D"));
+  if (hSetupAPI == NULL)
+    return FALSE;
+
+  SETUPDIOPENDEVREGKEY* lpfnLPSETUPDIOPENDEVREGKEY = reinterpret_cast<SETUPDIOPENDEVREGKEY*>(GetProcAddress(hSetupAPI, "SetupDiOpenDevRegKey"));
+  SETUPDIGETCLASSDEVS* lpfnSETUPDIGETCLASSDEVS = reinterpret_cast<SETUPDIGETCLASSDEVS*>(GetProcAddress(hSetupAPI, "SetupDiGetClassDevsA"));
+  SETUPDIGETDEVICEREGISTRYPROPERTY* lpfnSETUPDIGETDEVICEREGISTRYPROPERTY = reinterpret_cast<SETUPDIGETDEVICEREGISTRYPROPERTY*>(GetProcAddress(hSetupAPI, "SetupDiGetDeviceRegistryPropertyA"));
+  SETUPDIDESTROYDEVICEINFOLIST* lpfnSETUPDIDESTROYDEVICEINFOLIST = reinterpret_cast<SETUPDIDESTROYDEVICEINFOLIST*>(GetProcAddress(hSetupAPI, "SetupDiDestroyDeviceInfoList"));
+  SETUPDIENUMDEVICEINFO* lpfnSETUPDIENUMDEVICEINFO = reinterpret_cast<SETUPDIENUMDEVICEINFO*>(GetProcAddress(hSetupAPI, "SetupDiEnumDeviceInfo"));
+
+  if ((lpfnLPSETUPDIOPENDEVREGKEY == NULL) || (lpfnSETUPDIDESTROYDEVICEINFOLIST == NULL) ||
+      (lpfnSETUPDIENUMDEVICEINFO == NULL) || (lpfnSETUPDIGETCLASSDEVS == NULL) || (lpfnSETUPDIGETDEVICEREGISTRYPROPERTY == NULL))
+  {
+    //Unload the setup dll
+    FreeLibrary(hSetupAPI);
+
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+
+    return FALSE;
+  }
+  
+  //Now create a "device information set" which is required to enumerate all the ports
+  GUID guid = GUID_DEVINTERFACE_COMPORT;
+  HDEVINFO hDevInfoSet = lpfnSETUPDIGETCLASSDEVS(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+  if (hDevInfoSet == INVALID_HANDLE_VALUE)
+  {
+		DWORD dwLastError = GetLastError();
+  
+    //Unload the setup dll
+    FreeLibrary(hSetupAPI);
+    
+    SetLastError(dwLastError);
+
+    return FALSE;
+  }
+
+  //Finally do the enumeration
+  BOOL bMoreItems = TRUE;
+  int nIndex = 0;
+  SP_DEVINFO_DATA devInfo;
+  while (bMoreItems)
+  {
+    //Enumerate the current device
+    devInfo.cbSize = sizeof(SP_DEVINFO_DATA);
+    bMoreItems = lpfnSETUPDIENUMDEVICEINFO(hDevInfoSet, nIndex, &devInfo);
+    if (bMoreItems)
+    {
+      //Did we find a serial port for this device
+      BOOL bAdded = FALSE;
+
+      //Get the registry key which stores the ports settings
+      HKEY hDeviceKey = lpfnLPSETUPDIOPENDEVREGKEY(hDevInfoSet, &devInfo, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_QUERY_VALUE);
+      if (hDeviceKey)
+      {
+        //Read in the name of the port
+        WCHAR szPortName[256];
+        szPortName[0] = _T('\0');
+        DWORD dwSize = sizeof(szPortName);
+        DWORD dwType = 0;
+  	    if ((RegQueryValueEx(hDeviceKey, _T("PortName"), NULL, &dwType, reinterpret_cast<LPBYTE>(szPortName), &dwSize) == ERROR_SUCCESS) && (dwType == REG_SZ))
+        {
+          //If it looks like "COMX" then
+          //add it to the array which will be returned
+          size_t nLen = _tcslen(szPortName);
+          if (nLen > 3)
+          {
+            if ((_tcsnicmp(szPortName, _T("COM"), 3) == 0) && IsNumeric(&(szPortName[3]), FALSE))
+            {
+              //Work out the port number
+              int nPort = _ttoi(&(szPortName[3]));
+			  ports.push_back(str(boost::format("\\\\.\\COM%1%") % nPort);
+              bAdded = TRUE;
+            }
+          }
+        }
+
+        //Close the key now that we are finished with it
+        RegCloseKey(hDeviceKey);
+      }
+
+      //If the port was a serial port, then also try to get its friendly name
+      if (bAdded)
+      {
+        BYTE szFriendlyName[256];
+        szFriendlyName[0] = _T('\0');
+        DWORD dwSize = sizeof(szFriendlyName);
+        DWORD dwType = 0;
+        if (lpfnSETUPDIGETDEVICEREGISTRYPROPERTY(hDevInfoSet, &devInfo, SPDRP_DEVICEDESC, &dwType, szFriendlyName, dwSize, &dwSize) && (dwType == REG_SZ))
+        {
+        #if defined CENUMERATESERIAL_USE_STL
+          friendlyNames.push_back(szFriendlyName);
+        #else
+          friendlyNames.Add(LPCSTR(szFriendlyName));
+        #endif  
+        }
+        else
+        {
+        #if defined CENUMERATESERIAL_USE_STL
+          friendlyNames.push_back(_T(""));
+        #else
+          friendlyNames.Add(_T(""));
+        #endif  
+        }
+      }
+    }
+
+    ++nIndex;
+  }
+
+  //Free up the "device information set" now that we are finished with it
+  lpfnSETUPDIDESTROYDEVICEINFOLIST(hDevInfoSet);
+
+  //Unload the setup dll
+  FreeLibrary(hSetupAPI);
+
+  for (int i=0; i< ports.GetSize();i++)
+	  Logger::append("COM port found : %d - %s", ports[i], friendlyNames[i]);
+
+  //Return the success indicator
+  return TRUE;
+}
+
+void ComputerFactory::listPorts(CString &a)
+{
+	std::vector<UINT> ports;
+	std::vector<CString> friendlyNames;
+	int i;
+
+	a.Empty();
+	UsingSetupAPI1(ports, friendlyNames);
+
+
+	for (i=0; i< ports.GetSize();i++)
+		a.AppendFormat("%d : %s\n", ports[i], friendlyNames[i]);
+}
+
+
+#endif
+
+#ifdef __MACH__
+
+void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendlyNames)
+{
+    DIR *dp;
+    struct dirent *dirp;
+    
+	friendlyNames.empty();
+	files.empty();
+	
+	if((dp  = opendir("/dev")) == NULL) {
+		Logger::append(str(boost::format("Error (%1%) while opening /dev") % errno));
+        //return errno;
+    }
+	
+    while ((dirp = readdir(dp)) != NULL) {
+		Logger::append(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
+        if (!strncmp("tty.", dirp->d_name, 4)) {
+			files.push_back(str(boost::format("/dev/%1%") % dirp->d_name));
+			friendlyNames.push_back(std::string(dirp->d_name));
+		}
+    }
+    closedir(dp);
+}
+
+#endif
+
+
+//This function decides which driver to test on which COM port
+Computer *ComputerFactory::mapDevice(std::string fileName, std::string identifier)
+{
+
+#ifdef _WIN32
+	if (!identifier.compare("Suunto USB Serial Port")) {
+		return(new ComputerSuunto(port));
+	} 
+#elif __MACH__
+	if (!identifier.compare("tty.usbserial-PtTFP8W4")) {
+		return(new ComputerSuunto(fileName));
+	}
+	else if (!identifier.compare("tty.SLAB_USBtoUART")) {
+		return(new ComputerMares(fileName));
+	}
+								 
+#else
+#error Platform not supported
+#endif
+	return(NULL);
+}
+
+
+
+
+//This functions goes through all COM ports and checks if one is a known computer
+Computer *ComputerFactory::detectConnectedDevice()
+{
+	std::vector<std::string> fileNames;
+	std::vector<std::string> friendlyNames;
+	unsigned int i;
+	Computer *foundComputer;
+
+	//1 list ports
+#ifdef WIN32
+	UsingSetupAPI1(fileNames, friendlyNames);
+#elif __MACH__
+	ListTTY(fileNames, friendlyNames);
+#else
+#error "Platform not supported"
+#endif
+	
+	//2 filter interesting ones
+	for (i=0; i< fileNames.size();i++) {
+		Logger::append("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
+		foundComputer = mapDevice(fileNames[i], friendlyNames[i]);
+		if (foundComputer) {
+
+			//3 test port with Computer Driver
+			ComputerModel model = foundComputer->get_model();
+			Logger::append("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
+
+			//4 return identified device
+			if (model != COMPUTER_MODEL_UNKNOWN){			
+				return(foundComputer);
+			}
+		}
+	}
+	Logger::append("No interesting port found !");
+	return(NULL);
+}
+
+
+Computer *ComputerFactory::createComputer(const std::string &type, const std::string &filename)
+{
+	if (!type.compare("Suunto")){
+		return new ComputerSuunto(filename);
+	}
+	else if (!type.compare("Emu Suunto")){
+		return new ComputerSuunto("");
+	}
+	else if (!type.compare("Mares M2")){
+		return new ComputerMares(filename);
+	}
+	else if (!type.compare("Emu Mares M2")){
+		return new ComputerMares("");
+	}
+	else return(NULL);
+}
+

@@ -1,0 +1,446 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<title>Scriptable Codeproject Plugin for Firefox</title>
+</head>
+
+<script src="raphael-min.js"></SCRIPT>
+
+<script>
+//getting the instance of the plugin so we can use it every time
+var PLUGIN = null;//that dosent like Chrome
+var diveXML;
+
+function CheckPlugin()
+{
+	var found=false;
+
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		if( PLUGIN.name == "DiveBoard Reader") found=true;
+	}
+	catch (err) {}
+
+	var a = document.getElementById("output");
+
+	a.value = found;
+}
+
+function ExtractDives()
+{
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		var port = document.getElementById("port").value;
+		var computer = document.getElementById("computer").value;
+		var a = document.getElementById("output");
+		a.value = "Extracting...";
+		var res = PLUGIN.extract(port, computer);
+	}
+	catch (err) { alert(err); }
+}
+
+function testEcho()
+{
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		alert(PLUGIN.echo("toto"));
+	}
+	catch (err) { alert(err); }
+}
+
+function AutoDetect()
+{
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		//if( CheckBrowser() ) return;
+		var a = document.getElementById("output");
+		a.value = "Extracting...";
+		var res = PLUGIN.detect();
+	}
+	catch (err) { alert(err); }
+}
+
+
+function CheckBrowser()
+{
+	var s = navigator.userAgent;//alert(s);
+	var a = s.indexOf("Apple");
+	var c = s.indexOf("Chrome");
+	var ie = s.indexOf("MSIE");
+
+	if( c > 0 )//is there chrome
+	{
+		alert( "Chrome dont like functions with parameters.");
+		return true;
+	}
+
+	if( ie > 0 )//is there chrome
+	{
+		alert( "Internet Explorer dont like NPAPI at all.");
+		return true;
+	}
+
+	if( a > 0 )//is there chrome
+	{
+		alert( "Apple Safari dont like NPAPI at all.");
+		return true;
+	}
+
+	return false;
+}
+
+function refresh()
+{
+	refresh_to(-1);
+}
+
+
+function refresh_to(timeout)
+{
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		document.getElementById("nbDivesRead").innerHTML = PLUGIN.nbDivesRead;
+		document.getElementById("nbDivesTotal").innerHTML = PLUGIN.nbDivesTotal;
+		document.getElementById("computerState").innerHTML = PLUGIN.status;
+		document.getElementById("logs").value = PLUGIN.logs;
+		document.getElementById("logs").scrollTop = document.getElementById("logs").scrollHeight;
+		if (timeout > 0) setTimeout("refresh();",timeout);
+		}
+	catch (err) {alert(err); }
+}
+
+//setTimeout("refresh_to(3000);",3000);
+
+
+function pluginXML(xml)
+{
+}
+
+
+        function plugin()
+        {
+            return document.getElementById('plugin');
+        }
+
+        function addEvent(obj, name, func)
+        {
+            if (window.addEventListener) {
+                obj.addEventListener(name, func, false);
+            } else {
+                obj.attachEvent("on"+name, func);
+            }
+        }
+
+        function load()
+        {
+            addEvent(plugin(), 'fired', function(x){
+                alert('onfired() from load(): '+x)
+            });
+
+            addEvent(plugin(), 'loaded', function(x){
+				document.getElementById("output").value = x.substr(0,20000);
+				diveXML = x;
+				alert("Data loaded !");
+            });
+        }
+
+        function pluginLoaded() {
+            //alert("Plugin loaded!");
+        }
+
+        function addTestEvent()
+        {
+            addEvent(plugin(), 'fired', function(x){
+                alert('onfired(): '+x)
+            });
+        }
+
+        function testEvent()
+        {
+            plugin().testEvent('test stuff');
+        }
+
+        function pluginValid()
+        {
+            alert(plugin().valid);
+        }
+
+        function addEvent(obj, name, func)
+        {
+            if (window.addEventListener) {
+                obj.addEventListener(name, func, false);
+            } else {
+                obj.attachEvent("on"+name, func);
+            }
+        }
+
+
+</script>
+
+<body id="bodyId" onload=load() >
+
+<center>
+<h1>Scriptable Plugin for Firefox and Chrome</h1>
+</center>
+
+<object id="plugin" type="application/x-diveboard" hidden=true  >
+    <param name="onload" value="pluginLoaded" />
+</object><br />
+
+<input value="test Echo" onClick="testEcho()" type="button">
+
+<br>
+<input value="Check Plugin" onClick="CheckPlugin()" type="button">
+<input value="Auto Detect" onClick="AutoDetect()" type="button">
+<br/>
+<br/>
+<select id=computer autocomplete="off">
+<option>Suunto</option>
+<option>Emu Suunto</option>
+<option>Mares M2</options>
+<option>Emu Mares M2</options>
+</select>
+
+<select id=port autocomplete="off">
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+<option>6</option>
+<option>7</option>
+<option>8</option>
+
+<option>9</option>
+<option>10</option>
+<option>11</option>
+<option>12</option>
+<option>13</option>
+<option>14</option>
+<option>15</option>
+<option>16</option>
+<option>17</option>
+
+<option>18</option>
+<option>19</option>
+<option>20</option>
+<option>21</option>
+<option>22</option>
+<option>23</option>
+<option selected="true">24</option>
+<option>25</option>
+<option>26</option>
+
+<option>27</option>
+<option>28</option>
+<option>29</option>
+<option>30</option>
+</select>
+<input value="Extract dives" onClick="ExtractDives()" type="button">
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<input value="Refresh" onClick="refresh()" type="button">
+Status : <span id=computerState ></span> </td>
+
+<td>Read : <span id=nbDivesRead ></span> / <span id=nbDivesTotal ></span> </td>
+</tr>
+<tr>
+<td><textarea id=output cols=60 rows=15 autocomplete="off"></textarea></td>
+<td><textarea id=logs cols=60 rows=15 autocomplete="off"></textarea></td>
+</tr>
+</table>
+
+
+<SCRIPT>
+function test()
+{
+	SVGDoc = document.E.getSVGDocument();
+	  N = SVGDoc.createElementNS("http://www.w3.org/2000/svg","line");
+	  N.setAttribute("x1", 0);
+	  N.setAttribute("y1", 0);
+	  N.setAttribute("x2", 20);
+	  N.setAttribute("y2", 30);
+	  N.setAttribute("style","stroke:rgb(99,99,99);stroke-width:2");
+
+  SVGDoc.documentElement.appendChild(N);
+}
+
+var x1=0;
+var y1=0;
+var idx=0;
+
+var colors = new Array("aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "purple", "red", "silver", "teal", "yellow");
+
+function reset_to()
+{
+	x1=0;
+	y1=0;
+	idx = (idx+1)%16;
+
+}
+
+function draw_to(SVGDoc, x2,y2)
+{
+	if (x1>x2) reset_to();
+	  N = SVGDoc.createElementNS("http://www.w3.org/2000/svg","line");
+	  N.setAttribute("x1", x1);
+	  N.setAttribute("y1", y1);
+	  N.setAttribute("x2", x2);
+	  N.setAttribute("y2", y2);
+	  N.setAttribute("style","stroke: aqua;stroke-width:2");
+
+	  x1=x2;
+	  y1=y2;
+
+  SVGDoc.documentElement.appendChild(N);
+}
+
+
+
+function draw_text(SVGDoc, x,y, text)
+{
+	  N = SVGDoc.createElementNS("http://www.w3.org/2000/svg","text");
+	  N.setAttribute("x", x);
+	  N.setAttribute("y", y+5);
+	  N.setAttribute("font-size", 9);
+	  N.setAttribute("transform","rotate(90 "+x+","+(y+5)+")");
+	  N.appendChild(SVGDoc.createTextNode(text));
+
+	  SVGDoc.documentElement.appendChild(N);
+}
+
+function init_graph(SVGDoc)
+{
+      var i;
+
+	  var xscale = document.getElementById("xscale").value;
+	  var yscale = document.getElementById("yscale").value;
+
+	  var R = SVGDoc.createElement("rect");
+	  R.setAttribute("x", 0);
+	  R.setAttribute("y", 0);
+	  R.setAttribute("height", "100%");
+	  R.setAttribute("width", "100%");
+	  R.setAttribute("fill", "#dff");
+	  SVGDoc.documentElement.appendChild(R);
+		
+
+      for (i = 0; i<10; i++)
+      {
+		 // var N = SVGDoc.createElementNS("http://www.w3.org/2000/svg","line");
+		  var N = SVGDoc.createElement("line");
+		  N.setAttribute("x1", 1);
+		  N.setAttribute("y1", 10*i*yscale);
+		  N.setAttribute("x2", 2*3600*xscale);
+		  N.setAttribute("y2", 10*i*yscale);
+		  N.setAttribute("style","stroke: white;stroke-width:1");
+		  SVGDoc.documentElement.appendChild(N);
+	  }
+
+      for (i = 0; i<10; i++)
+      {
+		 // var N = SVGDoc.createElementNS("http://www.w3.org/2000/svg","line");
+		  var N = SVGDoc.createElement("line");
+		  N.setAttribute("x1", 5*60*i*xscale);
+		  N.setAttribute("y1", 1);
+		  N.setAttribute("x2", 5*60*i*xscale);
+		  N.setAttribute("y2", 300);
+		  N.setAttribute("style","stroke: white;stroke-width:1");
+		  SVGDoc.documentElement.appendChild(N);
+	  }
+}
+
+
+
+function addGraph()
+{
+  parser=new DOMParser();
+  xmlDoc=parser.parseFromString(diveXML,"text/xml");
+  var markers_V = xmlDoc.getElementsByTagName("DIVE") ;
+
+
+  var idx;
+  for (idx = 0; idx < markers_V.length; idx++)
+  {
+	  var newSVG = document.createElement('embed');
+	  newSVG.setAttribute('src', 'Codeproject.svg');
+	  newSVG.setAttribute('width', '100%');
+	  newSVG.setAttribute('height', '300');
+	  newSVG.setAttribute('name', idx);
+
+      var newP = document.createElement('P');
+      newP.innerHTML = markers_V[idx].getElementsByTagName("DATE")[0].textContent;
+      newP.innerHTML += "  "+ markers_V[idx].getElementsByTagName("TIME")[0].textContent;
+      newP.innerHTML += "  "+ markers_V[idx].getElementsByTagName("DURATION")[0].textContent + " min";
+
+	  var div=  document.getElementById("graphs");
+	  div.appendChild(newP);
+	  div.appendChild(newSVG);
+
+		newSVG.addEventListener('load', function (evt) {
+			init_graph(this.getSVGDocument());
+			graph(this.getSVGDocument(), this.name);
+		}, false);
+	}
+}
+
+function graph(SVGDoc, idx)
+{
+  parser=new DOMParser();
+  xmlDoc=parser.parseFromString(diveXML,"text/xml");
+
+
+	try // Build Markers, if available
+	{
+	  var markers_V = xmlDoc.getElementsByTagName("DIVE") ;
+	  var markers_T = markers_V[idx].getElementsByTagName("t") ;
+	  var markers_D = markers_V[idx].getElementsByTagName("d") ;
+	  var markers = markers_V[idx].getElementsByTagName("SAMPLES")[0].childNodes;
+
+      var xn = 0;
+      var yn = 0;
+
+	  var xscale = document.getElementById("xscale").value;
+	  var yscale = document.getElementById("yscale").value;
+
+	  for ( var i = 0; i < markers.length ; i++ ) {
+	    if (markers[i].tagName == "t") {
+	    	xn = markers[i].textContent;
+	    }
+
+	    if (markers[i].tagName == "d") {
+	    	yn = markers[i].textContent;
+		  	draw_to(SVGDoc , xn * xscale, yn* yscale);
+		}
+
+	    if (markers[i].tagName == "ALARM") {
+		  	draw_text(SVGDoc , xn * xscale, yn* yscale, markers[i].textContent);
+		}
+
+	  }
+	} catch(e) {}
+}
+
+
+
+
+</SCRIPT>
+
+
+<p>XScale : <input value=0.3 id='xscale'/></p>
+
+<p>YScale : <input value=6 id='yscale'/></p>
+<p><input value="Create graph" onClick="addGraph()" type="button"></p>
+
+<div id=graphs></div>
+
+</body>
+</html>
