@@ -1,6 +1,8 @@
 #include "NPInt.h"
 #include "NPString.h"
 
+#ifdef TOTOOTT
+
 CNPInt::CNPInt(void)
 {
 	value=0;
@@ -32,3 +34,5 @@ CNPInt::operator int()
 {
 	return(value);
 }
+
+#endif

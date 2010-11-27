@@ -98,9 +98,9 @@ int DeviceSuunto::open()
   bool fSuccess;
   DCB dcb;
   
-  Logger::append(L"Opening %s", filename);
+  Logger::append("Opening %s", filename);
 
-  hCom = CreateFile(filename, 
+  hCom = CreateFile((LPCWSTR)filename.c_str(), 
     GENERIC_READ | GENERIC_WRITE, 
     0, 
     NULL, 

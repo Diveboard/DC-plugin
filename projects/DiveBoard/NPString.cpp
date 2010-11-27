@@ -4,6 +4,8 @@
 
 #include "NPString.h"
 
+#ifdef _TOTOTOTOTO
+
 CNPString::CNPString(NPString npString) : m_pszData(0), m_len(0)
 {
 	Set(  npString.UTF8Characters, npString.UTF8Length );
@@ -52,3 +54,5 @@ int CNPString::Compare(LPCTSTR psz)
 
 	return -1;
 }
+
+#endif

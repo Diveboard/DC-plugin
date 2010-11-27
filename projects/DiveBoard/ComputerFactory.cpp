@@ -2,6 +2,7 @@
 #include "ComputerFactory.h"
 
 #ifdef _WIN32
+#include <tchar.h>
 #include <setupapi.h>
 #endif
 
@@ -11,9 +12,12 @@
 #include "ComputerMares.h"
 
 #include <stdio.h>
-#include <dirent.h>
 #include <iostream>
 #include <errno.h>
+
+#ifdef __MACH__
+#include <dirent.h>
+#endif
 
 ComputerFactory::ComputerFactory(void)
 {
@@ -68,11 +72,11 @@ typedef BOOL (__stdcall SETUPDIGETDEVICEREGISTRYPROPERTY)(HDEVINFO, PSP_DEVINFO_
 //code with your application, then you are only allowed to distribute versions released by the author. This is 
 //to maintain a single distribution point for the source code. 
 //
-bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<CString>& friendlyNames)
+bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& friendlyNames)
 {
   //Make sure we clear out any elements which may already be in the array(s)
-  ports.RemoveAll();
-  friendlyNames.RemoveAll();
+	ports.empty();
+  friendlyNames.empty();
 
   //Get the various function pointers we require from setupapi.dll
   HINSTANCE hSetupAPI = LoadLibrary(_T("SETUPAPI.D"));
@@ -145,7 +149,7 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<CString>& frien
             {
               //Work out the port number
               int nPort = _ttoi(&(szPortName[3]));
-			  ports.push_back(str(boost::format("\\\\.\\COM%1%") % nPort);
+			  ports.push_back(str(boost::format("\\\\.\\COM%1%") % nPort));
               bAdded = TRUE;
             }
           }
@@ -164,19 +168,13 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<CString>& frien
         DWORD dwType = 0;
         if (lpfnSETUPDIGETDEVICEREGISTRYPROPERTY(hDevInfoSet, &devInfo, SPDRP_DEVICEDESC, &dwType, szFriendlyName, dwSize, &dwSize) && (dwType == REG_SZ))
         {
-        #if defined CENUMERATESERIAL_USE_STL
-          friendlyNames.push_back(szFriendlyName);
-        #else
-          friendlyNames.Add(LPCSTR(szFriendlyName));
-        #endif  
+			//todo fix unicode support....
+          friendlyNames.push_back(std::string((char *)szFriendlyName));
         }
         else
         {
-        #if defined CENUMERATESERIAL_USE_STL
-          friendlyNames.push_back(_T(""));
-        #else
-          friendlyNames.Add(_T(""));
-        #endif  
+			//todo fix unicode support....
+          friendlyNames.push_back("");
         }
       }
     }
@@ -190,25 +188,25 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<CString>& frien
   //Unload the setup dll
   FreeLibrary(hSetupAPI);
 
-  for (int i=0; i< ports.GetSize();i++)
+  for (unsigned int i=0; i< ports.size();i++)
 	  Logger::append("COM port found : %d - %s", ports[i], friendlyNames[i]);
 
   //Return the success indicator
   return TRUE;
 }
 
-void ComputerFactory::listPorts(CString &a)
+void ComputerFactory::listPorts(std::string &a)
 {
-	std::vector<UINT> ports;
-	std::vector<CString> friendlyNames;
-	int i;
+	std::vector<std::string> ports;
+	std::vector<std::string> friendlyNames;
+	unsigned int i;
 
-	a.Empty();
+	a.empty();
 	UsingSetupAPI1(ports, friendlyNames);
 
 
-	for (i=0; i< ports.GetSize();i++)
-		a.AppendFormat("%d : %s\n", ports[i], friendlyNames[i]);
+	for (i=0; i< ports.size();i++)
+		a += str(boost::format("%d : %s\n") % ports[i] % friendlyNames[i]);
 }
 
 
@@ -248,7 +246,7 @@ Computer *ComputerFactory::mapDevice(std::string fileName, std::string identifie
 
 #ifdef _WIN32
 	if (!identifier.compare("Suunto USB Serial Port")) {
-		return(new ComputerSuunto(port));
+		return(new ComputerSuunto(fileName));
 	} 
 #elif __MACH__
 	if (!identifier.compare("tty.usbserial-PtTFP8W4")) {

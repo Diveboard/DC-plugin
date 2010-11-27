@@ -9,4 +9,11 @@ For the main plugin :
 	FireBreath.xcode
 	FireBreath.sln
 
-Good luck !	...
+
+On windows, the easiest way is to register the dll in build/bin/DiveBoard/Debug
+	regsvr32 npPluginTemplate.dll
+
+
+
+Good luck !
+

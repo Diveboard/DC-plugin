@@ -5,6 +5,8 @@
 #include <npfunctions.h>
 #include <npruntime.h>
 
+#ifdef TOTOTOTO
+
 class CNPString
 {
 public:
@@ -22,3 +24,4 @@ protected:
 	int m_len;
 };
 
+#endif

@@ -21,7 +21,7 @@ void Logger::append(std::string line)
 	logs.push_back(line);
 }
 
-void Logger::append(LPCTSTR pstrFormat, ...)
+void Logger::append(char *pstrFormat, ...)
 {
    //CTime timeWrite;
    //timeWrite = CTime::GetCurrentTime();

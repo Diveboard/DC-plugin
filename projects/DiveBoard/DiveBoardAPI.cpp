@@ -224,9 +224,9 @@ void DiveBoardAPI::extract(const std::string& port, const std::string& label)
 		{
 			//TODO for mac
 			//CreateThread(NULL, 0, &DiveBoardAPI::asyncfunc, this, 0, NULL);
-			//boost::thread *th = new boost::thread( boost::bind(&DiveBoardAPI::asyncfunc, this));
-			pthread_t threads;
-			pthread_create(&threads, NULL, &DiveBoardAPI::asyncfunc, (void *) this);
+			boost::thread *th = new boost::thread( boost::bind(&DiveBoardAPI::asyncfunc, this));
+			//pthread_t threads;
+			//pthread_create(&threads, NULL, &DiveBoardAPI::asyncfunc, (void *) this);
 		}
 		else {
 			std::string diveXML;

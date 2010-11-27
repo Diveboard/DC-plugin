@@ -11,7 +11,7 @@ public:
 	static std::vector<std::string> logs;
 	static std::string toString();
 	static void append(std::string);
-	static void append(LPCTSTR pstrFormat, ...);
+	static void append(char *pstrFormat, ...);
 };
 
 
