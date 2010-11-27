@@ -1,0 +1,7 @@
+*.lo
+*.o
+.deps/
+.libs/
+libdivecomputer.exp
+libdivecomputer.la
+revision.h
