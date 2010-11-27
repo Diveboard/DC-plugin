@@ -1,0 +1,16 @@
+.hg/
+.bzr/
+*.user
+*.suo
+*.ncb
+Debug/
+Release/
+*~
+*.swp
+*.orig
+*.aps
+*.pyc
+build/
+buildex/
+projects/*
+.fbgen.cfg
