@@ -22,7 +22,7 @@
 #ifndef CRESSI_EDY_H
 #define CRESSI_EDY_H
 
-#include "device.h"
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

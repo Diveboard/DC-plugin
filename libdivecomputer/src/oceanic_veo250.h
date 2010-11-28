@@ -22,7 +22,7 @@
 #ifndef OCEANIC_VEO250_H
 #define OCEANIC_VEO250_H
 
-#include "device.h"
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

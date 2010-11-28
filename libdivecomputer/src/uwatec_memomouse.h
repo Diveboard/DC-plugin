@@ -22,7 +22,8 @@
 #ifndef UWATEC_MEMOMOUSE_H
 #define UWATEC_MEMOMOUSE_H
 
-#include "device.h"
+
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

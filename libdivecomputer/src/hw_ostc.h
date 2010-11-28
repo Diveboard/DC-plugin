@@ -22,7 +22,7 @@
 #ifndef HW_OSTC_H
 #define HW_OSTC_H
 
-#include "device.h"
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

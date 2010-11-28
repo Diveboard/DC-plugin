@@ -22,7 +22,8 @@
 #ifndef UWATEC_SMART_H
 #define UWATEC_SMART_H
 
-#include "device.h"
+
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

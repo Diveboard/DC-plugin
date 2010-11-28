@@ -22,7 +22,7 @@
 #ifndef SUUNTO_SOLUTION_H
 #define SUUNTO_SOLUTION_H
 
-#include "device.h"
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

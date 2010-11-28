@@ -22,11 +22,12 @@
 #ifndef UWATEC_ALADIN_H
 #define UWATEC_ALADIN_H
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-#include "device.h"
+#include "deviceL.h"
 
 #define UWATEC_ALADIN_MEMORY_SIZE 2048
 

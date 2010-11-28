@@ -22,7 +22,7 @@
 #ifndef OCEANIC_VTPRO_H
 #define OCEANIC_VTPRO_H
 
-#include "device.h"
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus

@@ -10,6 +10,7 @@
 
 #include "ComputerSuunto.h"
 #include "ComputerMares.h"
+#include "ComputerLibdc.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -316,6 +317,9 @@ Computer *ComputerFactory::createComputer(const std::string &type, const std::st
 	}
 	else if (!type.compare("Emu Mares M2")){
 		return new ComputerMares("");
+	}
+	else if (!type.compare("LibDiveComputer")){
+		return new ComputerLibdc("");
 	}
 	else return(NULL);
 }

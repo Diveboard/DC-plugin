@@ -22,7 +22,7 @@
 #ifndef SUUNTO_VYPER_H
 #define SUUNTO_VYPER_H
 
-#include "device.h"
+#include "deviceL.h"
 #include "parser.h"
 
 #ifdef __cplusplus
