@@ -318,8 +318,8 @@ Computer *ComputerFactory::createComputer(const std::string &type, const std::st
 	else if (!type.compare("Emu Mares M2")){
 		return new ComputerMares("");
 	}
-	else if (!type.compare("LibDiveComputer")){
-		return new ComputerLibdc("");
+	else if (!type.compare(0,4,"LDC ")){
+		return new ComputerLibdc(type, filename);
 	}
 	else return(NULL);
 }

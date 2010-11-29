@@ -203,10 +203,17 @@ void *DiveBoardAPI::asyncfunc(void *p)
 }
 
 
-void DiveBoardAPI::extract(const std::string& port, const std::string& label)
+void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 {
-	Logger::append("Extract called with device %s on port %s", label.c_str(), port.c_str());
+	Logger::append("Extract called with device %s on port %s", label.c_str(), strport.c_str());
+	std::string port;
 
+#ifdef _WIN32
+	//for windows, only the COM number is provided... improvement maybe todo
+	port = std::string("\\\\.\\COM") + port;
+#else
+	port = strport;
+#endif
 		ComputerFactory factory;
 
 		if (comp) {
