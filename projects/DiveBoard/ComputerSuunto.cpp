@@ -23,6 +23,7 @@ ComputerSuunto::ComputerSuunto(std::string filename)
 
 ComputerSuunto::~ComputerSuunto(void)
 {
+	Logger::append("Deleting object device");
 	delete device;
 }
 
@@ -83,7 +84,7 @@ bool ComputerSuunto::send_command(unsigned char *commbuffer,int len)
   for (int i=0; i<len; i++)
 	  command += str(boost::format(" %02X") % (int)(commbuffer[i]));
 
-#ifdef WIN32
+#ifdef _WIN32
   Sleep(800);
 #elif __MACH__
   usleep(800000);	
@@ -127,7 +128,7 @@ int ComputerSuunto::read(int start,char *retbuffer,int len)
   command[4]=generate_crc(command,4);
 
   if(send_command(command,5)) {
-#ifdef WIN32
+#ifdef _WIN32
 	  Sleep(800);
 #elif __MACH__
 	  usleep(8000);	
@@ -409,6 +410,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 		{
 			Logger::append("Error during downloading dive");
 			xml = "";
+			device->close();
 			return(-1);
 		}
 		else if (length == 0)
@@ -421,6 +423,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 		{
 			Logger::append("Error when parsing dive");
 			xml = "";
+			device->close();
 			return(-2);
 		}
 
@@ -454,6 +457,8 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 	status.nbDivesTotal = status.nbDivesRead;
 	status.state = COMPUTER_FINISHED;
 	Logger::append("Found %d dives", status.nbDivesRead);
+
+	device->close();
 
 	return(0);
 }

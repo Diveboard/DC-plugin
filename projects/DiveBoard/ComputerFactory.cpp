@@ -50,7 +50,7 @@ bool IsNumeric(WCHAR *pszString, BOOL bIgnoreColon)
 }
 
 
-#ifdef WIN32
+#ifdef _WIN32
 
 typedef HKEY (__stdcall SETUPDIOPENDEVREGKEY)(HDEVINFO, PSP_DEVINFO_DATA, DWORD, DWORD, DWORD, REGSAM);
 typedef BOOL (__stdcall SETUPDICLASSGUIDSFROMNAME)(LPCTSTR, LPGUID, DWORD, PDWORD);
@@ -80,9 +80,15 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   friendlyNames.empty();
 
   //Get the various function pointers we require from setupapi.dll
-  HINSTANCE hSetupAPI = LoadLibrary(_T("SETUPAPI.D"));
+  HINSTANCE hSetupAPI = LoadLibrary(_T("SETUPAPI.DLL"));
   if (hSetupAPI == NULL)
+  {
+    // Retrieve the system error message for the last-error code
+  	Logger::append("Failed to load SetupAPI");
+  	Logger::append(str(boost::format("Error code : %d") % GetLastError()));
+
     return FALSE;
+  }
 
   SETUPDIOPENDEVREGKEY* lpfnLPSETUPDIOPENDEVREGKEY = reinterpret_cast<SETUPDIOPENDEVREGKEY*>(GetProcAddress(hSetupAPI, "SetupDiOpenDevRegKey"));
   SETUPDIGETCLASSDEVS* lpfnSETUPDIGETCLASSDEVS = reinterpret_cast<SETUPDIGETCLASSDEVS*>(GetProcAddress(hSetupAPI, "SetupDiGetClassDevsA"));
@@ -190,7 +196,7 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   FreeLibrary(hSetupAPI);
 
   for (unsigned int i=0; i< ports.size();i++)
-	  Logger::append("COM port found : %d - %s", ports[i], friendlyNames[i]);
+	  Logger::append(str(boost::format("COM port found : %s - %s") % ports[i] % friendlyNames[i]));
 
   //Return the success indicator
   return TRUE;
@@ -275,8 +281,10 @@ Computer *ComputerFactory::detectConnectedDevice()
 	Computer *foundComputer;
 
 	//1 list ports
-#ifdef WIN32
-	UsingSetupAPI1(fileNames, friendlyNames);
+#ifdef _WIN32
+	Logger::append("Using SetupAPI");
+	bool ret = UsingSetupAPI1(fileNames, friendlyNames);
+	if (!ret) Logger::append("SetupAPI failed");
 #elif __MACH__
 	ListTTY(fileNames, friendlyNames);
 #else

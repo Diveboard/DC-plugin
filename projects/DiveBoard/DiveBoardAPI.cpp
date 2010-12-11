@@ -192,7 +192,6 @@ void *DiveBoardAPI::asyncfunc(void *p)
 		delete plugin->comp;
 		plugin->comp = NULL;
 		
-		
 		//todo fix
 		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
 	}
@@ -210,7 +209,7 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 
 #ifdef _WIN32
 	//for windows, only the COM number is provided... improvement maybe todo
-	port = std::string("\\\\.\\COM") + port;
+	port = str(boost::format("\\\\.\\COM%1%") % strport);
 #else
 	port = strport;
 #endif

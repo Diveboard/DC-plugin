@@ -90,6 +90,18 @@ DeviceSuunto::~DeviceSuunto()
 	close();
 }
 
+std::wstring s2ws(const std::string& s)
+{
+ int len;
+ int slength = (int)s.length() + 1;
+ len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0);
+ wchar_t* buf = new wchar_t[len];
+ MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
+ std::wstring r(buf);
+ delete[] buf;
+ return r;
+}
+
 
 int DeviceSuunto::open() 
 {
@@ -98,9 +110,9 @@ int DeviceSuunto::open()
   bool fSuccess;
   DCB dcb;
   
-  Logger::append("Opening %s", filename);
+  Logger::append("Opening %s", filename.c_str());
 
-  hCom = CreateFile((LPCWSTR)filename.c_str(), 
+  hCom = CreateFile(s2ws(filename).c_str(), 
     GENERIC_READ | GENERIC_WRITE, 
     0, 
     NULL, 
@@ -112,7 +124,7 @@ int DeviceSuunto::open()
    if (hCom == INVALID_HANDLE_VALUE) 
    {
        //  Handle the error.
-       printf ("CreateFile failed with error %d.\n", GetLastError());
+	   Logger::append ("CreateFile on %s failed with error %d.", filename, GetLastError());
        hCom = NULL;
 	   return (SUUNTO_ERR_CREATEFILE);
    }
@@ -143,7 +155,7 @@ int DeviceSuunto::open()
    if (!fSuccess) 
    {
       //  Handle the error.
-      printf ("SetCommState failed with error %d.\n", GetLastError());
+	  Logger::append ("SetCommState failed with error %d.\n", GetLastError());
       hCom = NULL;
 	  return (SUUNTO_ERR_SETCOMMSTATE);
    }

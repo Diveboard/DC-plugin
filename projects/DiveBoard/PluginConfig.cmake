@@ -32,10 +32,10 @@ set(ACTIVEX_PROGID "DiveBoardcom.DiveBoard")
 set(MOZILLA_PLUGINID "diveboardcom.com/DiveBoard")
 
 # strings
-set(FBSTRING_CompanyName "DiveBoard.com")
+set(FBSTRING_CompanyName "DiveBoard")
 set(FBSTRING_FileDescription "Dive computer plugin for DiveBoard.com")
 set(FBSTRING_PLUGIN_VERSION "1.0.0")
-set(FBSTRING_LegalCopyright "Copyright 2010 DiveBoard.com")
+set(FBSTRING_LegalCopyright "Copyright 2010 DiveBoard")
 set(FBSTRING_PluginFileName "np${PLUGIN_NAME}.dll")
 set(FBSTRING_ProductName "DiveBoard")
 set(FBSTRING_FileExtents "")
