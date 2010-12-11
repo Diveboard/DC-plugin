@@ -29,6 +29,21 @@
             </Directory>
         </Directory>
 
+	<CustomAction Id="RegisterAdx" 
+			Directory="INSTALLDIR" 
+			ExeCommand='regsvr32.exe /s "[INSTALLDIR]npDiveBoard.dll"' 
+			Return="check"> 
+	</CustomAction> 
+	<CustomAction Id="UnregisterAdx" 
+			Directory="INSTALLDIR" 
+			ExeCommand='regsvr32.exe /s /u "[INSTALLDIR]npDiveBoard.dll"'> 
+	</CustomAction>
+	
+	<InstallExecuteSequence> 
+		<Custom Action="RegisterAdx" After="InstallFinalize">NOT Installed</Custom> 
+		<Custom Action="UnregisterAdx" Before="InstallInitialize">Installed</Custom> 
+	</InstallExecuteSequence>
+
         <Feature Id="MainPluginFeature" Title="${FBSTRING_ProductName}" Level="1">
             <ComponentRef Id="InstallDirComp"/>
             <ComponentRef Id="CompanyDirComp"/>
