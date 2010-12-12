@@ -48,7 +48,41 @@ void Logger::append(char *pstrFormat, ...)
 }
 
 std::vector<std::string> Logger::logs;
+std::vector<BinaryData> Logger::binData;
 
+void Logger::binary(std::string type, unsigned char *data, unsigned int len)
+{
+	std::string buff;
+
+	for (unsigned int i=0; i < len; i++)
+		buff += str(boost::format("%02X") % ((unsigned int)(data[i])));
+
+	binary(type, buff);
+}
+
+
+void Logger::binary(std::string type, std::string data)
+{
+	BinaryData b;
+	b.type = type;
+	b.data = data;
+	binData.push_back(b);
+	return;
+}
+
+std::string Logger::getBinary()
+{
+	unsigned int i;
+	std::string out;
+	std::stringstream ssb;
+	for (i=0; i<binData.size();i++)
+	{
+		ssb << binData[i].type << " - " << binData[i].data;
+		ssb << std::endl;
+	}
+	out = ssb.str();
+	//std::string out0 = CT2CA(out);
+	return(out);}
 
 std::string Logger::toString()
 {

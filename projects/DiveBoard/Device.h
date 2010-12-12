@@ -42,8 +42,8 @@ public:
 	virtual ~ComDevice();
 protected:
 	HANDLE hCom;
-	int set_dtr(DTRStatus) ;
-	int set_rts(RTSStatus);
+	void set_dtr(DTRStatus) ;
+	void set_rts(RTSStatus);
 	std::string filename;
 };
 

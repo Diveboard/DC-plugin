@@ -100,13 +100,15 @@ int DeviceMares::open()
 	}
 	
 	
-	if(set_dtr(DTR_STATUS_ON)>=0 && set_rts(RTS_STATUS_OFF) >= 0) {
+	try {
+		set_dtr(DTR_STATUS_ON);
+		set_rts(RTS_STATUS_OFF);
 		Sleep(100);
 		return (0);
-	}
-	hCom = NULL;
-	return (SUUNTO_ERR_SETSIG);
-	
+	} catch (...) {
+		hCom = NULL;
+		return (SUUNTO_ERR_SETSIG);
+	}	
 	
 #elif __MACH__
 	

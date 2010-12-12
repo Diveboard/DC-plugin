@@ -11,9 +11,9 @@ private:
 	Device *device;
 	bool isConnected;
 	unsigned char generate_crc(unsigned char *buffer,int len) ;
-	bool send_command(unsigned char *commbuffer,int len) ;
-	int read(int start,char *retbuffer,int len) ;
-    bool parse_dive(unsigned char *divebuf,int len,ComputerModel model,DiveData &dive);
+	void send_command(unsigned char *commbuffer,int len) ;
+	void read(int start,char *retbuffer,int len) ;
+    void parse_dive(unsigned char *divebuf,int len,ComputerModel model,DiveData &dive);
 	int get_dive(char suunto_dive_which,unsigned char *divebuf,int len) ;
 	ComputerStatus status;
 public:

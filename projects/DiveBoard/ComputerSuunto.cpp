@@ -75,7 +75,7 @@ unsigned char ComputerSuunto::generate_crc(unsigned char *buffer,int len)
   return crc;
 }
 
-bool ComputerSuunto::send_command(unsigned char *commbuffer,int len) 
+void ComputerSuunto::send_command(unsigned char *commbuffer,int len) 
 {
   int rc;
   unsigned char buff;
@@ -93,17 +93,29 @@ bool ComputerSuunto::send_command(unsigned char *commbuffer,int len)
 #endif
 	
   Logger::append("Sending command to Suunto : %s", command.c_str());
-  device->write_serial(commbuffer,len);
+  try {
+	device->write_serial(commbuffer,len);
+  } catch (...) {
+	  //todo : handle errors on communications
+	  throw;
+  }
+
+
   if(ifacealwaysechos) {
     while(len--) {
-      rc=device->read_serial(&buff);	// these are echos - should be there instantly 
-      if(rc==-1 || buff!=*commbuffer++) rval=FALSE;
+	  try {
+		  rc=device->read_serial(&buff);
+		  if(rc==-1 || buff!=*commbuffer++) rval=FALSE;
+	  } catch (...) {
+		  //todo : handle errors on communications  
+		  rval = FALSE;
+	  }
     }
   }
-  return rval;
+  if (!rval) throw DBException("Error while sending the command");
 }
 
-int ComputerSuunto::read(int start,char *retbuffer,int len) 
+void ComputerSuunto::read(int start,char *retbuffer,int len) 
 {
 
   unsigned char command[]={0x05,
@@ -116,8 +128,6 @@ int ComputerSuunto::read(int start,char *retbuffer,int len)
          crc=0x00;
   int i;
   bool rval=0; 
-  char rc;
-  int r;
   unsigned char read;
 	std::string data;
   data += "Data read :";
@@ -127,23 +137,20 @@ int ComputerSuunto::read(int start,char *retbuffer,int len)
   command[3]=len;
   command[4]=generate_crc(command,4);
 
-  if(send_command(command,5)) {
+  send_command(command,5);
 #ifdef _WIN32
 	  Sleep(800);
 #elif __MACH__
 	  usleep(8000);	
 #else
-#error unsoupported platform
+#error unsupported platform
 #endif
-	  Logger::append("Reading from Suunto");
+	
+    Logger::append("Reading from Suunto");
 	
 	for(i=0;i<4;i++) {
-		r = device->read_serial(&read, 1, 10);
+		device->read_serial(&read, 1, 10);
 		data += str(boost::format(" %02X") % (int)read);
-		if (r < 0) {
-			Logger::append("Error reading (%d) - %s", r, data.c_str());
-			return(r);
-		}
 		reply[i]=read;
 	}
 
@@ -151,46 +158,43 @@ int ComputerSuunto::read(int start,char *retbuffer,int len)
       crc=command[0]^command[1]^command[2]^command[3];
       for(i=0;i<len;i++) {
 		device->read_serial((unsigned char*)retbuffer+i);
-		  data += str(boost::format(" %02X") % (int)(retbuffer[i]));
+        data += str(boost::format(" %02X") % (int)(retbuffer[i]));
         crc^=retbuffer[i];
       }
 
-	  rc = device->read_serial(&read);
-		data += str(boost::format(" %02X") % (int)read);
-      if(crc==read && rc>=0) rval=TRUE;
+	  device->read_serial(&read);
+	  data += str(boost::format(" %02X") % (int)read);
+      if(crc==read) rval=TRUE;
       else {
 		  Logger::append("CRC Error -- %s", data.c_str());
-		  return(SUUNTO_ERR_CRC);
+		  throw DBException("CRC Error while reading");
 	  }
     }
     else if(reply[0]==255) {
 		Logger::append("The interface appears to be present, but the dive computer is not responding.");
-		return(SUUNTO_ERR_UNCONNECTED);
+        throw DBException("Computer seems unconnected");
     }
-  }
-  Logger::append("Data read correctly -- %s", data.c_str());
-  return 0;
+   
+	Logger::append("Data read correctly -- %s", data.c_str());
 }
 
 ComputerModel ComputerSuunto::_get_model()
 {
-  ComputerModel model=COMPUTER_MODEL_UNKNOWN;
-  char rbuf[2];
+	ComputerModel model=COMPUTER_MODEL_UNKNOWN;
+	char rbuf[2];
 
-  Logger::append("Reading model digits");
+	Logger::append("Reading model digits");
 
-  if(read(0x24,rbuf,1)) {
-	  //Error reading
-	  Logger::append("An error occured while reading model digits");
-	  return COMPUTER_MODEL_UNKNOWN;
-  } else {
+	read(0x24,rbuf,1);
+	//todo : if exception ? return COMPUTER_MODEL_UNKNOWN;
+
 	Logger::append("Model digits : %d %d", rbuf[0], rbuf[1]);
     switch(rbuf[0]) {
       case 40 :
-        if(!read(0x16,rbuf,2)) {
-          if(rbuf[0]==0x01&&rbuf[1]==0x01) model=SUUNTO_MODEL_OLD_SPYDER;
-          else if(rbuf[0]==0x01&&rbuf[1]==0x02) model=SUUNTO_MODEL_NEW_SPYDER;
-        }
+        read(0x16,rbuf,2);
+		//todo : if exception ? return COMPUTER_MODEL_UNKNOWN;
+        if(rbuf[0]==0x01&&rbuf[1]==0x01) model=SUUNTO_MODEL_OLD_SPYDER;
+        else if(rbuf[0]==0x01&&rbuf[1]==0x02) model=SUUNTO_MODEL_NEW_SPYDER;
         break;
       case 0x0c:
         model=SUUNTO_MODEL_OLD_COBRA_OR_VYPER;
@@ -208,8 +212,8 @@ ComputerModel ComputerSuunto::_get_model()
         model=SUUNTO_MODEL_MOSQUITO;
         break;
     }
-  }
-  return model;
+  
+	return model;
 }
 
 int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int len) 
@@ -222,55 +226,52 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
   command[0]=(char)suunto_dive_which;
   command[2]=generate_crc(command,2);
 
-  if(send_command(command,3)) {
-    for(i=0;i<len;) {
-      rc=device->read_serial(&read, 1, 2);
-		data += str(boost::format(" %02X") % (int)read);
+  send_command(command,3);
+
+  for(i=0;i<len;) {
+      rc = device->read_serial(&read, 1, 2);
+	  data += str(boost::format(" %02X") % (int)read);
       if(read!=command[0]) {
-        if(rc==-1) break;
-		Logger::append("Illegal start of packet. --- Read data : %s", data.c_str());
-        return -1;
+          if(rc==-1) break;
+		  Logger::append("Illegal start of packet. --- Read data : %s", data.c_str());
+		  throw DBException("Illegal start of packet");
       }
       crc=read;
       rc=device->read_serial(&read);
-		data += str(boost::format(" %02X") % (int)read);
+	  data += str(boost::format(" %02X") % (int)read);
 	  packet_len = read;
       if(rc<0 || packet_len>32) {
 		  Logger::append("Illegal packet length. --- Read data : %s", data.c_str());
-         return -1;
+		  throw DBException("Illegal start of packet");
       }
       crc^=read;
       for(j=0;j<packet_len&&i<len;j++,i++) {
-        rc=device->read_serial(&read);
+          rc=device->read_serial(&read);
 		  data += str(boost::format(" %02X") % (int)read);
-        if(rc<0) {
-			Logger::append("Unexpected end of packet --- Read data : %s", data.c_str());
-          return -1;
-        }
-        divebuf[i]=read;
+          if(rc<0) {
+			  Logger::append("Unexpected end of packet --- Read data : %s", data.c_str());
+			  throw DBException("Unexpected end of packet");
+          }
+          divebuf[i]=read;
 		  data += str(boost::format(" %02X") % (int)divebuf[i]);
-        crc^=divebuf[i];
+          crc^=divebuf[i];
       }
       rc = device->read_serial(&read);
-		data += str(boost::format(" %02X") % (int)read);
+      data += str(boost::format(" %02X") % (int)read);
 	  crc^= read;
       if(crc!=0) {
 		  Logger::append("CRC check failure. --- Read data : %s", data.c_str());
-		  return -1;
+          throw DBException("CRC check failure");
       }
   
 	  if(break_prof_read_early && packet_len!=32) break; 
     }
     Logger::append("Data read : %s", data.c_str());
-  }
-  else {
-	  Logger::append("Download failed. --- Read data : %s", data.c_str());
-    return -1;
-  }
-  return i;
+
+	return i;
 }
 
-bool ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel model,DiveData &dive)
+void ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel model,DiveData &dive)
 {
   int i,interval=1;
   double depth=0.0;
@@ -382,7 +383,6 @@ bool ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel mod
   }
   */
   //g_array_append_val(dive_array,dive);
-  return TRUE;
 }
 
 
@@ -404,53 +404,48 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 
 	while (true)
 	{
-		Logger::append("Downloading a dive");
-		length = get_dive(step,buff2,4048);
-		if (length < 0)
-		{
-			Logger::append("Error during downloading dive");
-			xml = "";
-			device->close();
-			return(-1);
+		try {
+			Logger::append("Downloading a dive");
+			length = get_dive(step,buff2,4048);
+
+			if (length == 0)
+			{
+				Logger::append("End of data or timeout");
+				break;
+			}
+
+			parse_dive(buff2,length,SUUNTO_MODEL_NEW_VYPER,dive);
+
+			if (status.nbDivesRead<0) status.nbDivesRead = 1;
+			else status.nbDivesRead++;
+
+			xml += "<DIVE>";
+			xml += str(boost::format("<DATE>%s</DATE><TIME>%s</TIME><DURATION>%.0f</DURATION><TEMPERATURE>%f</TEMPERATURE><ALTITUDE>%d</ALTITUDE><SURFACEINTERVAL>%0.1f</SURFACEINTERVAL>") 
+				% dive.date 
+				% dive.time
+				% (((float)dive.duration)/60)
+				% dive.min_temperature
+				% dive.altitude
+				% (dive.surface_hour*3600+dive.surface_min*60));
+			xml += str(boost::format("<GASES><MIX>%f</MIX></GASES>") % dive.O2);
+
+			xml += str(boost::format("<PROGRAM><PRESSTART>%f</PRESSTART><PRESEND>%f</PRESEND><TEMPEND>%f</TEMPEND><REPDIVENUM>%d</REPDIVENUM><TEMPAIR>%f</TEMPAIR></PROGRAM>")
+				% dive.start_pressure
+				% dive.end_pressure
+				% dive.max_temperature
+				% dive.repnum
+				% dive.air_temperature
+				);
+			xml += "<SAMPLES>"+ dive.profile +"</SAMPLES>";
+			xml += "</DIVE>";
+
+			step = SUUNTO_DIVE_NEXT;
+		} catch (...) {
+				Logger::append("Error during downloading dive");
+				xml = "";
+				device->close();
+				throw;
 		}
-		else if (length == 0)
-		{
-			Logger::append("End of data or timeout");
-			break;
-		}
-
-		if (!parse_dive(buff2,length,SUUNTO_MODEL_NEW_VYPER,dive))
-		{
-			Logger::append("Error when parsing dive");
-			xml = "";
-			device->close();
-			return(-2);
-		}
-
-		if (status.nbDivesRead<0) status.nbDivesRead = 1;
-		else status.nbDivesRead++;
-
-		xml += "<DIVE>";
-		xml += str(boost::format("<DATE>%s</DATE><TIME>%s</TIME><DURATION>%.0f</DURATION><TEMPERATURE>%f</TEMPERATURE><ALTITUDE>%d</ALTITUDE><SURFACEINTERVAL>%0.1f</SURFACEINTERVAL>") 
-			% dive.date 
-			% dive.time
-			% (((float)dive.duration)/60)
-			% dive.min_temperature
-			% dive.altitude
-			% (dive.surface_hour*3600+dive.surface_min*60));
-		xml += str(boost::format("<GASES><MIX>%f</MIX></GASES>") % dive.O2);
-
-		xml += str(boost::format("<PROGRAM><PRESSTART>%f</PRESSTART><PRESEND>%f</PRESEND><TEMPEND>%f</TEMPEND><REPDIVENUM>%d</REPDIVENUM><TEMPAIR>%f</TEMPAIR></PROGRAM>")
-			% dive.start_pressure
-			% dive.end_pressure
-			% dive.max_temperature
-			% dive.repnum
-			% dive.air_temperature
-			);
-		xml += "<SAMPLES>"+ dive.profile +"</SAMPLES>";
-		xml += "</DIVE>";
-
-		step = SUUNTO_DIVE_NEXT;
 	}
 	xml += "</REPGROUP></profile>";
 

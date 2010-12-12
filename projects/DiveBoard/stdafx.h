@@ -34,4 +34,7 @@ typedef int HANDLE;
 #include <npruntime.h>
 #include "npruntime.h"
 
+#include "DBException.h"
+
+
 #define TRACE __noop

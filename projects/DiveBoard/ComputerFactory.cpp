@@ -73,7 +73,7 @@ typedef BOOL (__stdcall SETUPDIGETDEVICEREGISTRYPROPERTY)(HDEVINFO, PSP_DEVINFO_
 //code with your application, then you are only allowed to distribute versions released by the author. This is 
 //to maintain a single distribution point for the source code. 
 //
-bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& friendlyNames)
+void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& friendlyNames)
 {
   //Make sure we clear out any elements which may already be in the array(s)
 	ports.empty();
@@ -85,9 +85,8 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   {
     // Retrieve the system error message for the last-error code
   	Logger::append("Failed to load SetupAPI");
-  	Logger::append(str(boost::format("Error code : %d") % GetLastError()));
+  	throw DBException(str(boost::format("Error loading SetupAPI - Error code : %d") % GetLastError()));
 
-    return FALSE;
   }
 
   SETUPDIOPENDEVREGKEY* lpfnLPSETUPDIOPENDEVREGKEY = reinterpret_cast<SETUPDIOPENDEVREGKEY*>(GetProcAddress(hSetupAPI, "SetupDiOpenDevRegKey"));
@@ -99,12 +98,15 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   if ((lpfnLPSETUPDIOPENDEVREGKEY == NULL) || (lpfnSETUPDIDESTROYDEVICEINFOLIST == NULL) ||
       (lpfnSETUPDIENUMDEVICEINFO == NULL) || (lpfnSETUPDIGETCLASSDEVS == NULL) || (lpfnSETUPDIGETDEVICEREGISTRYPROPERTY == NULL))
   {
-    //Unload the setup dll
-    FreeLibrary(hSetupAPI);
+	try {
+		//Unload the setup dll
+		FreeLibrary(hSetupAPI);
+		SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	} catch (...) {
+		Logger::append("Warning : Error unloading SetupAPI.dll");
+	}
 
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-
-    return FALSE;
+	throw DBException("Error getting pointers from SetupAPI");
   }
   
   //Now create a "device information set" which is required to enumerate all the ports
@@ -112,14 +114,17 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   HDEVINFO hDevInfoSet = lpfnSETUPDIGETCLASSDEVS(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
   if (hDevInfoSet == INVALID_HANDLE_VALUE)
   {
-		DWORD dwLastError = GetLastError();
-  
-    //Unload the setup dll
-    FreeLibrary(hSetupAPI);
-    
-    SetLastError(dwLastError);
+	  DWORD dwLastError;
+	  try {
+		dwLastError = GetLastError();
+		//Unload the setup dll
+		FreeLibrary(hSetupAPI);
+		SetLastError(dwLastError);
+	  } catch (...) {
+		Logger::append("Warning : Error unloading SetupAPI.dll");
+	  }
 
-    return FALSE;
+	  throw DBException(str(boost::format("Error creating information set from SetupAPI - %d") % dwLastError ));
   }
 
   //Finally do the enumeration
@@ -197,9 +202,6 @@ bool UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
 
   for (unsigned int i=0; i< ports.size();i++)
 	  Logger::append(str(boost::format("COM port found : %s - %s") % ports[i] % friendlyNames[i]));
-
-  //Return the success indicator
-  return TRUE;
 }
 
 void ComputerFactory::listPorts(std::string &a)
@@ -210,7 +212,6 @@ void ComputerFactory::listPorts(std::string &a)
 
 	a.empty();
 	UsingSetupAPI1(ports, friendlyNames);
-
 
 	for (i=0; i< ports.size();i++)
 		a += str(boost::format("%d : %s\n") % ports[i] % friendlyNames[i]);
@@ -223,25 +224,27 @@ void ComputerFactory::listPorts(std::string &a)
 
 void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendlyNames)
 {
-    DIR *dp;
+    int r;
+	DIR *dp;
     struct dirent *dirp;
     
 	friendlyNames.empty();
 	files.empty();
 	
-	if((dp  = opendir("/dev")) == NULL) {
-		Logger::append(str(boost::format("Error (%1%) while opening /dev") % errno));
-        //return errno;
-    }
+	if((dp  = opendir("/dev")) == NULL)
+		throw DBException(str(boost::format("Error (%1%) while opening /dev") % errno));
 	
     while ((dirp = readdir(dp)) != NULL) {
+		//todo : a NULL can also mean an error....
 		Logger::append(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
         if (!strncmp("tty.", dirp->d_name, 4)) {
 			files.push_back(str(boost::format("/dev/%1%") % dirp->d_name));
 			friendlyNames.push_back(std::string(dirp->d_name));
 		}
     }
-    closedir(dp);
+    
+	r = closedir(dp);
+	if (r) Logger::append("Warning - Error while closing dir in ListTTY");
 }
 
 #endif
@@ -283,8 +286,7 @@ Computer *ComputerFactory::detectConnectedDevice()
 	//1 list ports
 #ifdef _WIN32
 	Logger::append("Using SetupAPI");
-	bool ret = UsingSetupAPI1(fileNames, friendlyNames);
-	if (!ret) Logger::append("SetupAPI failed");
+	UsingSetupAPI1(fileNames, friendlyNames);
 #elif __MACH__
 	ListTTY(fileNames, friendlyNames);
 #else
@@ -329,6 +331,6 @@ Computer *ComputerFactory::createComputer(const std::string &type, const std::st
 	else if (!type.compare(0,4,"LDC ")){
 		return new ComputerLibdc(type, filename);
 	}
-	else return(NULL);
+	else throw DBException(std::string("ComputerFactory::createComputer : Computer requested unknown : ")+type);
 }
 

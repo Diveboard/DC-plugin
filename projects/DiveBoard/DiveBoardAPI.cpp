@@ -15,6 +15,7 @@
 
 #include <boost/thread.hpp>
 
+#include "DBException.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @fn DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host)
@@ -99,6 +100,7 @@ std::string DiveBoardAPI::get_testString()
 {
     return m_testString;
 }
+
 void DiveBoardAPI::set_testString(const std::string& val)
 {
     m_testString = val;
@@ -169,33 +171,34 @@ void DiveBoardAPI::testEvent(const FB::variant& var)
 //DWORD WINAPI DiveBoardAPI::asyncfunc(LPVOID lpParam)
 void *DiveBoardAPI::asyncfunc(void *p)
 {
+	std::string diveXML;
 	DiveBoardAPI *plugin = (DiveBoardAPI*)p;
 
-	std::string diveXML;
-
 	Logger::append("Start async");
+	try{
 
-	if (plugin->status.state == COMPUTER_RUNNING) {
-		Logger::append("get_all_dives is already running");
-	} else if (!plugin->comp) {
-		Logger::append("computer is null !");
-	} else {
+		if (plugin->status.state == COMPUTER_RUNNING) throw DBException("DiveBoardAPI::asyncfunc : get_all_dives is already running");
+		if (!plugin->comp) throw DBException("DiveBoardAPI::asyncfunc : computer is null !");
+	
 		plugin->status.state = COMPUTER_RUNNING;
-		try{
-			Logger::append("Running get_all_dives asynchronously");
-			plugin->comp->get_all_dives(diveXML);
-		} catch (...) {};
+		Logger::append("Running get_all_dives asynchronously");
 
+		plugin->comp->get_all_dives(diveXML);
+
+		//Updating the status
 		plugin->status = plugin->comp->get_status();
-
 		plugin->status.state = COMPUTER_FINISHED;
 		delete plugin->comp;
 		plugin->comp = NULL;
 		
 		//todo fix
 		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
-	}
-	
+
+	} catch (DBException e)
+	{
+		Logger::append(std::string("ERROR :") + e.what());
+		return(NULL);
+	};
 	Logger::append("End async");
 	
 	return(NULL);
@@ -204,31 +207,27 @@ void *DiveBoardAPI::asyncfunc(void *p)
 
 void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 {
-	Logger::append("Extract called with device %s on port %s", label.c_str(), strport.c_str());
-	std::string port;
+	try {
+		Logger::append("Extract called with device %s on port %s", label.c_str(), strport.c_str());
+		std::string port;
 
 #ifdef _WIN32
-	//for windows, only the COM number is provided... improvement maybe todo
-	port = str(boost::format("\\\\.\\COM%1%") % strport);
+		//for windows, only the COM number is provided... improvement maybe todo
+		port = str(boost::format("\\\\.\\COM%1%") % strport);
 #else
-	port = strport;
+		port = strport;
 #endif
 		ComputerFactory factory;
 
-		if (comp) {
-			Logger::append("Computer already running ?");
-			return;
-		}
+		if (comp) throw DBException("Computer already running ?");
 
 		comp = factory.createComputer(label, port);
-		if (!comp) {
-			Logger::append("No computer found");
-			return;
-		}
+
+		//todo : delete because errors should be handled through exceptions
+		if (!comp) throw DBException("No computer found");
 
 		if (alwaysAsync)
 		{
-			//TODO for mac
 			//CreateThread(NULL, 0, &DiveBoardAPI::asyncfunc, this, 0, NULL);
 			boost::thread *th = new boost::thread( boost::bind(&DiveBoardAPI::asyncfunc, this));
 			//pthread_t threads;
@@ -242,26 +241,26 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 			comp = NULL;
 		}
 
-		//todo: error catching
+	} catch(DBException e) 
+	{
 		//throw FB::script_error("conversion failed :(");
-		return;
+		Logger::append(std::string("ERROR :") + e.what());
+	}
 }
 
 
 void DiveBoardAPI::detect()
 {
+	try
+	{
 		ComputerFactory factory;
 
-		if (comp) {
-			Logger::append("Computer already running ?");
-			return;
-		}
+		if (comp) throw DBException("Computer already running ?");
 
 		comp = factory.detectConnectedDevice();
-		if (!comp) {
-			Logger::append("No computer found");
-			return;
-		}
+
+		//todo : delete because errors should be handled through exceptions
+		if (!comp) throw DBException("No computer found");
 
 		if (alwaysAsync)
 		{
@@ -276,4 +275,10 @@ void DiveBoardAPI::detect()
 			delete comp;
 			comp = NULL;
 		}
+	} catch(DBException e) 
+	{
+		//throw FB::script_error("conversion failed :(");
+		Logger::append(std::string("ERROR :") + e.what());
+	}
+
 }

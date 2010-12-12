@@ -161,13 +161,15 @@ int DeviceSuunto::open()
    }
 
 
-   if(set_dtr(DTR_STATUS_ON)>=0 && set_rts(RTS_STATUS_OFF) >= 0) {
-		Sleep(100);
-		return (0);
-	}
-   hCom = NULL;
-   return (SUUNTO_ERR_SETSIG);
-
+   try {
+	   set_dtr(DTR_STATUS_ON);
+	   set_rts(RTS_STATUS_OFF);
+       Sleep(100);
+	   return (0);
+   } catch (...) {
+	   hCom = NULL;
+	   return (SUUNTO_ERR_SETSIG);
+   }
 
 #elif __MACH__
 
@@ -257,7 +259,11 @@ int DeviceSuunto::read_serial(unsigned char * buff, unsigned int num, int timeou
  SetCommTimeouts(hCom,&tTimeout); 
 
   rval = ReadFile(hCom, buff, 1, &out, NULL);
-  if (rval && out > 0) return rval;
+  if (rval && out > 0)
+  {
+	  Logger::binary("READ", buff, out);
+	 return rval;
+  }
 
 #elif __MACH__
 	
@@ -271,6 +277,7 @@ int DeviceSuunto::read_serial(unsigned char * buff, unsigned int num, int timeou
 	tv.tv_usec = TIMEOUT;
 	if(select(hCom+1,&fds,NULL,NULL,&tv)==1) {
 		rval = read(hCom,buff,1);
+		Logger::binary("READ", buff, 1);
 		return rval;
 	}
 
@@ -287,14 +294,18 @@ int DeviceSuunto::write_serial(unsigned char *buffer,int len)
 
 	set_rts(RTS_STATUS_ON);
 
+	
+
 #ifdef _WIN32  	
 	DWORD  out;
 	rc = WriteFile(hCom, buffer, len, &out, NULL);
+	Logger::binary("WRITE", buffer, out);
 	FlushFileBuffers(hCom);
 	Sleep(200);
 
 #elif __MACH__
 	rc = write(hCom,buffer,len);
+	Logger::binary("WRITE", buffer, len);
 	tcdrain(hCom);
 	usleep(200000);
 	
