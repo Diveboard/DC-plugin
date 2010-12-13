@@ -649,6 +649,24 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	}
 	*/
 
+	//Dump the data
+	// Allocate a memory buffer.
+	dc_buffer_t *buffer = dc_buffer_new (0);
+
+	Logger::append("Dumping the memory from device");
+	rc = device_dump (device, buffer);
+	if (rc != DEVICE_STATUS_SUCCESS) {
+		Logger::append("WARNING - Error downloading the memory dump.");
+		dc_buffer_free (buffer);
+	}
+	else {
+		Logger::append("Adding data to Logger::binary");
+		Logger::binary("LIBDC", dc_buffer_get_data (buffer), dc_buffer_get_size (buffer));
+		// Free the memory buffer.
+		dc_buffer_free (buffer);
+	}
+
+
 		// Initialize the dive data.
 		dive_data_t divedata = {0};
 		divedata.devdata = &devdata;
