@@ -4,6 +4,11 @@
 
 \**********************************************************/
 
+
+#define _WIN32_WINNT 0x601
+#define BOOST_LIB_DIAGNOSTIC
+
+
 #include "JSObject.h"
 #include "variant_list.h"
 #include "DOM/Document.h"
@@ -16,6 +21,10 @@
 #include <boost/thread.hpp>
 
 #include "DBException.h"
+
+
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// @fn DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host)
@@ -35,7 +44,6 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 	status.state = COMPUTER_NOT_STARTED;
 	comp = NULL;
 
-	
 	registerMethod("echo",      make_method(this, &DiveBoardAPI::echo));
     registerMethod("testEvent", make_method(this, &DiveBoardAPI::testEvent));
 
@@ -47,6 +55,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
     registerProperty("nbDivesRead",  make_property(this, &DiveBoardAPI::get_nbDivesRead));
     registerProperty("nbDivesTotal", make_property(this, &DiveBoardAPI::get_nbDivesTotal));
     registerProperty("status",       make_property(this, &DiveBoardAPI::get_status));
+    registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
 
 	
 	// Read-write property
@@ -63,6 +72,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
     
     registerEvent("onfired");    
     registerEvent("onloaded");    
+	registerEvent("onprogress"); 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -93,7 +103,10 @@ DiveBoardPtr DiveBoardAPI::getPlugin()
     return plugin;
 }
 
-
+std::string DiveBoardAPI::get_name()
+{
+    return "DiveBoard Reader";
+}
 
 // Read/Write property testString
 std::string DiveBoardAPI::get_testString()
@@ -190,9 +203,11 @@ void *DiveBoardAPI::asyncfunc(void *p)
 		plugin->status.state = COMPUTER_FINISHED;
 		delete plugin->comp;
 		plugin->comp = NULL;
-		
+
 		//todo fix
 		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
+
+		
 
 	} catch (DBException e)
 	{
@@ -212,8 +227,7 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 		std::string port;
 
 #ifdef _WIN32
-		//for windows, only the COM number is provided... improvement maybe todo
-		port = str(boost::format("\\\\.\\COM%1%") % strport);
+		port = strport;
 #else
 		port = strport;
 #endif

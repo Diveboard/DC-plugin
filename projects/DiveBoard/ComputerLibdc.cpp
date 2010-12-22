@@ -433,6 +433,7 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 		Logger::append("Event: progress %3.2f%% (%u/%u)\n",
 			100.0 * (double) progress->current / (double) progress->maximum,
 			progress->current, progress->maximum);
+		//todo fire event
 		break;
 	case DEVICE_EVENT_DEVINFO:
 		devdata->devinfo = *devinfo;
@@ -618,14 +619,14 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		throw DBException (std::string("Error opening device - Error code : ") + errmsg(rc));
 
 	// todo Register the event handler.
-	/*Logger::append("Registering the event handler.\n");
+	Logger::append("Registering the event handler.\n");
 	int events = DEVICE_EVENT_WAITING | DEVICE_EVENT_PROGRESS | DEVICE_EVENT_DEVINFO | DEVICE_EVENT_CLOCK;
 	rc = device_set_events (device, events, event_cb, &devdata);
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		Logger::append("Error registering the event handler.");
 		device_close (device);
-		return rc;
-	}*/
+		throw DBException ("Error setting the event handler ");
+	}
 
 	// todo Register the cancellation handler.
 	/*Logger::append("Registering the cancellation handler.\n");
@@ -651,6 +652,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 
 	//Dump the data
 	// Allocate a memory buffer.
+	/* works but is too slow !!
 	dc_buffer_t *buffer = dc_buffer_new (0);
 
 	Logger::append("Dumping the memory from device");
@@ -665,6 +667,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		// Free the memory buffer.
 		dc_buffer_free (buffer);
 	}
+	*/
 
 
 		// Initialize the dive data.
@@ -759,6 +762,8 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 
 	Logger::append(str(boost::format("Using type %1% on %2%") % type % file));
 	devname = file;
+
+	message_set_logfile("d:\\temp\\libdc.log");
 
 	//return COMPUTER_MODEL_UNKNOWN;
 }

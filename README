@@ -10,6 +10,10 @@ For the main plugin :
 	FireBreath.sln
 
 
+- In order to compile libdivecomputer
+	include all .C and .H files in the project, except irda.cpp
+
+
 On windows, the easiest way is to register the dll in build/bin/DiveBoard/Debug
 	regsvr32 npPluginTemplate.dll
 

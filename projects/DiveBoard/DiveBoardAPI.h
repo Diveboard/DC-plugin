@@ -33,6 +33,7 @@ public:
     std::string get_version();
 
 	std::string get_logs();
+	std::string get_name();
 
 	// Method echo
     FB::variant echo(const FB::variant& msg);

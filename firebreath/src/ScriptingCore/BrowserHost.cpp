@@ -77,10 +77,12 @@ FB::DOM::NodePtr FB::BrowserHost::_createNode(const FB::JSObjectPtr& obj)
 void FB::BrowserHost::assertMainThread()
 {
 #ifdef _DEBUG
+/*  //This assertion is preventing to call CreateStream from a separate thread....
     if (!isMainThread()) {
         FBLOG_FATAL("BrowserHost", "Trying to call something from the wrong thread!");
     }
     assert(isMainThread());
+*/
 #endif
 }
 

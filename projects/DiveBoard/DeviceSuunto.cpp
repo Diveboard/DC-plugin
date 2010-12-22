@@ -142,7 +142,7 @@ int DeviceSuunto::open()
 	dcb.StopBits = ONESTOPBIT;
 
   dcb.fBinary=1; 
-  dcb.fParity=0; 
+  dcb.fParity=1; 
   dcb.fOutxCtsFlow=false; 
   dcb.fOutxDsrFlow=false; 
   dcb.fDtrControl=DTR_CONTROL_DISABLE; 
