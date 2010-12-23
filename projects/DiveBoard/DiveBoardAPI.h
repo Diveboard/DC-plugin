@@ -42,7 +42,8 @@ public:
     void testEvent(const FB::variant& s);
 
 	void extract(const std::string& labal, const std::string& sport);
-	void detect();
+	//std::map<std::string, std::string> detect();
+	FB::VariantMap detect();
 	int get_nbDivesRead();
 	int get_nbDivesTotal();
 	std::string get_status();

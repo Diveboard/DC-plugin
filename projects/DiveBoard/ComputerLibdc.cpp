@@ -763,8 +763,7 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 	Logger::append(str(boost::format("Using type %1% on %2%") % type % file));
 	devname = file;
 
-	message_set_logfile("d:\\temp\\libdc.log");
-
+	//message_set_logfile("d:\\temp\\libdc.log");
 	//return COMPUTER_MODEL_UNKNOWN;
 }
 

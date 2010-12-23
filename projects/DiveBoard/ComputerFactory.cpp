@@ -251,12 +251,13 @@ void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendly
 
 
 //This function decides which driver to test on which COM port
-Computer *ComputerFactory::mapDevice(std::string fileName, std::string identifier)
+bool ComputerFactory::mapDevice(std::string identifier, std::string &found)
 {
 
 #ifdef _WIN32
 	if (!identifier.compare("Suunto USB Serial Port")) {
-		return(new ComputerSuunto(fileName));
+		found = "Suunto";
+		return true;
 	} 
 #elif __MACH__
 	if (!identifier.compare("tty.usbserial-PtTFP8W4")) {
@@ -269,17 +270,19 @@ Computer *ComputerFactory::mapDevice(std::string fileName, std::string identifie
 #else
 #error Platform not supported
 #endif
-	return(NULL);
+	return false;
 }
 
 
 
 
 //This functions goes through all COM ports and checks if one is a known computer
-Computer *ComputerFactory::detectConnectedDevice()
+std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 {
+	std::map <std::string, std::string> ret;
 	std::vector<std::string> fileNames;
 	std::vector<std::string> friendlyNames;
+	std::string driverName;
 	unsigned int i;
 	Computer *foundComputer;
 
@@ -296,21 +299,33 @@ Computer *ComputerFactory::detectConnectedDevice()
 	//2 filter interesting ones
 	for (i=0; i< fileNames.size();i++) {
 		Logger::append("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
-		foundComputer = mapDevice(fileNames[i], friendlyNames[i]);
-		if (foundComputer) {
+		bool found = mapDevice(friendlyNames[i], driverName);
+		if (found) {
+			foundComputer = createComputer(driverName, fileNames[i]);
+			if (foundComputer) {
 
-			//3 test port with Computer Driver
-			ComputerModel model = foundComputer->get_model();
-			Logger::append("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
+				//We don't really care about the exact model... so if a driver is found let's just use it !
+				ret[std::string("type")] = driverName;
+				ret[std::string("filename")] = fileNames[i];
+				return(ret);
 
-			//4 return identified device
-			if (model != COMPUTER_MODEL_UNKNOWN){			
-				return(foundComputer);
+				/*
+				//3 test port with Computer Driver
+				ComputerModel model = foundComputer->get_model();
+				Logger::append("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
+
+				//4 return identified device
+				if (model != COMPUTER_MODEL_UNKNOWN){			
+					ret[std::string("type")] = driverName;
+					ret[std::string("filename")] = fileNames[i];
+					return(ret);
+				}
+				*/
 			}
 		}
 	}
 	Logger::append("No interesting port found !");
-	return(NULL);
+	return(ret);
 }
 
 

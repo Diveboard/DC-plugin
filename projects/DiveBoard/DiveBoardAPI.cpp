@@ -263,36 +263,28 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 }
 
 
-void DiveBoardAPI::detect()
+FB::VariantMap DiveBoardAPI::detect()
+//std::string DiveBoardAPI::detect()
 {
 	try
 	{
 		ComputerFactory factory;
 
-		if (comp) throw DBException("Computer already running ?");
+		//if (comp) throw DBException("Computer already running ?");
 
-		comp = factory.detectConnectedDevice();
+		std::map<std::string, std::string> ret = factory.detectConnectedDevice();
+		FB::VariantMap ret2;
 
-		//todo : delete because errors should be handled through exceptions
-		if (!comp) throw DBException("No computer found");
-
-		if (alwaysAsync)
-		{
-			//TODO for mac
-			//CreateThread(NULL, 0, &DiveBoardAPI::asyncfunc, this, 0, NULL);
-			boost::thread *th = new boost::thread( boost::bind(&DiveBoardAPI::asyncfunc, this)); 
+	    for (std::map<std::string, std::string>::iterator it = ret.begin(); it != ret.end(); it++) {
+			ret2[it->first] = FB::variant(it->second);
 		}
-		else {
-			std::string diveXML;
-			comp->get_all_dives(diveXML);
-			FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
-			delete comp;
-			comp = NULL;
-		}
+
+		return(ret2);
+
 	} catch(DBException e) 
 	{
 		//throw FB::script_error("conversion failed :(");
 		Logger::append(std::string("ERROR :") + e.what());
+		throw(e);
 	}
-
 }
