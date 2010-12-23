@@ -122,7 +122,7 @@ void DiveBoardAPI::set_testString(const std::string& val)
 // Read-only property version
 std::string DiveBoardAPI::get_version()
 {
-    return "CURRENT_VERSION";
+    return str(boost::format("Version built on %s %s") % __DATE__ % __TIME__);
 }
 
 // Read-only property version
@@ -183,7 +183,7 @@ int DiveBoardAPI::get_nbDivesTotal()
 // Method echo
 FB::variant DiveBoardAPI::echo(const FB::variant& msg)
 {
-	Logger::append(str(boost::format("coucou %d") %1));
+	LOGINFO(str(boost::format("coucou %d") %1));
     return msg;
 }
 
@@ -201,14 +201,14 @@ void *DiveBoardAPI::asyncfunc(void *p)
 	std::string diveXML;
 	DiveBoardAPI *plugin = (DiveBoardAPI*)p;
 
-	Logger::append("Start async");
+	LOGINFO("Start async");
 	try{
 
 		if (plugin->status.state == COMPUTER_RUNNING) throw DBException("DiveBoardAPI::asyncfunc : get_all_dives is already running");
 		if (!plugin->comp) throw DBException("DiveBoardAPI::asyncfunc : computer is null !");
 	
 		plugin->status.state = COMPUTER_RUNNING;
-		Logger::append("Running get_all_dives asynchronously");
+		LOGINFO("Running get_all_dives asynchronously");
 
 		plugin->comp->get_all_dives(diveXML);
 
@@ -225,10 +225,10 @@ void *DiveBoardAPI::asyncfunc(void *p)
 
 	} catch (DBException e)
 	{
-		Logger::append(std::string("ERROR :") + e.what());
+		LOGINFO(std::string("ERROR :") + e.what());
 		return(NULL);
 	};
-	Logger::append("End async");
+	LOGINFO("End async");
 	
 	return(NULL);
 }
@@ -237,7 +237,7 @@ void *DiveBoardAPI::asyncfunc(void *p)
 void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 {
 	try {
-		Logger::append("Extract called with device %s on port %s", label.c_str(), strport.c_str());
+		LOGINFO("Extract called with device %s on port %s", label.c_str(), strport.c_str());
 		std::string port;
 
 #ifdef _WIN32
@@ -272,7 +272,7 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 	} catch(DBException e) 
 	{
 		//throw FB::script_error("conversion failed :(");
-		Logger::append(std::string("ERROR :") + e.what());
+		LOGINFO(std::string("ERROR :") + e.what());
 	}
 }
 
@@ -283,7 +283,7 @@ FB::VariantMap DiveBoardAPI::detect()
 	try
 	{
 		ComputerFactory factory;
-
+		
 		//if (comp) throw DBException("Computer already running ?");
 
 		std::map<std::string, std::string> ret = factory.detectConnectedDevice();
@@ -298,7 +298,7 @@ FB::VariantMap DiveBoardAPI::detect()
 	} catch(DBException e) 
 	{
 		//throw FB::script_error("conversion failed :(");
-		Logger::append(std::string("ERROR :") + e.what());
+		LOGINFO(std::string("ERROR :") + e.what());
 		throw(e);
 	}
 }

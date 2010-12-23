@@ -38,7 +38,7 @@ int DeviceMaresEmu::write_serial(unsigned char *buff,int len)
 		memcpy(command, buff, len);
 		position = map[buff[5]]*16*16*16+map[buff[6]]*16*16 +map[buff[3]]*16+map[buff[4]];
 
-		Logger::append("Reading memory at 0x%.1s%.1s%.1s%.1s : %d", buff+5,buff+6, buff+3, buff+4, position);
+		LOGINFO("Reading memory at 0x%.1s%.1s%.1s%.1s : %d", buff+5,buff+6, buff+3, buff+4, position);
 
 		//len requested is in bytes... so 2 chars per byte
 		int ans_len = (map[buff[7]]*16 + map[buff[8]])*2;
@@ -53,7 +53,7 @@ int DeviceMaresEmu::write_serial(unsigned char *buff,int len)
 		answers.push_back('<');
 		for (unsigned int i=position*2; i<position*2+ans_len;i++) 
 		{
-				//Logger::append(L"preparing %02X", memory[i]);
+				//LOGINFO(L"preparing %02X", memory[i]);
 				answers.push_back(memory[i]); 
 		}
 		answers.push_back(str[0]);
@@ -80,7 +80,7 @@ int DeviceMaresEmu::read_serial(unsigned char * buff, unsigned int len, int time
 	
 	for (i=0; i< len && answers.size() > 0; i++)
 	{
-		//Logger::append(L"sending %02X", answers[0]);
+		//LOGINFO(L"sending %02X", answers[0]);
 		buff[i] = answers[0];
 		answers.erase(answers.begin());
 	}

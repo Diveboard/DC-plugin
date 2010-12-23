@@ -75,11 +75,11 @@ void ComDevice::set_dtr(DTRStatus status)
 
 void ComDevice::close() 
 {
-	Logger::append("Closing handle");
+	LOGINFO("Closing handle");
 	set_dtr(DTR_STATUS_OFF);
 #ifdef _WIN32
 	if (!CloseHandle(hCom))
-		Logger::append("Warning - Error closing COM Port");
+		LOGINFO("Warning - Error closing COM Port");
 #elif __MACH__
 	::close(hCom);
 #else	

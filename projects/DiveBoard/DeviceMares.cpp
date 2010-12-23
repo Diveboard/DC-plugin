@@ -48,7 +48,7 @@ int DeviceMares::open()
 	bool fSuccess;
 	DCB dcb;
 	
-	Logger::append("Opening %s", filename);
+	LOGINFO("Opening %s", filename);
 	
 	//todo fix unicode
 	hCom = CreateFile((LPCWSTR)filename.c_str(), 
@@ -63,7 +63,7 @@ int DeviceMares::open()
 	if (hCom == INVALID_HANDLE_VALUE) 
 	{
 		//  Handle the error.
-		Logger::append ("CreateFile failed with error %d.\n", GetLastError());
+		LOGINFO ("CreateFile failed with error %d.\n", GetLastError());
 		hCom = NULL;
 		return (SUUNTO_ERR_CREATEFILE);
 	}
@@ -94,7 +94,7 @@ int DeviceMares::open()
 	if (!fSuccess) 
 	{
 		//  Handle the error.
-		Logger::append("SetCommState failed with error %d.\n", GetLastError());
+		LOGINFO("SetCommState failed with error %d.\n", GetLastError());
 		hCom = NULL;
 		return (SUUNTO_ERR_SETCOMMSTATE);
 	}
@@ -141,7 +141,7 @@ int DeviceMares::open()
 		}
 	}
 	else {
-		Logger::append("Error while setting properties of Com port");
+		LOGINFO("Error while setting properties of Com port");
 		return(-1);
 	}
 	

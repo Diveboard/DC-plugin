@@ -2,6 +2,19 @@
 #include "stdafx.h"
 #include <string>
 
+
+#ifdef WIN32
+#define __THIS_FILE__ ((strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\'): (__FILE__ - 1)) + 1)
+#else
+#define __THIS_FILE__ ((strrchr(__FILE__, '/') ? strrchr(__FILE__, '/'): (__FILE__ - 1)) + 1)
+#endif
+
+#define LOGCRITICAL(...) Logger::append(__LINE__, __THIS_FILE__, "CRITICAL", __VA_ARGS__)
+#define LOGERROR(...) Logger::append(__LINE__, __THIS_FILE__, "ERROR", __VA_ARGS__)
+#define LOGWARNING(...) Logger::append(__LINE__, __THIS_FILE__, "WARNING", __VA_ARGS__)
+#define LOGINFO(...) Logger::append(__LINE__, __THIS_FILE__, "INFO", __VA_ARGS__)
+#define LOGDEBUG(...) Logger::append(__LINE__, __THIS_FILE__, "DEBUG", __VA_ARGS__)
+
 typedef struct {
 	std::string type;
 	std::string data;
@@ -19,6 +32,8 @@ public:
 	static std::string getBinary();
 	static void append(std::string);
 	static void append(char *pstrFormat, ...);
+	static void append(int line, char*file, char * level, std::string s);
+	static void append(int line, char*file, char * level, char *pstrFormat, ...);
 	static void binary(std::string type, unsigned char *data, unsigned int len);
 	static void binary(std::string type, std::string data);
 };

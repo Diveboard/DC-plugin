@@ -10,7 +10,7 @@
 ComputerMares::ComputerMares(std::string filename)
 	: Computer()
 {
-	Logger::append("Creating Mares device on %s", filename.c_str());
+	LOGINFO("Creating Mares device on %s", filename.c_str());
 	if (filename.size())
 		device = new DeviceMares(filename);
 	else
@@ -104,8 +104,8 @@ bool ComputerMares::send_command(unsigned char *commbuffer,int len)
 
 	std::string out;
 	out.assign((char*)commbuffer, len);
-  Logger::append("Sending command to Mares : %s", command.c_str());
-  Logger::append("Cleartext sent to Mares : %s", out.c_str());
+  LOGINFO("Sending command to Mares : %s", command.c_str());
+  LOGINFO("Cleartext sent to Mares : %s", out.c_str());
   device->write_serial(commbuffer,len);
 
   return rval;
@@ -131,11 +131,11 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
   sprintf((char*)command, "<51%02X%02X%02X%02X>", (int)addr_low, (int)addr_high, len, (int)crc);
 
   if(send_command(command,12)) {
-		Logger::append("Reading from Mares");
+		LOGINFO("Reading from Mares");
 	
 		r = device->read_serial(reply, 13, 10);
 		if (r < 0) {
-			Logger::append("Error reading (%d) - %s", r, data.c_str());
+			LOGINFO("Error reading (%d) - %s", r, data.c_str());
 			return(r);
 		}
 
@@ -151,7 +151,7 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
 
 		r = device->read_serial(buffcrc, 2, 10);
 		if (r < 0) {
-			Logger::append("Error reading (%d) - %s", r, data.c_str());
+			LOGINFO("Error reading (%d) - %s", r, data.c_str());
 			return(r);
 		}
 	  data += str(boost::format(" %02X %02X") % (int)buffcrc[0] % (int)buffcrc[1]);
@@ -165,17 +165,17 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
 		if(crc==readcrc && rc >=0 ) 
 			rval=TRUE;
 		else {
-			Logger::append("CRC Error -- %s", data.c_str());
-			Logger::append("CRC calculated : %02X - CRC read (string) : %.2s - CRC read (int) : %2X", (int)crc, buffcrc, (int)readcrc);
+			LOGINFO("CRC Error -- %s", data.c_str());
+			LOGINFO("CRC calculated : %02X - CRC read (string) : %.2s - CRC read (int) : %2X", (int)crc, buffcrc, (int)readcrc);
 			std::string out;
 			out.append((char*)retbuffer, 2*len);
-			Logger::append("Text Data read -- %s", out.c_str());
+			LOGINFO("Text Data read -- %s", out.c_str());
 			return(SUUNTO_ERR_CRC);	
 		}
-		Logger::append("Data read correctly -- %s", data.c_str());
+		LOGINFO("Data read correctly -- %s", data.c_str());
 	  std::string out;
 	  out.append((char*)retbuffer, 2*len);
-		Logger::append("Text Data read correctly -- %s", out.c_str());
+		LOGINFO("Text Data read correctly -- %s", out.c_str());
 		return 0;
 	}
 		
@@ -209,7 +209,7 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 		read(address, buffer, 0x34);
 		std::string out;
 		out.append((char*)buffer, 104);
-		Logger::append("Reading at %02X : %.104s", (int)address, out.c_str());
+		LOGINFO("Reading at %02X : %.104s", (int)address, out.c_str());
 
 		if (!memcmp(buffer, "07D",3))
 		{
@@ -224,10 +224,10 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 			(int)(map[buffer[8]]*16+map[buffer[9]]) %
 			(int)(map[buffer[10]]*16+map[buffer[11]]));
 
-			Logger::append("Currently on dive : %s %s", dive->date.c_str(), dive->time.c_str());
+			LOGINFO("Currently on dive : %s %s", dive->date.c_str(), dive->time.c_str());
 
 			nbsamples = map[buffer[14]]*16+map[buffer[15]];
-			Logger::append("nbsamples : %d (%X %X)", nbsamples, (int)buffer[14], (int)buffer[15]);
+			LOGINFO("nbsamples : %d (%X %X)", nbsamples, (int)buffer[14], (int)buffer[15]);
 
 			dive->max_depth=(map[buffer[16]]*16*16*16 + map[buffer[17]]*16*16 + map[buffer[18]]*16 + map[buffer[19]])/10;
 			dive->duration=(nbsamples*interval)/60;
@@ -244,10 +244,10 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 			dive->surface_min=0;
 
 			//read enough data for the dive
-			Logger::append("%X %X %d %X -- %d %d", profilePos, profile, nbsamples, addProfile, profilePos-profile+nbsamples*4, addProfile-0xB30);
+			LOGINFO("%X %X %d %X -- %d %d", profilePos, profile, nbsamples, addProfile, profilePos-profile+nbsamples*4, addProfile-0xB30);
 			for (; profilePos-profile+nbsamples*4 > addProfile-0xB30 ; addProfile+= 64)
 			{
-				Logger::append("+");
+				LOGINFO("+");
 				read(addProfile, profile+2*(addProfile-0x0B30), 64);
 			}
 
@@ -255,7 +255,7 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 			{
 				//todo : what to do with profilePos[2] ???
 				double depth = (map[profilePos[3]] & 3)*16*16 + map[profilePos[0]]*16 + map[profilePos[1]];
-				//Logger::append("%1X%1X%1X%1X   -- %d *256 + %d * 16 + %d = %f", map[profilePos[0]], map[profilePos[1]], map[profilePos[2]], map[profilePos[3]], (map[profilePos[3]] & 3), map[profilePos[0]], map[profilePos[1]], depth);
+				//LOGINFO("%1X%1X%1X%1X   -- %d *256 + %d * 16 + %d = %f", map[profilePos[0]], map[profilePos[1]], map[profilePos[2]], map[profilePos[3]], (map[profilePos[3]] & 3), map[profilePos[0]], map[profilePos[1]], depth);
 				dive->profile += str(boost::format("<t>%d</t><d>%.1f</d>")% (i*interval) % (depth/10));
 
 
@@ -274,7 +274,7 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 		//Todo : else retry ?
 	}
 
-	Logger::append("Found %d dives", status.nbDivesRead);
+	LOGINFO("Found %d dives", status.nbDivesRead);
 	status.nbDivesTotal = status.nbDivesRead ;
 	return(0);
 }

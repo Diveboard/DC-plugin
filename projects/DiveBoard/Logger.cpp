@@ -47,6 +47,36 @@ void Logger::append(char *pstrFormat, ...)
    return;
 }
 
+
+void Logger::append(int line, char*file, char * level, std::string s)
+{
+	append(line, file, level, "%s", s.c_str());
+}
+
+void Logger::append(int line, char*file, char *level, char *pstrFormat, ...)
+{
+	char buff[2048];
+	std::string str;
+	time_t t;
+	tm * ptm;
+	
+	time(&t);
+	ptm = gmtime(&t);
+
+	sprintf(buff, "%04d%02d%02d %02d%02d%02d GMT - %-8s - %s @ %d - ", ptm->tm_year+1900, ptm->tm_mon, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, level, file, line);
+	str = buff;
+
+	// format and write the data we were given
+	va_list args;
+	va_start(args, pstrFormat);
+	vsprintf(buff, pstrFormat, args);
+	va_end(args);
+
+	str += buff;
+	
+    append(str);
+}
+
 std::vector<std::string> Logger::logs;
 std::vector<BinaryData> Logger::binData;
 

@@ -84,7 +84,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   if (hSetupAPI == NULL)
   {
     // Retrieve the system error message for the last-error code
-  	Logger::append("Failed to load SetupAPI");
+  	LOGINFO("Failed to load SetupAPI");
   	throw DBException(str(boost::format("Error loading SetupAPI - Error code : %d") % GetLastError()));
 
   }
@@ -103,7 +103,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
 		FreeLibrary(hSetupAPI);
 		SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	} catch (...) {
-		Logger::append("Warning : Error unloading SetupAPI.dll");
+		LOGINFO("Warning : Error unloading SetupAPI.dll");
 	}
 
 	throw DBException("Error getting pointers from SetupAPI");
@@ -121,7 +121,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
 		FreeLibrary(hSetupAPI);
 		SetLastError(dwLastError);
 	  } catch (...) {
-		Logger::append("Warning : Error unloading SetupAPI.dll");
+		LOGINFO("Warning : Error unloading SetupAPI.dll");
 	  }
 
 	  throw DBException(str(boost::format("Error creating information set from SetupAPI - %d") % dwLastError ));
@@ -201,7 +201,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   FreeLibrary(hSetupAPI);
 
   for (unsigned int i=0; i< ports.size();i++)
-	  Logger::append(str(boost::format("COM port found : %s - %s") % ports[i] % friendlyNames[i]));
+	  LOGINFO(str(boost::format("COM port found : %s - %s") % ports[i] % friendlyNames[i]));
 }
 
 void ComputerFactory::listPorts(std::string &a)
@@ -236,7 +236,7 @@ void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendly
 	
     while ((dirp = readdir(dp)) != NULL) {
 		//todo : a NULL can also mean an error....
-		Logger::append(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
+		LOGINFO(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
         if (!strncmp("tty.", dirp->d_name, 4)) {
 			files.push_back(str(boost::format("/dev/%1%") % dirp->d_name));
 			friendlyNames.push_back(std::string(dirp->d_name));
@@ -244,7 +244,7 @@ void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendly
     }
     
 	r = closedir(dp);
-	if (r) Logger::append("Warning - Error while closing dir in ListTTY");
+	if (r) LOGINFO("Warning - Error while closing dir in ListTTY");
 }
 
 #endif
@@ -288,7 +288,7 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 
 	//1 list ports
 #ifdef _WIN32
-	Logger::append("Using SetupAPI");
+	LOGINFO("Using SetupAPI");
 	UsingSetupAPI1(fileNames, friendlyNames);
 #elif __MACH__
 	ListTTY(fileNames, friendlyNames);
@@ -298,7 +298,7 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 	
 	//2 filter interesting ones
 	for (i=0; i< fileNames.size();i++) {
-		Logger::append("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
+		LOGINFO("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
 		bool found = mapDevice(friendlyNames[i], driverName);
 		if (found) {
 			foundComputer = createComputer(driverName, fileNames[i]);
@@ -312,7 +312,7 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 				/*
 				//3 test port with Computer Driver
 				ComputerModel model = foundComputer->get_model();
-				Logger::append("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
+				LOGINFO("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
 
 				//4 return identified device
 				if (model != COMPUTER_MODEL_UNKNOWN){			
@@ -324,7 +324,7 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 			}
 		}
 	}
-	Logger::append("No interesting port found !");
+	LOGINFO("No interesting port found !");
 	return(ret);
 }
 

@@ -110,7 +110,7 @@ int DeviceSuunto::open()
   bool fSuccess;
   DCB dcb;
   
-  Logger::append("Opening %s", filename.c_str());
+  LOGINFO("Opening %s", filename.c_str());
 
   hCom = CreateFile(s2ws(filename).c_str(), 
     GENERIC_READ | GENERIC_WRITE, 
@@ -124,7 +124,7 @@ int DeviceSuunto::open()
    if (hCom == INVALID_HANDLE_VALUE) 
    {
        //  Handle the error.
-	   Logger::append ("CreateFile on %s failed with error %d.", filename, GetLastError());
+	   LOGINFO ("CreateFile on %s failed with error %d.", filename, GetLastError());
        hCom = NULL;
 	   return (SUUNTO_ERR_CREATEFILE);
    }
@@ -155,7 +155,7 @@ int DeviceSuunto::open()
    if (!fSuccess) 
    {
       //  Handle the error.
-	  Logger::append ("SetCommState failed with error %d.\n", GetLastError());
+	  LOGINFO ("SetCommState failed with error %d.\n", GetLastError());
       hCom = NULL;
 	  return (SUUNTO_ERR_SETCOMMSTATE);
    }
@@ -202,7 +202,7 @@ int DeviceSuunto::open()
 		}
 	}
 	else {
-		Logger::append("Error while setting properties of Com port");
+		LOGINFO("Error while setting properties of Com port");
 		return(-1);
 	}
 	

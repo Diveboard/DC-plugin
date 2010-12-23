@@ -298,7 +298,7 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 static parser_status_t doparse (std::string *out, device_data_t *devdata, const unsigned char data[], unsigned int size)
 {
 	// Create the parser.
-	Logger::append("Creating the parser.");
+	LOGINFO("Creating the parser.");
 	parser_t *parser = NULL;
 	parser_status_t rc = PARSER_STATUS_SUCCESS;
 
@@ -363,28 +363,28 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 		break;
 	}
 	if (rc != PARSER_STATUS_SUCCESS) {
-		Logger::append("Error creating the parser.");
+		LOGINFO("Error creating the parser.");
 		return rc;
 	}
 
 	// Register the data.
-	Logger::append("Registering the data.\n");
+	LOGINFO("Registering the data.\n");
 	//LDCPARSERSETDATA* parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(GetProcAddress(libdc, "parser_set_data"));
 	//LDCPARSERDESTROY* parser_destroy = reinterpret_cast<LDCPARSERDESTROY*>(GetProcAddress(libdc, "parser_destroy"));
 	rc = parser_set_data (parser, data, size);
 	if (rc != PARSER_STATUS_SUCCESS) {
-		Logger::append("Error registering the data.");
+		LOGINFO("Error registering the data.");
 		parser_destroy (parser);
 		throw DBException (str(boost::format("Error registering the data - Error code : %1%") % rc));
 	}
 
 	// Parse the datetime.
-	Logger::append("Parsing the datetime.\n");
+	LOGINFO("Parsing the datetime.\n");
 	dc_datetime_t dt = {0};
 	//LDCPARSERGETDATETIME* parser_get_datetime = reinterpret_cast<LDCPARSERGETDATETIME*>(GetProcAddress(libdc, "parser_get_datetime"));
 	rc = parser_get_datetime (parser, &dt);
 	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
-		Logger::append("Error parsing the datetime.");
+		LOGINFO("Error parsing the datetime.");
 		parser_destroy (parser);
 		throw DBException (str(boost::format("Error parsing the datetime - Error code : %1%") % rc));
 	}
@@ -397,12 +397,12 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 	unsigned int nsamples = 0;
 
 	// Parse the sample data.
-	Logger::append("Parsing the sample data.\n");
+	LOGINFO("Parsing the sample data.\n");
 	*out += "<SAMPLES>";
 	//LDCPARSERSAMPLESFOREACH* parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(GetProcAddress(libdc, "parser_samples_foreach"));
 	rc = parser_samples_foreach (parser, sample_cb, out);
 	if (rc != PARSER_STATUS_SUCCESS) {
-		Logger::append("Error parsing the sample data.");
+		LOGINFO("Error parsing the sample data.");
 		parser_destroy (parser);
 		throw DBException (str(boost::format("Error parsing the sample data - Error code : %1%") % rc));
 	}
@@ -411,10 +411,10 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 		*out += "</SAMPLES>\n";
 
 	// Destroy the parser.
-	Logger::append("Destroying the parser.\n");
+	LOGINFO("Destroying the parser.\n");
 	rc = parser_destroy (parser);
 	if (rc != PARSER_STATUS_SUCCESS) {
-		Logger::append("WARNING - Error destroying the parser - Error %d", rc);
+		LOGINFO("WARNING - Error destroying the parser - Error %d", rc);
 	}
 
 	return PARSER_STATUS_SUCCESS;
@@ -434,12 +434,12 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 
 	switch (event) {
 	case DEVICE_EVENT_WAITING:
-		Logger::append("Event: waiting for user action\n");
+		LOGINFO("Event: waiting for user action\n");
 		break;
 	case DEVICE_EVENT_PROGRESS:
 		if (progress->maximum >0)
 		{
-			Logger::append("Event: progress %3.2f%% (%u/%u)\n",
+			LOGINFO("Event: progress %3.2f%% (%u/%u)\n",
 			100.0 * (double) progress->current / (double) progress->maximum,
 			progress->current, progress->maximum);
 
@@ -447,12 +447,12 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 		}
 		else
 		{
-			Logger::append("Event: progress negative !");
+			LOGINFO("Event: progress negative !");
 		}
 		break;
 	case DEVICE_EVENT_DEVINFO:
 		devdata->devinfo = *devinfo;
-		Logger::append("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)\n",
+		LOGINFO("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)\n",
 			devinfo->model, devinfo->model,
 			devinfo->firmware, devinfo->firmware,
 			devinfo->serial, devinfo->serial);
@@ -467,7 +467,7 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 		break;
 	case DEVICE_EVENT_CLOCK:
 		devdata->clock = *clock;
-		Logger::append("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
+		LOGINFO("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
 			clock->systime, clock->devtime);
 		break;
 	default:
@@ -485,10 +485,10 @@ static int dive_cb (const unsigned char *data, unsigned int size, const unsigned
 	//LCDDCBUFFERNEW* dc_buffer_new = reinterpret_cast<LCDDCBUFFERNEW*>(GetProcAddress(libdc, "dc_buffer_new"));
 	//LCDDCBUFFERAPPEND* dc_buffer_append = reinterpret_cast<LCDDCBUFFERAPPEND*>(GetProcAddress(libdc, "dc_buffer_append"));
 
-	Logger::append("Dive: number=%u, size=%u, fingerprint=", divedata->number, size);
+	LOGINFO("Dive: number=%u, size=%u, fingerprint=", divedata->number, size);
 	for (unsigned int i = 0; i < fsize; ++i)
-		Logger::append("%02X", fingerprint[i]);
-	Logger::append("\n");
+		LOGINFO("%02X", fingerprint[i]);
+	LOGINFO("\n");
 
 	if (divedata->number == 1) {
 		divedata->fingerprint = dc_buffer_new (fsize);
@@ -545,7 +545,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	devdata.backend = backend;
 
 	// Open the device.
-	Logger::append("Opening the device (%s, %s).\n", lookup_name (backend), devname.c_str());
+	LOGINFO("Opening the device (%s, %s).\n", lookup_name (backend), devname.c_str());
 	device_t *device = NULL;
 
 	//HINSTANCE libdc = LoadLibrary(_T("D:\\DATA\\My Documents\\Personnel\\DB_plugins\\build\\Debug\\libdivecomputer.dll"));
@@ -565,7 +565,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 
-		Logger::append(str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf));
+		LOGINFO(str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf));
 		return DEVICE_STATUS_ERROR;
 	}
 	LDCOPEN* suunto_vyper_device_open = reinterpret_cast<LDCOPEN*>(GetProcAddress(libdc, "suunto_vyper_device_open"));
@@ -634,23 +634,23 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		throw DBException (std::string("Error opening device - Error code : ") + errmsg(rc));
 
 	// todo Register the event handler.
-	Logger::append("Registering the event handler.\n");
+	LOGINFO("Registering the event handler.\n");
 	int events = DEVICE_EVENT_WAITING | DEVICE_EVENT_PROGRESS | DEVICE_EVENT_DEVINFO | DEVICE_EVENT_CLOCK;
 	event_data_t evdata;
 	evdata.devdata = &devdata;
 	evdata.status = &status;
 	rc = device_set_events (device, events, event_cb, &evdata);
 	if (rc != DEVICE_STATUS_SUCCESS) {
-		Logger::append("Error registering the event handler.");
+		LOGINFO("Error registering the event handler.");
 		device_close (device);
 		throw DBException ("Error setting the event handler ");
 	}
 
 	// todo Register the cancellation handler.
-	/*Logger::append("Registering the cancellation handler.\n");
+	/*LOGINFO("Registering the cancellation handler.\n");
 	rc = device_set_cancel (device, cancel_cb, NULL);
 	if (rc != DEVICE_STATUS_SUCCESS) {
-		Logger::append("Error registering the cancellation handler.");
+		LOGINFO("Error registering the cancellation handler.");
 		device_close (device);
 		return rc;
 	}
@@ -658,10 +658,10 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 
 	// todo Register the fingerprint data.
 	/*if (fingerprint) {
-		Logger::append("Registering the fingerprint data.\n");
+		LOGINFO("Registering the fingerprint data.\n");
 		rc = device_set_fingerprint (device, dc_buffer_get_data (fingerprint), dc_buffer_get_size (fingerprint));
 		if (rc != DEVICE_STATUS_SUCCESS) {
-			Logger::append("Error registering the fingerprint data.");
+			LOGINFO("Error registering the fingerprint data.");
 			device_close (device);
 			return rc;
 		}
@@ -673,14 +673,14 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	/* works but is too slow !!
 	dc_buffer_t *buffer = dc_buffer_new (0);
 
-	Logger::append("Dumping the memory from device");
+	LOGINFO("Dumping the memory from device");
 	rc = device_dump (device, buffer);
 	if (rc != DEVICE_STATUS_SUCCESS) {
-		Logger::append("WARNING - Error downloading the memory dump.");
+		LOGINFO("WARNING - Error downloading the memory dump.");
 		dc_buffer_free (buffer);
 	}
 	else {
-		Logger::append("Adding data to Logger::binary");
+		LOGINFO("Adding data to Logger::binary");
 		Logger::binary("LIBDC", dc_buffer_get_data (buffer), dc_buffer_get_size (buffer));
 		// Free the memory buffer.
 		dc_buffer_free (buffer);
@@ -698,13 +698,13 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		diveXML.append("<profile udcf='1'><REPGROUP>");
 
 		// Download the dives.
-		Logger::append("Downloading the dives.\n");
+		LOGINFO("Downloading the dives.\n");
 		//LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(GetProcAddress(libdc, "device_foreach"));
 		//LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(GetProcAddress(libdc, "device_close"));
 		//LCDDCBUFFERFREE* dc_buffer_free = reinterpret_cast<LCDDCBUFFERFREE*>(GetProcAddress(libdc, "dc_buffer_free"));
 		rc = device_foreach (device, dive_cb, &divedata);
 		if (rc != DEVICE_STATUS_SUCCESS) {
-			Logger::append("Error downloading the dives.");
+			LOGINFO("Error downloading the dives.");
 			dc_buffer_free (divedata.fingerprint);
 			device_close (device);
 			throw DBException (std::string("Error opening device - Error code : ") + errmsg(rc));
@@ -721,10 +721,10 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		diveXML.append("</REPGROUP></profile>");
 
 		// Close the device.
-		Logger::append("Closing the device.\n");
+		LOGINFO("Closing the device.\n");
 		rc = device_close (device);
 		if (rc != DEVICE_STATUS_SUCCESS)
-			Logger::append("WARNING - Error closing the device. %s", errmsg(rc));
+			LOGINFO("WARNING - Error closing the device. %s", errmsg(rc));
 }
 
 
@@ -757,7 +757,7 @@ int ComputerLibdc::_get_all_dives(std::string &diveXML)
 
 	//LDCOPEN* ldcOpen = reinterpret_cast<LDCOPEN*>(GetProcAddress(libdc, "suunto_vyper2_device_open"));
 
-	Logger::append(str(boost::format("Using backend on %1%") % devname));
+	LOGINFO(str(boost::format("Using backend on %1%") % devname));
 	try
 	{
 		status.state = COMPUTER_RUNNING;
@@ -787,7 +787,7 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 			backend = g_backends[i].type;
 	}
 
-	Logger::append(str(boost::format("Using type %1% on %2%") % type % file));
+	LOGINFO(str(boost::format("Using type %1% on %2%") % type % file));
 	devname = file;
 
 	//message_set_logfile("d:\\temp\\libdc.log");

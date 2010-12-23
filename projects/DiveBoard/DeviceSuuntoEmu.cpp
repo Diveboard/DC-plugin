@@ -22,19 +22,19 @@ int DeviceSuuntoEmu::write_serial(unsigned char *buff,int len)
 
 	if (buff[0] == 0x05 && buff[2] == 0x24)
 	{
-		Logger::append("Choosing answer 0x05");
+		LOGINFO("Choosing answer 0x05");
 		length = len050024;
 		answer = ans050024;
 	}	
 	if (buff[0] == 0x08)
 	{
-		Logger::append("Choosing answer 0x08");
+		LOGINFO("Choosing answer 0x08");
 		length = len08;
 		answer = ans08;
 	}
 	if (buff[0] == 0x09)
 	{
-		Logger::append("Choosing answer 0x09");
+		LOGINFO("Choosing answer 0x09");
 		length = len09;
 		answer = ans09;
 	}

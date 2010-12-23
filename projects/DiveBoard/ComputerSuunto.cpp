@@ -10,7 +10,7 @@ static bool break_prof_read_early=true;
 ComputerSuunto::ComputerSuunto(std::string filename)
 	: Computer()
 {
-	Logger::append("Creating Suunto device on %s", filename.c_str());
+	LOGINFO("Creating Suunto device on %s", filename.c_str());
 	
 	status.state = COMPUTER_NOT_STARTED;
 	status.nbDivesRead  = -1;
@@ -23,7 +23,7 @@ ComputerSuunto::ComputerSuunto(std::string filename)
 
 ComputerSuunto::~ComputerSuunto(void)
 {
-	Logger::append("Deleting object device");
+	LOGINFO("Deleting object device");
 	delete device;
 }
 
@@ -92,7 +92,7 @@ void ComputerSuunto::send_command(unsigned char *commbuffer,int len)
 #error unsoupported platform
 #endif
 	
-  Logger::append("Sending command to Suunto : %s", command.c_str());
+  LOGINFO("Sending command to Suunto : %s", command.c_str());
   try {
 	device->write_serial(commbuffer,len);
   } catch (...) {
@@ -146,7 +146,7 @@ void ComputerSuunto::read(int start,char *retbuffer,int len)
 #error unsupported platform
 #endif
 	
-    Logger::append("Reading from Suunto");
+    LOGINFO("Reading from Suunto");
 	
 	for(i=0;i<4;i++) {
 		device->read_serial(&read, 1, 10);
@@ -166,16 +166,16 @@ void ComputerSuunto::read(int start,char *retbuffer,int len)
 	  data += str(boost::format(" %02X") % (int)read);
       if(crc==read) rval=TRUE;
       else {
-		  Logger::append("CRC Error -- %s", data.c_str());
+		  LOGINFO("CRC Error -- %s", data.c_str());
 		  throw DBException("CRC Error while reading");
 	  }
     }
     else if(reply[0]==255) {
-		Logger::append("The interface appears to be present, but the dive computer is not responding.");
+		LOGINFO("The interface appears to be present, but the dive computer is not responding.");
         throw DBException("Computer seems unconnected");
     }
    
-	Logger::append("Data read correctly -- %s", data.c_str());
+	LOGINFO("Data read correctly -- %s", data.c_str());
 }
 
 ComputerModel ComputerSuunto::_get_model()
@@ -183,12 +183,12 @@ ComputerModel ComputerSuunto::_get_model()
 	ComputerModel model=COMPUTER_MODEL_UNKNOWN;
 	char rbuf[2];
 
-	Logger::append("Reading model digits");
+	LOGINFO("Reading model digits");
 
 	read(0x24,rbuf,1);
 	//todo : if exception ? return COMPUTER_MODEL_UNKNOWN;
 
-	Logger::append("Model digits : %d %d", rbuf[0], rbuf[1]);
+	LOGINFO("Model digits : %d %d", rbuf[0], rbuf[1]);
     switch(rbuf[0]) {
       case 40 :
         read(0x16,rbuf,2);
@@ -233,7 +233,7 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
 	  data += str(boost::format(" %02X") % (int)read);
       if(read!=command[0]) {
           if(rc==-1) break;
-		  Logger::append("Illegal start of packet. --- Read data : %s", data.c_str());
+		  LOGINFO("Illegal start of packet. --- Read data : %s", data.c_str());
 		  throw DBException("Illegal start of packet");
       }
       crc=read;
@@ -241,7 +241,7 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
 	  data += str(boost::format(" %02X") % (int)read);
 	  packet_len = read;
       if(rc<0 || packet_len>32) {
-		  Logger::append("Illegal packet length. --- Read data : %s", data.c_str());
+		  LOGINFO("Illegal packet length. --- Read data : %s", data.c_str());
 		  throw DBException("Illegal start of packet");
       }
       crc^=read;
@@ -249,7 +249,7 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
           rc=device->read_serial(&read);
 		  data += str(boost::format(" %02X") % (int)read);
           if(rc<0) {
-			  Logger::append("Unexpected end of packet --- Read data : %s", data.c_str());
+			  LOGINFO("Unexpected end of packet --- Read data : %s", data.c_str());
 			  throw DBException("Unexpected end of packet");
           }
           divebuf[i]=read;
@@ -260,13 +260,13 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
       data += str(boost::format(" %02X") % (int)read);
 	  crc^= read;
       if(crc!=0) {
-		  Logger::append("CRC check failure. --- Read data : %s", data.c_str());
+		  LOGINFO("CRC check failure. --- Read data : %s", data.c_str());
           throw DBException("CRC check failure");
       }
   
 	  if(break_prof_read_early && packet_len!=32) break; 
     }
-    Logger::append("Data read : %s", data.c_str());
+    LOGINFO("Data read : %s", data.c_str());
 
 	return i;
 }
@@ -405,12 +405,12 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 	while (true)
 	{
 		try {
-			Logger::append("Downloading a dive");
+			LOGINFO("Downloading a dive");
 			length = get_dive(step,buff2,4048);
 
 			if (length == 0)
 			{
-				Logger::append("End of data or timeout");
+				LOGINFO("End of data or timeout");
 				break;
 			}
 
@@ -441,7 +441,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 
 			step = SUUNTO_DIVE_NEXT;
 		} catch (...) {
-				Logger::append("Error during downloading dive");
+				LOGINFO("Error during downloading dive");
 				xml = "";
 				device->close();
 				throw;
@@ -451,7 +451,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 
 	status.nbDivesTotal = status.nbDivesRead;
 	status.state = COMPUTER_FINISHED;
-	Logger::append("Found %d dives", status.nbDivesRead);
+	LOGINFO("Found %d dives", status.nbDivesRead);
 
 	device->close();
 
