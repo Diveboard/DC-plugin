@@ -57,6 +57,13 @@ function ExtractDives()
 		var a = document.getElementById("output");
 		a.value = "Extracting...";
 		var res = PLUGIN.extract(port, computer);
+
+		hidediv("installBox");
+		hidediv("startBox");
+		hidediv("detectBox");
+		hidediv("importBox");
+		hidediv("manualBox");
+		showdiv("progressBox");
 	}
 	catch (err) { alert(err); }
 }
@@ -124,17 +131,27 @@ function refresh_to(timeout)
 	try
 	{
 		PLUGIN = document.getElementById("plugin");
-		document.getElementById("nbDivesRead").innerHTML = PLUGIN.nbDivesRead;
-		document.getElementById("nbDivesTotal").innerHTML = PLUGIN.nbDivesTotal;
-		document.getElementById("computerState").innerHTML = PLUGIN.status;
-		document.getElementById("logs").value = PLUGIN.logs;
-		document.getElementById("logs").scrollTop = document.getElementById("logs").scrollHeight;
-		if (timeout > 0) setTimeout("refresh();",timeout);
+		if (PLUGIN)
+		{
+			var status = PLUGIN.status;
+			document.getElementById("nbDivesRead").innerHTML = status.nbDivesRead;
+			document.getElementById("nbDivesTotal").innerHTML = status.nbDivesTotal;
+			document.getElementById("computerState").innerHTML = status.state;
+			document.getElementById("logs").value = PLUGIN.logs;
+
+	//				alert(status.percent);
+			if (status.nbDivesRead > 0) document.getElementById("progressNumber").value = status.nbDivesRead;
+			if (status.percent > 0) document.getElementById("progressValue").value = status.percent;
+
+			document.getElementById("logs").scrollTop = document.getElementById("logs").scrollHeight;
 		}
+
+		if (timeout > 0) setTimeout("refresh_to("+timeout+");",timeout);
+	}
 	catch (err) {alert(err); }
 }
 
-//setTimeout("refresh_to(3000);",3000);
+refresh_to(3000);
 
 
 function pluginXML(xml)
@@ -163,7 +180,7 @@ function pluginXML(xml)
             });
 
             addEvent(plugin(), 'progress', function(x){
-				document.getElementById("output").value += x;
+            	document.getElementById("progressValue").value += x;
             });
 
             addEvent(plugin(), 'loaded', function(x){
@@ -225,12 +242,14 @@ function checkInstall()
 		showdiv("installBox");
 		hidediv("startBox");
 		hidediv("detectBox");
+		hidediv("progressBox");
 	}
 	else
 	{
 		hidediv("installBox");
 		showdiv("startBox");
 		showdiv("detectBox");
+		hidediv("progressBox");
 	}
 }
 
@@ -249,12 +268,14 @@ function detectPlugin()
 			hidediv("installBox");
 			showdiv("startBox");
 			hidediv("detectBox");
+			hidediv("progressBox");
 		}
 		else
 		{
 			hidediv("installBox");
 			hidediv("startBox");
 			showdiv("detectBox");
+			hidediv("progressBox");
 		}
 	}
 	catch (err) { alert(err); }
@@ -300,6 +321,20 @@ div.controlbox
 }
 
 div.menubox
+{
+	background: white;
+	width:500px;
+	border: solid 10px yellow;
+	padding-left: 10px;
+	padding-right: 10px;
+	padding-top: 3px;
+	padding-bottom: 3px;
+	margin: 20px;
+	position: relative;
+	left: 150px;
+}
+
+div.popupbox
 {
 	background: white;
 	width:500px;
@@ -463,6 +498,13 @@ div.hidden
 </form>
 </div>
 
+
+<div id=progressBox class=popupbox>
+<p>Something is going on...</p>
+<p>Currently on dive <input id=progressNumber type=text value=0 size=2 /></p>
+<p>Progress <input id=progressValue type=text value=0 size=2 />%</p>
+<input type='button' value='Cancel' action='alert("todo")' />
+</div>
 
 
 

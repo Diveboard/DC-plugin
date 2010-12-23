@@ -74,6 +74,11 @@ typedef struct backend_table_t {
 	device_type_t type;
 } backend_table_t;
 
+typedef struct event_data_t {
+	ComputerStatus *status;
+	device_data_t *devdata;
+} event_data_t;
+
 static const backend_table_t g_backends[] = {
 	{"LDC solution",	DEVICE_TYPE_SUUNTO_SOLUTION},
 	{"LDC eon",			DEVICE_TYPE_SUUNTO_EON},
@@ -423,17 +428,27 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 	const device_devinfo_t *devinfo = (device_devinfo_t *) data;
 	const device_clock_t *clock = (device_clock_t *) data;
 
-	device_data_t *devdata = (device_data_t *) userdata;
+	event_data_t *evdata = (event_data_t *)userdata;
+
+	device_data_t *devdata = evdata->devdata;
 
 	switch (event) {
 	case DEVICE_EVENT_WAITING:
 		Logger::append("Event: waiting for user action\n");
 		break;
 	case DEVICE_EVENT_PROGRESS:
-		Logger::append("Event: progress %3.2f%% (%u/%u)\n",
+		if (progress->maximum >0)
+		{
+			Logger::append("Event: progress %3.2f%% (%u/%u)\n",
 			100.0 * (double) progress->current / (double) progress->maximum,
 			progress->current, progress->maximum);
-		//todo fire event
+
+			evdata->status->percent = 100.0 * (double) progress->current / (double) progress->maximum;
+		}
+		else
+		{
+			Logger::append("Event: progress negative !");
+		}
 		break;
 	case DEVICE_EVENT_DEVINFO:
 		devdata->devinfo = *devinfo;
@@ -521,7 +536,7 @@ errmsg (device_status_t rc)
 }
 
 
-void dowork (device_type_t &backend, const std::string &devname, std ::string &diveXML, dc_buffer_t *fingerprint)
+void dowork (device_type_t &backend, const std::string &devname, std ::string &diveXML, dc_buffer_t *fingerprint, ComputerStatus &status)
 {
 	device_status_t rc = DEVICE_STATUS_SUCCESS;
 
@@ -621,7 +636,10 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	// todo Register the event handler.
 	Logger::append("Registering the event handler.\n");
 	int events = DEVICE_EVENT_WAITING | DEVICE_EVENT_PROGRESS | DEVICE_EVENT_DEVINFO | DEVICE_EVENT_CLOCK;
-	rc = device_set_events (device, events, event_cb, &devdata);
+	event_data_t evdata;
+	evdata.devdata = &devdata;
+	evdata.status = &status;
+	rc = device_set_events (device, events, event_cb, &evdata);
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		Logger::append("Error registering the event handler.");
 		device_close (device);
@@ -730,22 +748,29 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 
 int ComputerLibdc::_get_all_dives(std::string &diveXML)
 {
-  //Get the various function pointers we require from setupapi.dll
-  //HINSTANCE libdc = LoadLibrary(_T("libdivecomputer-0.dll"));
+	//Get the various function pointers we require from setupapi.dll
+	//HINSTANCE libdc = LoadLibrary(_T("libdivecomputer-0.dll"));
 
-  //todo handle error
-  //if (hSetupAPI == NULL)
-  //  return;
+	//todo handle error
+	//if (hSetupAPI == NULL)
+	//  return;
 
-  //LDCOPEN* ldcOpen = reinterpret_cast<LDCOPEN*>(GetProcAddress(libdc, "suunto_vyper2_device_open"));
+	//LDCOPEN* ldcOpen = reinterpret_cast<LDCOPEN*>(GetProcAddress(libdc, "suunto_vyper2_device_open"));
 
-  Logger::append(str(boost::format("Using backend on %1%") % devname));
-  dowork (backend, devname, diveXML, NULL);
+	Logger::append(str(boost::format("Using backend on %1%") % devname));
+	try
+	{
+		status.state = COMPUTER_RUNNING;
+		dowork (backend, devname, diveXML, NULL, status);
+	}
+	catch (...) {
+		status.state = COMPUTER_FINISHED;
+		throw;
+	}
 
-  return(0);
+	status.state = COMPUTER_FINISHED;
+	return(0);
 } 
-
-
 
 
 
@@ -754,6 +779,8 @@ int ComputerLibdc::_get_all_dives(std::string &diveXML)
 ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 {
 	unsigned int nbackends = sizeof (g_backends) / sizeof (g_backends[0]);
+
+	status.state = COMPUTER_NOT_STARTED;
 
 	for (unsigned int i = 0; i < nbackends; i++) {
 		if (type.compare(g_backends[i].name) == 0)
@@ -783,8 +810,9 @@ ComputerModel ComputerLibdc::_get_model()
 }
 
 //todo
-ComputerState ComputerLibdc::_get_status()
+ComputerStatus ComputerLibdc::get_status()
 {
-	return(COMPUTER_RUNNING);
+	return(status);
 }
+
 

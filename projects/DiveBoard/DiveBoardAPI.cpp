@@ -132,20 +132,34 @@ std::string DiveBoardAPI::get_logs()
 }
 
 // Read-only property version
-std::string DiveBoardAPI::get_status()
+FB::VariantMap DiveBoardAPI::get_status()
 {
 	ComputerStatus local;
 	if (comp) local = comp->get_status();
 	else local = status;
 
-	if (local.state == COMPUTER_NOT_STARTED)
-		return( "COMPUTER_NOT_STARTED" );
-	else if (local.state == COMPUTER_RUNNING)
-		return( "COMPUTER_RUNNING" );
-	else if (local.state == COMPUTER_FINISHED)
-		return( "COMPUTER_FINISHED" );
+	FB::VariantMap ret;
 
-	return( "STATUS_UNKNOWN" );
+	switch(local.state) 
+	{
+	case COMPUTER_NOT_STARTED:
+		ret[std::string("state")] = FB::variant("COMPUTER_NOT_STARTED");
+		break;
+	case COMPUTER_RUNNING:
+		ret[std::string("state")] = FB::variant("COMPUTER_RUNNING");
+		break;
+	case COMPUTER_FINISHED:
+		ret[std::string("state")] = FB::variant("COMPUTER_FINISHED");
+		break;
+	default:
+		ret[std::string("state")] = FB::variant("STATUS_UNKNOWN");
+	}
+
+	ret[std::string("nbDivesRead")] = FB::variant(local.nbDivesRead);
+	ret[std::string("nbDivesTotal")] = FB::variant(local.nbDivesTotal);
+	ret[std::string("percent")] = FB::variant(local.percent);
+
+	return(ret);
 }
 
 // Read-only property version

@@ -26,11 +26,12 @@ class ComputerLibdc : public Computer
 protected:
 	std::string devname;
     device_type_t backend;
+	ComputerStatus status;
 public:
 	ComputerLibdc(std::string type, std::string filename);
 	~ComputerLibdc(void);
 	ComputerModel _get_model();
 	int _get_all_dives(std::string &xml);
-	ComputerState _get_status();
+	virtual ComputerStatus get_status();
 };
 

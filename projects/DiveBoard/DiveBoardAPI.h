@@ -46,7 +46,7 @@ public:
 	FB::VariantMap detect();
 	int get_nbDivesRead();
 	int get_nbDivesTotal();
-	std::string get_status();
+	FB::VariantMap get_status();
 
 
 private:

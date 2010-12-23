@@ -44,6 +44,7 @@ typedef struct {
 	int nbDivesRead;
 	int nbDivesTotal;
 	ComputerState state;
+	int percent;
 } ComputerStatus;
 
 
