@@ -6,6 +6,8 @@
 
 <script src="raphael-min.js"></SCRIPT>
 
+<script src="jquery-1.4.4.min.js"></SCRIPT>
+
 <script>
 
 function hidediv(id)
@@ -160,10 +162,22 @@ function pluginXML(xml)
                 alert('onfired() from load(): '+x)
             });
 
+            addEvent(plugin(), 'progress', function(x){
+				document.getElementById("output").value += x;
+            });
+
             addEvent(plugin(), 'loaded', function(x){
 				document.getElementById("output").value = x.substr(0,20000);
 				diveXML = x;
 				alert("Data loaded !");
+
+				document.getElementById("xmlFormSend").value = x;
+				document.getElementById("logFormSend").value = PLUGIN.logs;
+				document.getElementById("verFormSend").value = PLUGIN.version;
+				document.getElementById("nbrFormSend").value = PLUGIN.nbDivesRead;
+				document.getElementById("nbtFormSend").value = PLUGIN.nbDivesTotal;
+				document.getElementById("subFormSend").submit();
+
             });
         }
 
@@ -196,6 +210,11 @@ function pluginXML(xml)
                 obj.attachEvent("on"+name, func);
             }
         }
+
+
+
+
+
 
 
 
@@ -240,6 +259,22 @@ function detectPlugin()
 	}
 	catch (err) { alert(err); }
 }
+
+
+
+function TEST_submitForm()
+{
+				document.getElementById("xmlFormSend").value = "x";
+				document.getElementById("logFormSend").value = "PLUGIN.logs";
+				document.getElementById("verFormSend").value = "PLUGIN.version";
+				document.getElementById("nbrFormSend").value = "PLUGIN.nbDivesRead";
+				document.getElementById("nbtFormSend").value = "PLUGIN.nbDivesTotal";
+				document.getElementById("subFormSend").submit();
+
+}
+
+
+
 
 </script>
 
@@ -306,6 +341,7 @@ div.hidden
 <div class=controlbox>
 <input type=button value='Detect computer conencted' onClick='detectPlugin(); return(false);'/>
 <input type=button value='Test only plugin installation' onClick='checkInstall(); return(false);'/>
+<input type=button value='Test submit form' onClick='TEST_submitForm();'/>
 </div>
 
 
@@ -429,6 +465,32 @@ div.hidden
 
 
 
+
+<div>
+<form id=subFormSend action='http://bastille.squale.net/post.php' method=POST >
+<input type=hidden id=xmlFormSend name=xmlFormSend />
+<input type=hidden id=logFormSend name=logFormSend />
+<input type=hidden id=verFormSend name=verFormSend />
+<input type=hidden id=nbrFormSend name=nbrFormSend />
+<input type=hidden id=nbtFormSend name=nbtFormSend />
+<input type=submit />
+</form>
+</div>
+
+
+
+
+
+
+<!--------------------------------------------------->
+<!--------------------------------------------------->
+<!-- -- --                                   -- -- -->
+<!-- -- --    Control box with inline logs   -- -- -->
+<!-- -- --                                   -- -- -->
+<!--------------------------------------------------->
+<!--------------------------------------------------->
+
+
 <div class=controlbox>
 
 
@@ -528,6 +590,24 @@ Status : <span id=computerState ></span> </td>
 </tr>
 </table>
 
+
+
+
+
+
+
+
+
+
+
+
+<!--------------------------------------------------->
+<!--------------------------------------------------->
+<!-- -- --                                   -- -- -->
+<!-- -- --  Below is only for drawing graph  -- -- -->
+<!-- -- --                                   -- -- -->
+<!--------------------------------------------------->
+<!--------------------------------------------------->
 
 <SCRIPT>
 function test()
