@@ -10,6 +10,12 @@
 
 <script>
 
+
+
+
+
+// Generic HTML functions
+
 function hidediv(id)
 {
 	document.getElementById(id).style.display = 'none';
@@ -21,12 +27,60 @@ function showdiv(id) {
 
 
 
+// Functions for plugin
+
+function plugin()
+{
+	return document.getElementById('plugin');
+}
+
+function addEvent(obj, name, func)
+{
+	if (window.addEventListener) {
+		obj.addEventListener(name, func, false);
+	} else {
+		obj.attachEvent("on"+name, func);
+	}
+}
 
 
+//Actions to perform once the plugin is loaded
+function pluginLoaded() {
+		detectPlugin();
+}
 
+//Actions to perform once the page is loaded
+function load()
+{
+	try {
+		addEvent(plugin(), 'progress', function(x){
+			document.getElementById("progressValue").value += x;
+		});
 
+		addEvent(plugin(), 'loaded', function(x){
+			document.getElementById("output").value = x.substr(0,20000);
+			diveXML = x;
+			alert("Data loaded !");
 
+			document.getElementById("xmlFormSend").value = x;
+			document.getElementById("logFormSend").value = PLUGIN.logs;
+			document.getElementById("verFormSend").value = PLUGIN.version;
+			document.getElementById("nbrFormSend").value = PLUGIN.nbDivesRead;
+			document.getElementById("nbtFormSend").value = PLUGIN.nbDivesTotal;
+			document.getElementById("subFormSend").submit();
 
+		});
+	}
+	catch (err) {
+		alert(err);
+		hidediv("introBox");
+		showdiv("installBox");
+		hidediv("startBox");
+		hidediv("detectBox");
+		hidediv("overlay");
+		hidediv("progressBox");
+	}
+}
 
 
 //getting the instance of the plugin so we can use it every time
@@ -46,51 +100,6 @@ function CheckPlugin()
 
 	return(found);
 }
-
-function ExtractDives()
-{
-	try
-	{
-		PLUGIN = document.getElementById("plugin");
-		var port = document.getElementById("port").value;
-		var computer = document.getElementById("computer").value;
-		var a = document.getElementById("output");
-		a.value = "Extracting...";
-		var res = PLUGIN.extract(port, computer);
-
-		hidediv("installBox");
-		hidediv("startBox");
-		hidediv("detectBox");
-		hidediv("importBox");
-		hidediv("manualBox");
-		showdiv("progressBox");
-	}
-	catch (err) { alert(err); }
-}
-
-function testEcho()
-{
-	try
-	{
-		PLUGIN = document.getElementById("plugin");
-		alert(PLUGIN.echo("toto"));
-	}
-	catch (err) { alert(err); }
-}
-
-function AutoDetect()
-{
-	try
-	{
-		PLUGIN = document.getElementById("plugin");
-		//if( CheckBrowser() ) return;
-		var a = document.getElementById("output");
-		a.value = "Extracting...";
-		var res = PLUGIN.detect();
-	}
-	catch (err) { alert(err); }
-}
-
 
 function CheckBrowser()
 {
@@ -119,6 +128,92 @@ function CheckBrowser()
 
 	return false;
 }
+
+
+function detectPlugin()
+{
+	//if( CheckBrowser() ) return;
+
+	try
+	{
+		if (!CheckPlugin())
+		{
+			hidediv("introBox");
+			showdiv("installBox");
+			hidediv("startBox");
+			hidediv("detectBox");
+			hidediv("progressBox");
+			hidediv("overlay");
+			return;
+		}
+
+		PLUGIN = document.getElementById("plugin");
+		var res = PLUGIN.detect();
+
+		//if plugin
+		if (res && "type" in res)
+		{
+			hidediv("introBox");
+			hidediv("installBox");
+			showdiv("startBox");
+			hidediv("detectBox");
+			hidediv("overlay");
+			hidediv("progressBox");
+		}
+		else
+		{
+			hidediv("introBox");
+			hidediv("installBox");
+			hidediv("startBox");
+			showdiv("detectBox");
+			hidediv("overlay");
+			hidediv("progressBox");
+		}
+	}
+	catch (err) {
+		alert(err);
+		hidediv("introBox");
+		showdiv("installBox");
+		hidediv("startBox");
+		hidediv("detectBox");
+		hidediv("progressBox");
+		hidediv("overlay");
+	}
+}
+
+
+
+
+function ExtractDives()
+{
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		var port = document.getElementById("port").value;
+		var computer = document.getElementById("computer").value;
+		var a = document.getElementById("output");
+		a.value = "Extracting...";
+		var res = PLUGIN.extract(port, computer);
+
+		showdiv("progressBox");
+		showdiv("overlay");
+	}
+	catch (err) { alert(err); }
+}
+
+function AutoDetect()
+{
+	try
+	{
+		PLUGIN = document.getElementById("plugin");
+		//if( CheckBrowser() ) return;
+		var a = document.getElementById("output");
+		a.value = "Extracting...";
+		var res = PLUGIN.detect();
+	}
+	catch (err) { alert(err); }
+}
+
 
 function refresh()
 {
@@ -154,132 +249,15 @@ function refresh_to(timeout)
 refresh_to(3000);
 
 
-function pluginXML(xml)
+function cancelAll()
 {
+	hidediv("progressBox");
+	hidediv("overlay");
+	//todo really cancel what the plugin does
 }
 
 
-        function plugin()
-        {
-            return document.getElementById('plugin');
-        }
 
-        function addEvent(obj, name, func)
-        {
-            if (window.addEventListener) {
-                obj.addEventListener(name, func, false);
-            } else {
-                obj.attachEvent("on"+name, func);
-            }
-        }
-
-        function load()
-        {
-            addEvent(plugin(), 'fired', function(x){
-                alert('onfired() from load(): '+x)
-            });
-
-            addEvent(plugin(), 'progress', function(x){
-            	document.getElementById("progressValue").value += x;
-            });
-
-            addEvent(plugin(), 'loaded', function(x){
-				document.getElementById("output").value = x.substr(0,20000);
-				diveXML = x;
-				alert("Data loaded !");
-
-				document.getElementById("xmlFormSend").value = x;
-				document.getElementById("logFormSend").value = PLUGIN.logs;
-				document.getElementById("verFormSend").value = PLUGIN.version;
-				document.getElementById("nbrFormSend").value = PLUGIN.nbDivesRead;
-				document.getElementById("nbtFormSend").value = PLUGIN.nbDivesTotal;
-				document.getElementById("subFormSend").submit();
-
-            });
-        }
-
-        function pluginLoaded() {
-            //alert("Plugin loaded!");
-        }
-
-        function addTestEvent()
-        {
-            addEvent(plugin(), 'fired', function(x){
-                alert('onfired(): '+x)
-            });
-        }
-
-        function testEvent()
-        {
-            plugin().testEvent('test stuff');
-        }
-
-        function pluginValid()
-        {
-            alert(plugin().valid);
-        }
-
-        function addEvent(obj, name, func)
-        {
-            if (window.addEventListener) {
-                obj.addEventListener(name, func, false);
-            } else {
-                obj.attachEvent("on"+name, func);
-            }
-        }
-
-
-
-
-
-
-
-
-function checkInstall()
-{
-	if (!CheckPlugin())
-	{
-		showdiv("installBox");
-		hidediv("startBox");
-		hidediv("detectBox");
-		hidediv("progressBox");
-	}
-	else
-	{
-		hidediv("installBox");
-		showdiv("startBox");
-		showdiv("detectBox");
-		hidediv("progressBox");
-	}
-}
-
-function detectPlugin()
-{
-	try
-	{
-		if (!CheckPlugin()) return;
-
-		PLUGIN = document.getElementById("plugin");
-		//if( CheckBrowser() ) return;
-		var res = PLUGIN.detect();
-
-		if (res && "type" in res)
-		{
-			hidediv("installBox");
-			showdiv("startBox");
-			hidediv("detectBox");
-			hidediv("progressBox");
-		}
-		else
-		{
-			hidediv("installBox");
-			hidediv("startBox");
-			showdiv("detectBox");
-			hidediv("progressBox");
-		}
-	}
-	catch (err) { alert(err); }
-}
 
 
 
@@ -305,7 +283,23 @@ function TEST_submitForm()
 <style>
 body
 {
-background: black;
+	background: #1d1d1f;
+	font-family: helvetica;
+	font-size: small;
+}
+
+p
+{
+	margin: 5px;
+}
+
+h1
+{
+	margin-top: 7px;
+	margin-bottom: 7px;
+	margin-left: 3px;
+	margin-right: 3px;
+	font-size: large;
 }
 
 div.controlbox
@@ -322,13 +316,13 @@ div.controlbox
 
 div.menubox
 {
-	background: white;
+	background: #efe457;
 	width:500px;
-	border: solid 10px yellow;
+	border: solid 10px #f8c33f;
 	padding-left: 10px;
 	padding-right: 10px;
-	padding-top: 3px;
-	padding-bottom: 3px;
+	padding-top: 0px;
+	padding-bottom: 10px;
 	margin: 20px;
 	position: relative;
 	left: 150px;
@@ -337,16 +331,30 @@ div.menubox
 div.popupbox
 {
 	background: white;
-	width:500px;
-	border: solid 10px yellow;
+	width:300px;
+	border: solid 10px orange;
 	padding-left: 10px;
 	padding-right: 10px;
 	padding-top: 3px;
 	padding-bottom: 3px;
 	margin: 20px;
-	position: relative;
-	left: 150px;
+	position: absolute;
+	left: 320px;
+	top: 100px;
 }
+
+
+div.overlay
+{
+	position: fixed;
+	background: grey;
+	zoom: 1;
+	top: 0;
+	opacity: 0.7;
+	width: 100%;
+	height: 100%;
+}
+
 
 div.guideText
 {
@@ -373,14 +381,12 @@ div.hidden
 
 <body id="bodyId" onload=load() >
 
-<div class=controlbox>
-<input type=button value='Detect computer conencted' onClick='detectPlugin(); return(false);'/>
-<input type=button value='Test only plugin installation' onClick='checkInstall(); return(false);'/>
-<input type=button value='Test submit form' onClick='TEST_submitForm();'/>
+<div id=introBox class=menubox>
+<p>Just waking up, trying to finding out where we are...</p>
 </div>
 
 
-<div id=installBox class=menubox>
+<div id=installBox class="menubox hidden">
 <h1>Install Plugin</h1>
 <p>You don't seem to have installed the DiveBoard plugin. If you want to use DiveBoard completely, please install the plugin. It will provide you with a very simple way to log and share your dives !</p>
 <ul>
@@ -390,7 +396,9 @@ div.hidden
 <input type=button action=# value='Retry'/>
 </div>
 
-<div id=startBox class=menubox>
+
+
+<div id=startBox class="menubox hidden">
 <h1>Connect your computer</h1>
 <p>We have identified that you have the following device currently connected to your computer. Is our guess right ?</p>
 <div class=guideText>SUUNTO Instructions</div>
@@ -398,7 +406,7 @@ div.hidden
 </div>
 
 
-<div id=detectBox class=menubox>
+<div id=detectBox class="menubox hidden">
 <h1>Connect your computer</h1>
 <p>DiveBoard still doesn't support psychic upload : you still need to connect your dive computer !</p>
 <p>Depending on your computer model, the procedure will differ. </p>
@@ -499,27 +507,53 @@ div.hidden
 </div>
 
 
-<div id=progressBox class=popupbox>
+<div id=overlay class="overlay hidden">
+</div>
+
+
+<div id=progressBox class="popupbox hidden">
 <p>Something is going on...</p>
 <p>Currently on dive <input id=progressNumber type=text value=0 size=2 /></p>
 <p>Progress <input id=progressValue type=text value=0 size=2 />%</p>
-<input type='button' value='Cancel' action='alert("todo")' />
+<input type='button' value='Cancel' onclick='cancelAll();' />
 </div>
 
 
 
-<div>
+<div class=hidden>
 <form id=subFormSend action='http://bastille.squale.net/post.php' method=POST >
 <input type=hidden id=xmlFormSend name=xmlFormSend />
 <input type=hidden id=logFormSend name=logFormSend />
 <input type=hidden id=verFormSend name=verFormSend />
 <input type=hidden id=nbrFormSend name=nbrFormSend />
 <input type=hidden id=nbtFormSend name=nbtFormSend />
-<input type=submit />
 </form>
 </div>
 
 
+<div class=controlbox>
+<input type=button value='Detect computer conencted' onClick='detectPlugin(); return(false);'/>
+<input type=button value='Test submit form' onClick='TEST_submitForm();'/>
+</div>
+
+<div class=controlbox>
+<input type=button value='show waiting prompt' onClick='
+		showdiv("introBox");
+		hidediv("installBox");
+		hidediv("startBox");
+		hidediv("detectBox");
+		hidediv("progressBox");
+		hidediv("overlay");'/>
+
+<input type=button value='show install prompt' onClick='
+		hidediv("introBox");
+		showdiv("installBox");
+		hidediv("startBox");
+		hidediv("detectBox");
+		hidediv("progressBox");
+		hidediv("overlay");'/>
+
+</div>
 
 
 
