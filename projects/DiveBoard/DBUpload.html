@@ -58,6 +58,7 @@ function load()
 		});
 
 		addEvent(plugin(), 'loaded', function(x){
+			refresh();
 			document.getElementById("output").value = x.substr(0,20000);
 			diveXML = x;
 			alert("Data loaded !");

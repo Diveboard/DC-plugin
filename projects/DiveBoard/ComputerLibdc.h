@@ -7,17 +7,19 @@
 
 
 //For DLL loading
-typedef device_status_t (__stdcall LDCOPEN)(device_t**, const char *);
-typedef parser_status_t (__stdcall LDCPARSER)(parser_t**);
-typedef  parser_status_t (__stdcall LDCPARSERDESTROY)(parser_t *);
-typedef  parser_status_t (__stdcall LDCPARSERSETDATA)(parser_t *, const unsigned char *, unsigned int );
-typedef  parser_status_t (__stdcall LDCPARSERGETDATETIME)(parser_t *, dc_datetime_t *);
-typedef  parser_status_t (__stdcall LDCPARSERSAMPLESFOREACH)(parser_t *, sample_callback_t , void *);
-typedef  device_status_t (__stdcall LCDDEVFOREACH)(device_t *device, dive_callback_t callback, void *userdata);
-typedef  device_status_t (__stdcall LCDDEVCLOSE)(device_t *device);
-typedef  void (__stdcall LCDDCBUFFERFREE)(dc_buffer_t *buffer);
-typedef  dc_buffer_t * (__stdcall LCDDCBUFFERNEW)(size_t capacity);
-typedef  int (__stdcall LCDDCBUFFERAPPEND)(dc_buffer_t *buffer, const unsigned char data[], size_t size);
+typedef device_status_t (__cdecl LDCOPEN2)(device_t**, const char *);
+typedef device_status_t (__cdecl LDCOPEN1)(device_t**);
+typedef parser_status_t (__cdecl LDCPARSER)(parser_t**);
+typedef parser_status_t (__cdecl LDCPARSERDESTROY)(parser_t *);
+typedef parser_status_t (__cdecl LDCPARSERSETDATA)(parser_t *, const unsigned char *, unsigned int );
+typedef parser_status_t (__cdecl LDCPARSERGETDATETIME)(parser_t *, dc_datetime_t *);
+typedef parser_status_t (__cdecl LDCPARSERSAMPLESFOREACH)(parser_t *, sample_callback_t , void *);
+typedef device_status_t (__cdecl LCDDEVFOREACH)(device_t *device, dive_callback_t callback, void *userdata);
+typedef device_status_t (__cdecl LCDDEVCLOSE)(device_t *device);
+typedef void (__cdecl LCDDCBUFFERFREE)(dc_buffer_t *buffer);
+typedef dc_buffer_t * (__cdecl LCDDCBUFFERNEW)(size_t capacity);
+typedef int (__cdecl LCDDCBUFFERAPPEND)(dc_buffer_t *buffer, const unsigned char data[], size_t size);
+typedef device_status_t (__cdecl LDCDEVSETEVENTS)(device_t *, unsigned int, device_event_callback_t, void *);
 
 
 
