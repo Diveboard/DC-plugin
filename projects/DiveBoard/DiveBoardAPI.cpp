@@ -23,6 +23,17 @@
 #include "DBException.h"
 
 
+#define catchall() catch (FB::script_error e)                \
+	{                                                        \
+		LOGERROR("Caught Exception : %s", e.what());         \
+		throw;                                               \
+	} catch(...)                                             \
+	{                                                        \
+		LOGERROR("Caught Exception Unknown");                \
+		throw FB::script_error("Caught Exception Unknown");  \
+	}
+
+
 
 
 
@@ -38,41 +49,28 @@
 ///////////////////////////////////////////////////////////////////////////////
 DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
-	alwaysAsync=true;
-	status.nbDivesRead=-1;
-	status.nbDivesTotal=-1;
-	status.state = COMPUTER_NOT_STARTED;
-	comp = NULL;
+		alwaysAsync=true;
+		status.nbDivesRead=-1;
+		status.nbDivesTotal=-1;
+		status.state = COMPUTER_NOT_STARTED;
+		comp = NULL;
 
-	registerMethod("echo",      make_method(this, &DiveBoardAPI::echo));
-    registerMethod("testEvent", make_method(this, &DiveBoardAPI::testEvent));
+		//methods
+		registerMethod("echo",      make_method(this, &DiveBoardAPI::echo));
+		registerMethod("extract", make_method(this, &DiveBoardAPI::extract));
+		registerMethod("detect", make_method(this, &DiveBoardAPI::detect));
 
-	registerMethod("extract", make_method(this, &DiveBoardAPI::extract));
-    registerMethod("detect", make_method(this, &DiveBoardAPI::detect));
+		// Read-only property
+		registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
+		registerProperty("version",      make_property(this, &DiveBoardAPI::get_version));
+		registerProperty("logs",         make_property(this, &DiveBoardAPI::get_logs));
+		registerProperty("status",       make_property(this, &DiveBoardAPI::get_status));
 
-    // Read-only property
-    registerProperty("logs",         make_property(this, &DiveBoardAPI::get_logs));
-    registerProperty("nbDivesRead",  make_property(this, &DiveBoardAPI::get_nbDivesRead));
-    registerProperty("nbDivesTotal", make_property(this, &DiveBoardAPI::get_nbDivesTotal));
-    registerProperty("status",       make_property(this, &DiveBoardAPI::get_status));
-    registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
-
-	
-	// Read-write property
-    registerProperty("testString",
-                     make_property(this,
-                        &DiveBoardAPI::get_testString,
-                        &DiveBoardAPI::set_testString));
-
-    // Read-only property
-    registerProperty("version",
-                     make_property(this,
-                        &DiveBoardAPI::get_version));
-    
-    
-    registerEvent("onfired");    
-    registerEvent("onloaded");    
-	registerEvent("onprogress"); 
+		//Events    
+		registerEvent("onfired");    
+		registerEvent("onloaded");    
+		registerEvent("onerror");    
+		registerEvent("onprogress"); 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -96,138 +94,121 @@ DiveBoardAPI::~DiveBoardAPI()
 ///////////////////////////////////////////////////////////////////////////////
 DiveBoardPtr DiveBoardAPI::getPlugin()
 {
-    DiveBoardPtr plugin(m_plugin.lock());
-    if (!plugin) {
-        throw FB::script_error("The plugin is invalid");
-    }
-    return plugin;
+    try {
+		DiveBoardPtr plugin(m_plugin.lock());
+		if (!plugin) {
+			throw FB::script_error("The plugin is invalid");
+		}
+		return plugin;
+	} catchall()
 }
 
 std::string DiveBoardAPI::get_name()
 {
-    return "DiveBoard Reader";
-}
-
-// Read/Write property testString
-std::string DiveBoardAPI::get_testString()
-{
-    return m_testString;
-}
-
-void DiveBoardAPI::set_testString(const std::string& val)
-{
-    m_testString = val;
+    try {
+		return "DiveBoard Reader";
+	} catchall()
 }
 
 // Read-only property version
 std::string DiveBoardAPI::get_version()
 {
-    return str(boost::format("Version built on %s %s") % __DATE__ % __TIME__);
+    try {
+		return str(boost::format("Version built on %s %s") % __DATE__ % __TIME__);
+	} catchall()
 }
 
-// Read-only property version
+// Read-only property logs
 std::string DiveBoardAPI::get_logs()
 {
-	return Logger::toString();
+	try {
+		return Logger::toString();
+	} catchall()
 }
 
-// Read-only property version
+// Read-only property status
 FB::VariantMap DiveBoardAPI::get_status()
 {
-	ComputerStatus local;
-	if (comp) local = comp->get_status();
-	else local = status;
+	try	{
+		ComputerStatus local;
+		if (comp) local = comp->get_status();
+		else local = status;
 
-	FB::VariantMap ret;
+		FB::VariantMap ret;
 
-	switch(local.state) 
-	{
-	case COMPUTER_NOT_STARTED:
-		ret[std::string("state")] = FB::variant("COMPUTER_NOT_STARTED");
-		break;
-	case COMPUTER_RUNNING:
-		ret[std::string("state")] = FB::variant("COMPUTER_RUNNING");
-		break;
-	case COMPUTER_FINISHED:
-		ret[std::string("state")] = FB::variant("COMPUTER_FINISHED");
-		break;
-	default:
-		ret[std::string("state")] = FB::variant("STATUS_UNKNOWN");
-	}
+		switch(local.state) 
+		{
+		case COMPUTER_NOT_STARTED:
+			ret[std::string("state")] = FB::variant("COMPUTER_NOT_STARTED");
+			break;
+		case COMPUTER_RUNNING:
+			ret[std::string("state")] = FB::variant("COMPUTER_RUNNING");
+			break;
+		case COMPUTER_FINISHED:
+			ret[std::string("state")] = FB::variant("COMPUTER_FINISHED");
+			break;
+		default:
+			ret[std::string("state")] = FB::variant("STATUS_UNKNOWN");
+		}
 
-	ret[std::string("nbDivesRead")] = FB::variant(local.nbDivesRead);
-	ret[std::string("nbDivesTotal")] = FB::variant(local.nbDivesTotal);
-	ret[std::string("percent")] = FB::variant(local.percent);
+		ret[std::string("nbDivesRead")] = FB::variant(local.nbDivesRead);
+		ret[std::string("nbDivesTotal")] = FB::variant(local.nbDivesTotal);
+		ret[std::string("percent")] = FB::variant(local.percent);
 
-	return(ret);
-}
-
-// Read-only property version
-int DiveBoardAPI::get_nbDivesRead()
-{
-	ComputerStatus local;
-	if (comp) local = comp->get_status();
-	else local = status;
-	return local.nbDivesRead;
-}
-
-// Read-only property version
-int DiveBoardAPI::get_nbDivesTotal()
-{
-	ComputerStatus local;
-	if (comp) local = comp->get_status();
-	else local = status;
-	return local.nbDivesTotal;
+		return(ret);
+	} catchall()
 }
 
 // Method echo
 FB::variant DiveBoardAPI::echo(const FB::variant& msg)
 {
-	LOGINFO(str(boost::format("coucou %d") %1));
-    return msg;
-}
-
-void DiveBoardAPI::testEvent(const FB::variant& var)
-{
-    FireEvent("onfired", FB::variant_list_of(var)(true)(1));
+	try	{
+		LOGINFO("Method echo called");
+		return msg;
+	} catchall()
 }
 
 
-
-//todo mac
-//DWORD WINAPI DiveBoardAPI::asyncfunc(LPVOID lpParam)
 void *DiveBoardAPI::asyncfunc(void *p)
 {
+	LOGINFO("Start asynchronous treatment");
 	std::string diveXML;
 	DiveBoardAPI *plugin = (DiveBoardAPI*)p;
 
-	LOGINFO("Start async");
 	try{
-
-		if (plugin->status.state == COMPUTER_RUNNING) throw DBException("DiveBoardAPI::asyncfunc : get_all_dives is already running");
-		if (!plugin->comp) throw DBException("DiveBoardAPI::asyncfunc : computer is null !");
+		//todo : better use mutex
+		if (plugin->status.state == COMPUTER_RUNNING) DBthrowError("Only one instance of DiveBoard can access to the Computer at the same time");
+		if (!plugin->comp) DBthrowError("computer is null");
 	
+		//Updating the status when starting the computer
 		plugin->status.state = COMPUTER_RUNNING;
-		LOGINFO("Running get_all_dives asynchronously");
-
+		LOGDEBUG("Running get_all_dives");
+		
 		plugin->comp->get_all_dives(diveXML);
 
-		//Updating the status
+		LOGDEBUG("get_all_dives finished");
+
+		//Updating the status after it's finished
 		plugin->status = plugin->comp->get_status();
 		plugin->status.state = COMPUTER_FINISHED;
 		delete plugin->comp;
 		plugin->comp = NULL;
 
+		LOGDEBUG("triggering onloaded event");
+
 		//todo fix
 		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
 
-		
-
-	} catch (DBException e)
+	} catch (std::exception e)
 	{
-		LOGINFO(std::string("ERROR :") + e.what());
-		return(NULL);
-	};
+		LOGERROR("Caught Exception : %s", e.what());
+		plugin->FireEvent("onerror", FB::variant_list_of());
+	} catch(...)
+	{
+		LOGERROR("Caught Exception Unknown");
+		plugin->FireEvent("onerror", FB::variant_list_of());
+	}
+
 	LOGINFO("End async");
 	
 	return(NULL);
@@ -269,16 +250,11 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 			comp = NULL;
 		}
 
-	} catch(DBException e) 
-	{
-		//throw FB::script_error("conversion failed :(");
-		LOGINFO(std::string("ERROR :") + e.what());
-	}
+	} catchall()
 }
 
 
 FB::VariantMap DiveBoardAPI::detect()
-//std::string DiveBoardAPI::detect()
 {
 	try
 	{
@@ -295,10 +271,5 @@ FB::VariantMap DiveBoardAPI::detect()
 
 		return(ret2);
 
-	} catch(DBException e) 
-	{
-		//throw FB::script_error("conversion failed :(");
-		LOGINFO(std::string("ERROR :") + e.what());
-		throw(e);
-	}
+	} catchall()
 }

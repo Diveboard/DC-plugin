@@ -27,8 +27,7 @@ HINSTANCE openDLLLibrary()
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 
-		LOGERROR(str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf));
-		throw DBException("Error while loading dll");
+		DBthrowError(str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf));
 	}
 
 	return libdc;
@@ -36,12 +35,10 @@ HINSTANCE openDLLLibrary()
 
 void *getDLLFunction(HINSTANCE libdc, const char *function)
 {
-	void *ptr;
-	ptr = GetProcAddress(libdc, function);
-	if (!ptr)  {
-		LOGERROR("Error fetching DLL pointer to %s", function);
-		throw DBException("Error fetching DLL pointer");
-	}
+	void *ptr = GetProcAddress(libdc, function);
+	if (!ptr)
+		DBthrowError("Error fetching DLL pointer to %s", function);
+
 	return(ptr);
 }
 
@@ -96,6 +93,7 @@ typedef struct dive_data_t {
 	std::string *out;
 	unsigned int number;
 	dc_buffer_t *fingerprint;
+	ComputerStatus *status;
 } dive_data_t;
 
 typedef struct sample_data_t {
@@ -135,6 +133,35 @@ static const backend_table_t g_backends[] = {
 	{"LDC edy",			DEVICE_TYPE_CRESSI_EDY}
 };
 
+
+static const char*
+errmsg (device_status_t rc)
+{
+	switch (rc) {
+	case DEVICE_STATUS_SUCCESS:
+		return "Success";
+	case DEVICE_STATUS_UNSUPPORTED:
+		return "Unsupported operation";
+	case DEVICE_STATUS_TYPE_MISMATCH:
+		return "Device type mismatch";
+	case DEVICE_STATUS_ERROR:
+		return "Generic error";
+	case DEVICE_STATUS_IO:
+		return "Input/output error";
+	case DEVICE_STATUS_MEMORY:
+		return "Memory error";
+	case DEVICE_STATUS_PROTOCOL:
+		return "Protocol error";
+	case DEVICE_STATUS_TIMEOUT:
+		return "Timeout";
+	case DEVICE_STATUS_CANCELLED:
+		return "Cancelled";
+	default:
+		return "Unknown error";
+	}
+}
+
+
 static device_type_t
 lookup_type (const char *name)
 {
@@ -144,6 +171,7 @@ lookup_type (const char *name)
 			return g_backends[i].type;
 	}
 
+	LOGWARNING("Device of name (%s) not found", name);
 	return DEVICE_TYPE_NULL;
 }
 
@@ -155,7 +183,8 @@ lookup_name (device_type_t type)
 		if (g_backends[i].type == type)
 			return g_backends[i].name;
 	}
-
+	
+	LOGWARNING("Name of type (%d) not found", type);
 	return NULL;
 }
 
@@ -168,8 +197,10 @@ hex2dec (unsigned char value)
 		return value - 'A' + 10;
 	else if (value >= 'a' && value <= 'f')
 		return value - 'a' + 10;
-	else
+	else {
+		LOGWARNING("Converting unvalid hex char to dec");
 		return 0;
+	}
 }
 
 static dc_buffer_t *
@@ -276,55 +307,64 @@ cancel_cb (void *userdata)
 void
 sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdata)
 {
-	static const char *events[] = {
-		"none", "DECO", "rbt", "ASCENT", "CEILING", "workload", "transmitter",
-		"violation", "bookmark", "surface", "safety stop", "gaschange",
-		"safety stop (voluntary)", "safety stop (mandatory)", "deepstop",
-		"ceiling (safety stop)", "unknown", "divetime", "maxdepth",
-		"OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning"};
+	try {
+		static const char *events[] = {
+			"none", "DECO", "rbt", "ASCENT", "CEILING", "workload", "transmitter",
+			"violation", "bookmark", "surface", "safety stop", "gaschange",
+			"safety stop (voluntary)", "safety stop (mandatory)", "deepstop",
+			"ceiling (safety stop)", "unknown", "divetime", "maxdepth",
+			"OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning"};
 
-	//sample_data_t *sampledata = (sample_data_t *) userdata;
-	unsigned int nsamples = 0;
-	std::string *diveXML = (std::string *)userdata;
+		//sample_data_t *sampledata = (sample_data_t *) userdata;
+		unsigned int nsamples = 0;
+		std::string *diveXML = (std::string *)userdata;
 
-	switch (type) {
-	case SAMPLE_TYPE_TIME:
-		nsamples++;
-		*diveXML += str(boost::format("<t>%02u</t>") % value.time);
-		break;
-	case SAMPLE_TYPE_DEPTH:
-		*diveXML += str(boost::format("<d>%.2f</d>") % value.depth);
-		break;
-	case SAMPLE_TYPE_PRESSURE:
-		//todo
-		*diveXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>\n") %  value.pressure.tank % value.pressure.value);
-		break;
-	case SAMPLE_TYPE_TEMPERATURE:
-		*diveXML += str(boost::format("<temperature>%.2f</temperature>") % value.temperature);
-		break;
-	case SAMPLE_TYPE_EVENT:
-		*diveXML += str(boost::format("<ALARM type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</ALARM>")
-			% value.event.type % value.event.time % value.event.flags % value.event.value % events[value.event.type]);
-		break;
-	case SAMPLE_TYPE_RBT:
-		*diveXML += str(boost::format("<rbt>%u</rbt>") % value.rbt);
-		break;
-	case SAMPLE_TYPE_HEARTBEAT:
-		//todo
-		*diveXML += str(boost::format("<heartbeat>%u</heartbeat>") % value.heartbeat);
-		break;
-	case SAMPLE_TYPE_BEARING:
-		//todo
-		*diveXML += str(boost::format("<bearing>%u</bearing>") % value.bearing);
-		break;
-	case SAMPLE_TYPE_VENDOR:
-		*diveXML += str(boost::format("<vendor type=\"%u\" size=\"%u\">") % value.vendor.type % value.vendor.size);
-		for (unsigned int i = 0; i < value.vendor.size; ++i)
-			*diveXML += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
-		*diveXML += "</vendor>\n";
-		break;
-	default:
-		break;
+		LOGDEBUG("Parsing element of type '%d'", type);
+
+		switch (type) {
+		case SAMPLE_TYPE_TIME:
+			nsamples++;
+			*diveXML += str(boost::format("<t>%02u</t>") % value.time);
+			break;
+		case SAMPLE_TYPE_DEPTH:
+			*diveXML += str(boost::format("<d>%.2f</d>") % value.depth);
+			break;
+		case SAMPLE_TYPE_PRESSURE:
+			//todo
+			*diveXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>\n") %  value.pressure.tank % value.pressure.value);
+			break;
+		case SAMPLE_TYPE_TEMPERATURE:
+			*diveXML += str(boost::format("<temperature>%.2f</temperature>") % value.temperature);
+			break;
+		case SAMPLE_TYPE_EVENT:
+			*diveXML += str(boost::format("<ALARM type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</ALARM>")
+				% value.event.type % value.event.time % value.event.flags % value.event.value % events[value.event.type]);
+			break;
+		case SAMPLE_TYPE_RBT:
+			*diveXML += str(boost::format("<rbt>%u</rbt>") % value.rbt);
+			break;
+		case SAMPLE_TYPE_HEARTBEAT:
+			//todo
+			*diveXML += str(boost::format("<heartbeat>%u</heartbeat>") % value.heartbeat);
+			break;
+		case SAMPLE_TYPE_BEARING:
+			//todo
+			*diveXML += str(boost::format("<bearing>%u</bearing>") % value.bearing);
+			break;
+		case SAMPLE_TYPE_VENDOR:
+			*diveXML += str(boost::format("<vendor type=\"%u\" size=\"%u\">") % value.vendor.type % value.vendor.size);
+			for (unsigned int i = 0; i < value.vendor.size; ++i)
+				*diveXML += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
+			*diveXML += "</vendor>\n";
+			break;
+		default:
+			LOGWARNING("Received an element of unknown type '%d'", type);
+			break;
+		}
+	} catch (std::exception e) {
+		DBthrowError("Error in sample_cb : %s", e.what());
+	} catch (...) {
+		DBthrowError("Error in sample_cb");
 	}
 }
 
@@ -333,12 +373,13 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 static parser_status_t doparse (std::string *out, device_data_t *devdata, const unsigned char data[], unsigned int size)
 {
 	// Create the parser.
-	LOGINFO("Creating the parser.");
+	LOGINFO("starting doparse");
 	parser_t *parser = NULL;
 	parser_status_t rc = PARSER_STATUS_SUCCESS;
 
 	//getting general pointers to functions of libDiveComputer
 	//todo factorize this in ComputerLibdc constructor
+	LOGINFO("Getting pointers to DLL");
 	LOGDEBUG("Opening LibDiveComputer");
 	HINSTANCE libdc = openDLLLibrary();
 	LOGDEBUG("LibDiveComputer DLL loaded");
@@ -354,142 +395,159 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 	LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
 	LOGDEBUG("General pointers to LibDiveComputer fetched");
 
-	parser_status_t (*create_parser1)(parser_t **) = NULL;
-	parser_status_t (*create_parser2)(parser_t **, unsigned int) = NULL;
-	parser_status_t (*create_parser3)(parser_t **, unsigned int, dc_ticks_t) = NULL;
-	parser_status_t (*create_parser4)(parser_t **, unsigned int, unsigned int, dc_ticks_t) = NULL;
+	try {
+		parser_status_t (*create_parser1)(parser_t **) = NULL;
+		parser_status_t (*create_parser2)(parser_t **, unsigned int) = NULL;
+		parser_status_t (*create_parser3)(parser_t **, unsigned int, dc_ticks_t) = NULL;
+		parser_status_t (*create_parser4)(parser_t **, unsigned int, unsigned int, dc_ticks_t) = NULL;
 
-	switch (devdata->backend) {
-	case DEVICE_TYPE_SUUNTO_SOLUTION:
-		create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "suunto_solution_parser_create");
-		rc = create_parser1 (&parser);
-		break;
-	case DEVICE_TYPE_SUUNTO_EON:
-		create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "suunto_eon_parser_create");
-		rc = create_parser2(&parser, 0);
-		break;
-	case DEVICE_TYPE_SUUNTO_VYPER:
-		if (devdata->devinfo.model == 0x01) {
+		LOGINFO("Creating the correct parser");
+		switch (devdata->backend) {
+		case DEVICE_TYPE_SUUNTO_SOLUTION:
+			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "suunto_solution_parser_create");
+			rc = create_parser1 (&parser);
+			break;
+		case DEVICE_TYPE_SUUNTO_EON:
 			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "suunto_eon_parser_create");
-			rc = create_parser2(&parser, 1);
-		}
-		else {
-			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "suunto_vyper_parser_create");
+			rc = create_parser2(&parser, 0);
+			break;
+		case DEVICE_TYPE_SUUNTO_VYPER:
+			if (devdata->devinfo.model == 0x01) {
+				create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "suunto_eon_parser_create");
+				rc = create_parser2(&parser, 1);
+			}
+			else {
+				create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "suunto_vyper_parser_create");
+				rc = create_parser1(&parser);
+			}
+			break;
+		case DEVICE_TYPE_SUUNTO_VYPER2:
+		case DEVICE_TYPE_SUUNTO_D9:
+			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "suunto_d9_parser_create");
+			rc = create_parser2(&parser, devdata->devinfo.model);
+			break;
+		case DEVICE_TYPE_UWATEC_ALADIN:
+		case DEVICE_TYPE_UWATEC_MEMOMOUSE:
+			create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "uwatec_memomouse_parser_create");
+			rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
+			break;
+		case DEVICE_TYPE_UWATEC_SMART:
+			create_parser4 = (parser_status_t (*)(parser_t **, unsigned int, unsigned int, dc_ticks_t))getDLLFunction(libdc, "uwatec_smart_parser_create");
+			rc = create_parser4(&parser, devdata->devinfo.model, devdata->clock.devtime, devdata->clock.systime);
+			//rc = uwatec_smart_parser_create (&parser, devdata->devinfo.model, devdata->clock.devtime, devdata->clock.systime);
+			break;
+		case DEVICE_TYPE_REEFNET_SENSUS:
+			create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "reefnet_sensus_parser_create");
+			rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
+			//rc = reefnet_sensus_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
+			break;
+		case DEVICE_TYPE_REEFNET_SENSUSPRO:
+			create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "reefnet_sensuspro_parser_create");
+			rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
+			//rc = reefnet_sensuspro_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
+			break;
+		case DEVICE_TYPE_REEFNET_SENSUSULTRA:
+			create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "reefnet_sensusultra_parser_create");
+			rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
+			//rc = reefnet_sensusultra_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
+			break;
+		case DEVICE_TYPE_OCEANIC_VTPRO:
+			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "oceanic_vtpro_parser_create");
 			rc = create_parser1(&parser);
+			//rc = oceanic_vtpro_parser_create (&parser);
+			break;
+		case DEVICE_TYPE_OCEANIC_VEO250:
+			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "oceanic_veo250_parser_create");
+			rc = create_parser1(&parser);
+			//rc = oceanic_veo250_parser_create (&parser);
+			break;
+		case DEVICE_TYPE_OCEANIC_ATOM2:
+			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "oceanic_atom2_parser_create");
+			rc = create_parser2(&parser, devdata->devinfo.model);
+			//rc = oceanic_atom2_parser_create (&parser, devdata->devinfo.model);
+			break;
+		case DEVICE_TYPE_MARES_NEMO:
+		case DEVICE_TYPE_MARES_PUCK:
+			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "mares_nemo_parser_create");
+			rc = create_parser2(&parser, devdata->devinfo.model);
+			//rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
+			break;
+		case DEVICE_TYPE_HW_OSTC:
+			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "hw_ostc_parser_create");
+			rc = create_parser1(&parser);
+			//rc = hw_ostc_parser_create (&parser);
+			break;
+		case DEVICE_TYPE_CRESSI_EDY:
+			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "cressi_edy_parser_create");
+			rc = create_parser1(&parser);
+			//rc = cressi_edy_parser_create (&parser);
+			break;
+		default:
+			LOGWARNING("Parser requested of an unknown type (%d)", devdata->backend);
+			rc = PARSER_STATUS_ERROR;
+			break;
 		}
-		break;
-	case DEVICE_TYPE_SUUNTO_VYPER2:
-	case DEVICE_TYPE_SUUNTO_D9:
-		create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "suunto_d9_parser_create");
-		rc = create_parser2(&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_UWATEC_ALADIN:
-	case DEVICE_TYPE_UWATEC_MEMOMOUSE:
-		create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "uwatec_memomouse_parser_create");
-		rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_UWATEC_SMART:
-		create_parser4 = (parser_status_t (*)(parser_t **, unsigned int, unsigned int, dc_ticks_t))getDLLFunction(libdc, "uwatec_smart_parser_create");
-		rc = create_parser4(&parser, devdata->devinfo.model, devdata->clock.devtime, devdata->clock.systime);
-		//rc = uwatec_smart_parser_create (&parser, devdata->devinfo.model, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUS:
-		create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "reefnet_sensus_parser_create");
-		rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
-		//rc = reefnet_sensus_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUSPRO:
-		create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "reefnet_sensuspro_parser_create");
-		rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
-		//rc = reefnet_sensuspro_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUSULTRA:
-		create_parser3 = (parser_status_t (*)(parser_t **, unsigned int, dc_ticks_t))getDLLFunction(libdc, "reefnet_sensusultra_parser_create");
-		rc = create_parser3(&parser, devdata->clock.devtime, devdata->clock.systime);
-		//rc = reefnet_sensusultra_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_OCEANIC_VTPRO:
-		create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "oceanic_vtpro_parser_create");
-		rc = create_parser1(&parser);
-		//rc = oceanic_vtpro_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_OCEANIC_VEO250:
-		create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "oceanic_veo250_parser_create");
-		rc = create_parser1(&parser);
-		//rc = oceanic_veo250_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_OCEANIC_ATOM2:
-		create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "oceanic_atom2_parser_create");
-		rc = create_parser2(&parser, devdata->devinfo.model);
-		//rc = oceanic_atom2_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_MARES_NEMO:
-	case DEVICE_TYPE_MARES_PUCK:
-		create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "mares_nemo_parser_create");
-		rc = create_parser2(&parser, devdata->devinfo.model);
-		//rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_HW_OSTC:
-		create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "hw_ostc_parser_create");
-		rc = create_parser1(&parser);
-		//rc = hw_ostc_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_CRESSI_EDY:
-		create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "cressi_edy_parser_create");
-		rc = create_parser1(&parser);
-		//rc = cressi_edy_parser_create (&parser);
-		break;
-	default:
-		rc = PARSER_STATUS_ERROR;
-		break;
+
+		if (rc != PARSER_STATUS_SUCCESS) {
+			LOGWARNING("Error creating the parser : %d", rc);
+			return rc;
+		}
+
+		// Register the data.
+		LOGINFO("Registering the data.");
+		rc = parser_set_data (parser, data, size);
+		if (rc != PARSER_STATUS_SUCCESS) {
+			LOGDEBUG("Error registering the data");
+			parser_destroy (parser);
+			DBthrowError(str(boost::format("Error registering the data - Error code : %1%") % rc));
+		}
+
+		// Parse the datetime.
+		LOGINFO("Parsing the datetime.\n");
+		dc_datetime_t dt = {0};
+		rc = parser_get_datetime (parser, &dt);
+		if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+			LOGDEBUG("Error parsing the datetime.");
+			parser_destroy (parser);
+			DBthrowError(str(boost::format("Error parsing the datetime - Error code : %1%") % rc));
+		}
+
+		*out += str(boost::format("<DATE>%04i-%02i-%02i</DATE><TIME>%02i:%02i:%02i</TIME>\n")
+			% dt.year % dt.month % dt.day
+			% dt.hour % dt.minute % dt.second);
+
+		// Initialize the sample data.
+		unsigned int nsamples = 0;
+
+		// Parse the sample data.
+		LOGINFO("Parsing the sample data.\n");
+		*out += "<SAMPLES>";
+		//LDCPARSERSAMPLESFOREACH* parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(GetProcAddress(libdc, "parser_samples_foreach"));
+		rc = parser_samples_foreach (parser, sample_cb, out);
+		if (rc != PARSER_STATUS_SUCCESS) {
+			LOGDEBUG("Error parsing the sample data.");
+			parser_destroy (parser);
+			DBthrowError(str(boost::format("Error parsing the sample data - Error code : %1%") % rc));
+		}
+
+		*out += "</SAMPLES>\n";
+
+	} catch(std::exception e) {
+		LOGWARNING("Caught Exception : %s",e.what());
+		LOGINFO("Destroying the parser.\n");
+		rc = parser_destroy (parser);
+		if (rc != PARSER_STATUS_SUCCESS) {
+			LOGINFO("WARNING - Error destroying the parser - Error %d", rc);
+		}
+		throw;
+	} catch(...) {
+		LOGINFO("Destroying the parser.\n");
+		rc = parser_destroy (parser);
+		if (rc != PARSER_STATUS_SUCCESS) {
+			LOGINFO("WARNING - Error destroying the parser - Error %d", rc);
+		}
+		DBthrowError("Caught Exception Unknown");
 	}
-
-	if (rc != PARSER_STATUS_SUCCESS) {
-		LOGINFO("Error creating the parser.");
-		return rc;
-	}
-
-	// Register the data.
-	LOGINFO("Registering the data.\n");
-	//LDCPARSERSETDATA* parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(GetProcAddress(libdc, "parser_set_data"));
-	//LDCPARSERDESTROY* parser_destroy = reinterpret_cast<LDCPARSERDESTROY*>(GetProcAddress(libdc, "parser_destroy"));
-	rc = parser_set_data (parser, data, size);
-	if (rc != PARSER_STATUS_SUCCESS) {
-		LOGINFO("Error registering the data.");
-		parser_destroy (parser);
-		throw DBException (str(boost::format("Error registering the data - Error code : %1%") % rc));
-	}
-
-	// Parse the datetime.
-	LOGINFO("Parsing the datetime.\n");
-	dc_datetime_t dt = {0};
-	//LDCPARSERGETDATETIME* parser_get_datetime = reinterpret_cast<LDCPARSERGETDATETIME*>(GetProcAddress(libdc, "parser_get_datetime"));
-	rc = parser_get_datetime (parser, &dt);
-	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
-		LOGINFO("Error parsing the datetime.");
-		parser_destroy (parser);
-		throw DBException (str(boost::format("Error parsing the datetime - Error code : %1%") % rc));
-	}
-
-	*out += str(boost::format("<DATE>%04i-%02i-%02i</DATE><TIME>%02i:%02i:%02i</TIME>\n")
-		% dt.year % dt.month % dt.day
-		% dt.hour % dt.minute % dt.second);
-
-	// Initialize the sample data.
-	unsigned int nsamples = 0;
-
-	// Parse the sample data.
-	LOGINFO("Parsing the sample data.\n");
-	*out += "<SAMPLES>";
-	//LDCPARSERSAMPLESFOREACH* parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(GetProcAddress(libdc, "parser_samples_foreach"));
-	rc = parser_samples_foreach (parser, sample_cb, out);
-	if (rc != PARSER_STATUS_SUCCESS) {
-		LOGINFO("Error parsing the sample data.");
-		parser_destroy (parser);
-		throw DBException (str(boost::format("Error parsing the sample data - Error code : %1%") % rc));
-	}
-
-	*out += "</SAMPLES>\n";
 
 	// Destroy the parser.
 	LOGINFO("Destroying the parser.\n");
@@ -505,134 +563,130 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 
 static void event_cb (device_t *device, device_event_t event, const void *data, void *userdata)
 {
-	const device_progress_t *progress = (device_progress_t *) data;
-	const device_devinfo_t *devinfo = (device_devinfo_t *) data;
-	const device_clock_t *clock = (device_clock_t *) data;
+	try {
+		const device_progress_t *progress = (device_progress_t *) data;
+		const device_devinfo_t *devinfo = (device_devinfo_t *) data;
+		const device_clock_t *clock = (device_clock_t *) data;
 
-	event_data_t *evdata = (event_data_t *)userdata;
+		event_data_t *evdata = (event_data_t *)userdata;
 
-	device_data_t *devdata = evdata->devdata;
+		device_data_t *devdata = evdata->devdata;
 
-	switch (event) {
-	case DEVICE_EVENT_WAITING:
-		LOGINFO("Event: waiting for user action\n");
-		break;
-	case DEVICE_EVENT_PROGRESS:
-		if (progress->maximum >0)
-		{
-			LOGINFO("Event: progress %3.2f%% (%u/%u)\n",
-			100.0 * (double) progress->current / (double) progress->maximum,
-			progress->current, progress->maximum);
+		LOGDEBUG("Received event of tyep '%d'", event);
 
-			evdata->status->percent = 100.0 * (double) progress->current / (double) progress->maximum;
+		switch (event) {
+		case DEVICE_EVENT_WAITING:
+			LOGDEBUG("Event: waiting for user action\n");
+			break;
+		case DEVICE_EVENT_PROGRESS:
+			if (progress->maximum >0)
+			{
+				LOGDEBUG("Event: progress %3.2f%% (%u/%u)\n",
+				         100.0 * (double) progress->current / (double) progress->maximum,
+				         progress->current, progress->maximum);
+
+				evdata->status->percent = 100.0 * (double) progress->current / (double) progress->maximum;
+			}
+			else
+			{
+				LOGWARNING("Event: progress negative or zero !");
+			}
+			break;
+		case DEVICE_EVENT_DEVINFO:
+			devdata->devinfo = *devinfo;
+			LOGINFO("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)\n",
+				devinfo->model, devinfo->model,
+				devinfo->firmware, devinfo->firmware,
+				devinfo->serial, devinfo->serial);
+			//todo handle fingerprints
+			/*if (g_cachedir && g_cachedir_read) {
+				dc_buffer_t *fingerprint = fpread (g_cachedir, devdata->backend, devinfo->serial);
+				device_set_fingerprint (device,
+					dc_buffer_get_data (fingerprint),
+					dc_buffer_get_size (fingerprint));
+				dc_buffer_free (fingerprint);
+			}*/
+			break;
+		case DEVICE_EVENT_CLOCK:
+			devdata->clock = *clock;
+			LOGDEBUG("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
+				clock->systime, clock->devtime);
+			break;
+		default:
+			LOGWARNING("unsupported kind of event received '%d'", event);
+			break;
 		}
-		else
-		{
-			LOGINFO("Event: progress negative !");
-		}
-		break;
-	case DEVICE_EVENT_DEVINFO:
-		devdata->devinfo = *devinfo;
-		LOGINFO("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)\n",
-			devinfo->model, devinfo->model,
-			devinfo->firmware, devinfo->firmware,
-			devinfo->serial, devinfo->serial);
-		//todo handle fingerprints
-		/*if (g_cachedir && g_cachedir_read) {
-			dc_buffer_t *fingerprint = fpread (g_cachedir, devdata->backend, devinfo->serial);
-			device_set_fingerprint (device,
-				dc_buffer_get_data (fingerprint),
-				dc_buffer_get_size (fingerprint));
-			dc_buffer_free (fingerprint);
-		}*/
-		break;
-	case DEVICE_EVENT_CLOCK:
-		devdata->clock = *clock;
-		LOGINFO("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
-			clock->systime, clock->devtime);
-		break;
-	default:
-		break;
+
+	} catch(std::exception e) {
+		LOGWARNING("Caught Exception : %s",e.what());
+		throw;
+	} catch(...) {
+		DBthrowError("Caught Exception Unknown");
 	}
 }
 
 static int dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize, void *userdata)
 {
-	dive_data_t *divedata = (dive_data_t *) userdata;
+	try {
+		dive_data_t *divedata = (dive_data_t *) userdata;
 
-	divedata->number++;
+		divedata->number++;
 
-	//getting general pointers to functions of libDiveComputer
-	//todo factorize this in ComputerLibdc constructor
-	LOGDEBUG("Opening LibDiveComputer DLL");
-	HINSTANCE libdc = openDLLLibrary();
-	LOGDEBUG("LibDiveComputer DLL loaded");
-	LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
-	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
-	LCDDCBUFFERFREE* dc_buffer_free = reinterpret_cast<LCDDCBUFFERFREE*>(getDLLFunction(libdc, "dc_buffer_free"));
-	LDCDEVSETEVENTS *device_set_events = reinterpret_cast<LDCDEVSETEVENTS*>(getDLLFunction(libdc, "device_set_events"));
-	LCDDCBUFFERAPPEND *dc_buffer_append = reinterpret_cast<LCDDCBUFFERAPPEND*>(getDLLFunction(libdc, "dc_buffer_append"));
-	LCDDCBUFFERNEW *dc_buffer_new = reinterpret_cast<LCDDCBUFFERNEW*>(getDLLFunction(libdc, "dc_buffer_new"));
-	LDCPARSERSAMPLESFOREACH *parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(getDLLFunction(libdc, "parser_samples_foreach"));
-	LDCPARSERGETDATETIME *parser_get_datetime = reinterpret_cast<LDCPARSERGETDATETIME*>(getDLLFunction(libdc, "parser_get_datetime"));
-	LDCPARSERDESTROY *parser_destroy = reinterpret_cast<LDCPARSERDESTROY*>(getDLLFunction(libdc, "parser_destroy"));
-	LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
-	LOGDEBUG("General pointers to LibDiveComputer fetched");
+		//getting general pointers to functions of libDiveComputer
+		//todo factorize this in ComputerLibdc constructor
+		LOGDEBUG("Opening LibDiveComputer DLL");
+		HINSTANCE libdc = openDLLLibrary();
+		LOGDEBUG("LibDiveComputer DLL loaded");
+		LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
+		LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
+		LCDDCBUFFERFREE* dc_buffer_free = reinterpret_cast<LCDDCBUFFERFREE*>(getDLLFunction(libdc, "dc_buffer_free"));
+		LDCDEVSETEVENTS *device_set_events = reinterpret_cast<LDCDEVSETEVENTS*>(getDLLFunction(libdc, "device_set_events"));
+		LCDDCBUFFERAPPEND *dc_buffer_append = reinterpret_cast<LCDDCBUFFERAPPEND*>(getDLLFunction(libdc, "dc_buffer_append"));
+		LCDDCBUFFERNEW *dc_buffer_new = reinterpret_cast<LCDDCBUFFERNEW*>(getDLLFunction(libdc, "dc_buffer_new"));
+		LDCPARSERSAMPLESFOREACH *parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(getDLLFunction(libdc, "parser_samples_foreach"));
+		LDCPARSERGETDATETIME *parser_get_datetime = reinterpret_cast<LDCPARSERGETDATETIME*>(getDLLFunction(libdc, "parser_get_datetime"));
+		LDCPARSERDESTROY *parser_destroy = reinterpret_cast<LDCPARSERDESTROY*>(getDLLFunction(libdc, "parser_destroy"));
+		LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
+		LOGDEBUG("General pointers to LibDiveComputer fetched");
 	
 
-	LOGINFO("Dive: number=%u, size=%u, fingerprint=", divedata->number, size);
-	for (unsigned int i = 0; i < fsize; ++i)
-		LOGINFO("%02X", fingerprint[i]);
-	LOGINFO("\n");
+		LOGINFO("Dive: number=%u, size=%u", divedata->number, size);
+		for (unsigned int i = 0; i < fsize; ++i)
+			LOGINFO("fingerprint byte %d :%02X", i, fingerprint[i]);
 
-	if (divedata->number == 1) {
-		divedata->fingerprint = dc_buffer_new (fsize);
-		dc_buffer_append (divedata->fingerprint, fingerprint, fsize);
-	}
+		//update status
+		divedata->status->nbDivesRead = divedata->number;
 
-	*(divedata->out) += "<DIVE><PROGRAM><fingerprint>";
-	for (unsigned int i = 0; i < fsize; ++i)
-			*(divedata->out) += str(boost::format( "%02X") % fingerprint[i]);
-	*(divedata->out) += "</fingerprint></PROGRAM>";
+		if (divedata->number == 1) {
+			divedata->fingerprint = dc_buffer_new (fsize);
+			dc_buffer_append (divedata->fingerprint, fingerprint, fsize);
+		}
 
+		*(divedata->out) += "<DIVE><PROGRAM><fingerprint>";
+		for (unsigned int i = 0; i < fsize; ++i)
+				*(divedata->out) += str(boost::format( "%02X") % fingerprint[i]);
+		*(divedata->out) += "</fingerprint></PROGRAM>";
+
+		LOGINFO("Parsing the data");
 		doparse (divedata->out, divedata->devdata, data, size);
+		LOGINFO("Done with parsing the data");
 
 		*(divedata->out) += "</DIVE>";
+
+	} catch(std::exception e) {
+		LOGWARNING("Caught Exception : %s",e.what());
+		throw;
+	} catch(...) {
+		DBthrowError("Caught Exception Unknown");
+	}
 
 	return 1;
 }
 
 
-static const char*
-errmsg (device_status_t rc)
-{
-	switch (rc) {
-	case DEVICE_STATUS_SUCCESS:
-		return "Success";
-	case DEVICE_STATUS_UNSUPPORTED:
-		return "Unsupported operation";
-	case DEVICE_STATUS_TYPE_MISMATCH:
-		return "Device type mismatch";
-	case DEVICE_STATUS_ERROR:
-		return "Generic error";
-	case DEVICE_STATUS_IO:
-		return "Input/output error";
-	case DEVICE_STATUS_MEMORY:
-		return "Memory error";
-	case DEVICE_STATUS_PROTOCOL:
-		return "Protocol error";
-	case DEVICE_STATUS_TIMEOUT:
-		return "Timeout";
-	case DEVICE_STATUS_CANCELLED:
-		return "Cancelled";
-	default:
-		return "Unknown error";
-	}
-}
-
-
 void dowork (device_type_t &backend, const std::string &devname, std ::string &diveXML, dc_buffer_t *fingerprint, ComputerStatus &status)
 {
+	LOGINFO("Starting dowork");
 	device_status_t rc = DEVICE_STATUS_SUCCESS;
 
 	// Initialize the device data.
@@ -738,21 +792,19 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		//rc = cressi_edy_device_open (&device, devname.c_str());
 		break;
 	default:
-		LOGERROR("Type of device unrecognised (%d)", backend);
-		throw DBException("Error in getching DLL pointers to function");
+		DBthrowError("Error in getching DLL pointers to function : Type of device unrecognised (%d)", backend);
 	}
 
 	if (device_open2) rc = device_open2(&device, devname.c_str());
 	else if (device_open1) rc = device_open1(&device);
 	else {
-		LOGERROR("Error in getching DLL pointers to function");
-		throw DBException("Error in getching DLL pointers to function");
+		DBthrowError("Error in getching DLL pointers to function");
 	}
 		
 	if (rc != DEVICE_STATUS_SUCCESS)
-		throw DBException (std::string("Error opening device - Error code : ") + errmsg(rc));
+		DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
 
-	// todo Register the event handler.
+	//Register the event handler.
 	LOGINFO("Registering the event handler.\n");
 	int events = DEVICE_EVENT_WAITING | DEVICE_EVENT_PROGRESS | DEVICE_EVENT_DEVINFO | DEVICE_EVENT_CLOCK;
 	event_data_t evdata;
@@ -760,9 +812,9 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	evdata.status = &status;
 	rc = device_set_events (device, events, event_cb, &evdata);
 	if (rc != DEVICE_STATUS_SUCCESS) {
-		LOGINFO("Error registering the event handler.");
+		LOGDEBUG("Error registering the event handler.");
 		device_close (device);
-		throw DBException ("Error setting the event handler ");
+		DBthrowError("Error registering the event handler ");
 	}
 
 	// todo Register the cancellation handler.
@@ -806,42 +858,42 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	}
 	*/
 
+	// Initialize the dive data.
+	dive_data_t divedata = {0};
+	divedata.devdata = &devdata;
+	divedata.fingerprint = NULL;
+	divedata.number = 0;
+	divedata.out = &diveXML;
+	divedata.status = &status;
 
-		// Initialize the dive data.
-		dive_data_t divedata = {0};
-		divedata.devdata = &devdata;
-		divedata.fingerprint = NULL;
-		divedata.number = 0;
-		divedata.out = &diveXML;
+	diveXML.append("<profile udcf='1'><REPGROUP>");
 
-		diveXML.append("<profile udcf='1'><REPGROUP>");
+	// Download the dives.
+	LOGINFO("Downloading the dives.\n");
 
-		// Download the dives.
-		LOGINFO("Downloading the dives.\n");
+	rc = device_foreach (device, dive_cb, &divedata);
+	if (rc != DEVICE_STATUS_SUCCESS) {
+		LOGDEBUG("Error downloading the dives.");
+		dc_buffer_free (divedata.fingerprint);
+		device_close (device);
+		DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
+	}
 
-		rc = device_foreach (device, dive_cb, &divedata);
-		if (rc != DEVICE_STATUS_SUCCESS) {
-			LOGINFO("Error downloading the dives.");
-			dc_buffer_free (divedata.fingerprint);
-			device_close (device);
-			throw DBException (std::string("Error opening device - Error code : ") + errmsg(rc));
-		}
+	// todo Store the fingerprint data.
+	/*if (g_cachedir) {
+		fpwrite (divedata.fingerprint, g_cachedir, devdata.backend, devdata.devinfo.serial);
+	}*/
 
-		// todo Store the fingerprint data.
-		/*if (g_cachedir) {
-			fpwrite (divedata.fingerprint, g_cachedir, devdata.backend, devdata.devinfo.serial);
-		}*/
+	// todo Free the fingerprint buffer.
+	//dc_buffer_free (divedata.fingerprint);
 
-		// todo Free the fingerprint buffer.
-		//dc_buffer_free (divedata.fingerprint);
+	diveXML.append("</REPGROUP></profile>");
 
-		diveXML.append("</REPGROUP></profile>");
-
-		// Close the device.
-		LOGINFO("Closing the device.\n");
-		rc = device_close (device);
-		if (rc != DEVICE_STATUS_SUCCESS)
-			LOGINFO("WARNING - Error closing the device. %s", errmsg(rc));
+	// Close the device.
+	LOGINFO("Closing the device.\n");
+	rc = device_close (device);
+	if (rc != DEVICE_STATUS_SUCCESS)
+		LOGWARNING("Error closing the device. %s", errmsg(rc));
 }
 
 
@@ -881,6 +933,7 @@ int ComputerLibdc::_get_all_dives(std::string &diveXML)
 		dowork (backend, devname, diveXML, NULL, status);
 	}
 	catch (...) {
+		LOGINFO("Caught Exception in _get_all_dives");
 		status.state = COMPUTER_FINISHED;
 		throw;
 	}
@@ -895,6 +948,8 @@ int ComputerLibdc::_get_all_dives(std::string &diveXML)
 
 ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 {
+	LOGINFO("Creating ComputerLibdc");
+
 	unsigned int nbackends = sizeof (g_backends) / sizeof (g_backends[0]);
 
 	status.state = COMPUTER_NOT_STARTED;
@@ -922,11 +977,9 @@ ComputerLibdc::~ComputerLibdc(void)
 //todo
 ComputerModel ComputerLibdc::_get_model()
 {
-
 	return(COMPUTER_MODEL_UNKNOWN);
 }
 
-//todo
 ComputerStatus ComputerLibdc::get_status()
 {
 	return(status);

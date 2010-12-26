@@ -390,6 +390,7 @@ void ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel mod
 
 int ComputerSuunto::_get_all_dives(std::string &xml)
 {
+    LOGDEBUG("Starting _get_all_dives");
 	unsigned char buff2[4048];
 	DiveData dive;
 	int length;
@@ -414,11 +415,13 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 				break;
 			}
 
+			LOGDEBUG("Now parsing the data");
 			parse_dive(buff2,length,SUUNTO_MODEL_NEW_VYPER,dive);
 
 			if (status.nbDivesRead<0) status.nbDivesRead = 1;
 			else status.nbDivesRead++;
 
+			LOGDEBUG("Formatting the data");
 			xml += "<DIVE>";
 			xml += str(boost::format("<DATE>%s</DATE><TIME>%s</TIME><DURATION>%.0f</DURATION><TEMPERATURE>%f</TEMPERATURE><ALTITUDE>%d</ALTITUDE><SURFACEINTERVAL>%0.1f</SURFACEINTERVAL>") 
 				% dive.date 
@@ -440,8 +443,13 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 			xml += "</DIVE>";
 
 			step = SUUNTO_DIVE_NEXT;
+		} catch (std::exception e) {
+				LOGERROR("Caught Exception while downloading dive : %s", e.what());
+				xml = "";
+				device->close();
+				throw;
 		} catch (...) {
-				LOGINFO("Error during downloading dive");
+				LOGERROR("Caught Unknown Exception while downloading dive");
 				xml = "";
 				device->close();
 				throw;
@@ -455,6 +463,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 
 	device->close();
 
+    LOGDEBUG("device closed");
 	return(0);
 }
 

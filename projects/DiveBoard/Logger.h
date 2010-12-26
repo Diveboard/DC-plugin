@@ -13,7 +13,12 @@
 #define LOGERROR(...) Logger::append(__LINE__, __THIS_FILE__, "ERROR", __VA_ARGS__)
 #define LOGWARNING(...) Logger::append(__LINE__, __THIS_FILE__, "WARNING", __VA_ARGS__)
 #define LOGINFO(...) Logger::append(__LINE__, __THIS_FILE__, "INFO", __VA_ARGS__)
-#define LOGDEBUG(...) Logger::append(__LINE__, __THIS_FILE__, "DEBUG", __VA_ARGS__)
+#define LOGDEBUG(str, ...) Logger::append(__LINE__, __THIS_FILE__, "DEBUG", str, __VA_ARGS__)
+
+#define DBthrowError(...) Logger::addnthrow(__LINE__, __THIS_FILE__, "ERROR", __VA_ARGS__)
+
+
+std::wstring s2ws(const std::string& s);
 
 typedef struct {
 	std::string type;
@@ -34,6 +39,8 @@ public:
 	static void append(char *pstrFormat, ...);
 	static void append(int line, char*file, char * level, std::string s);
 	static void append(int line, char*file, char * level, char *pstrFormat, ...);
+	static void addnthrow(int line, char*file, char * level, std::string s);
+	static void addnthrow(int line, char*file, char * level, char *pstrFormat, ...);
 	static void binary(std::string type, unsigned char *data, unsigned int len);
 	static void binary(std::string type, std::string data);
 };

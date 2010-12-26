@@ -25,28 +25,17 @@ public:
 
     DiveBoardPtr getPlugin();
 
-    // Read/Write property ${PROPERTY.ident}
-    std::string get_testString();
-    void set_testString(const std::string& val);
-
     // Read-only property ${PROPERTY.ident}
     std::string get_version();
-
-	std::string get_logs();
 	std::string get_name();
+	FB::VariantMap get_status();
+	std::string get_logs();
 
 	// Method echo
     FB::variant echo(const FB::variant& msg);
-    
-    // Method test-event
-    void testEvent(const FB::variant& s);
-
-	void extract(const std::string& labal, const std::string& sport);
-	//std::map<std::string, std::string> detect();
 	FB::VariantMap detect();
-	int get_nbDivesRead();
-	int get_nbDivesTotal();
-	FB::VariantMap get_status();
+	void extract(const std::string& labal, const std::string& sport);
+
 
 
 private:
@@ -59,8 +48,6 @@ private:
 	bool alwaysAsync;
 	static HANDLE mutex;
 
-	//remove for MAC
-	//static DWORD WINAPI asyncfunc(LPVOID lpParam);
 	static void *asyncfunc(void*);
 };
 

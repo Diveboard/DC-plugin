@@ -18,20 +18,28 @@
 
 function hidediv(id)
 {
-	document.getElementById(id).style.display = 'none';
+	try
+	{
+	//	$(id).hide();
+		document.getElementById(id).style.display = 'none';
+	} catch(err){};
 }
 
 function showdiv(id) {
-	document.getElementById(id).style.display = 'block';
+	try
+	{
+	//	$(id).show();
+		document.getElementById(id).style.display = 'block';
+	} catch(err){};
 }
 
 
 
 // Functions for plugin
-
 function plugin()
 {
-	return document.getElementById('plugin');
+	PLUGIN = document.getElementById("plugin");
+	if( PLUGIN && PLUGIN.name == "DiveBoard Reader") return PLUGIN;
 }
 
 function addEvent(obj, name, func)
@@ -43,43 +51,68 @@ function addEvent(obj, name, func)
 	}
 }
 
-
 //Actions to perform once the plugin is loaded
 function pluginLoaded() {
+		refresh_to(3000);
 		detectPlugin();
 }
+
+function handlePluginError(err){
+	hidediv("progressBox");
+	alert("An error occured : here's a sympathetic message to make you feel better. Cheer up !");
+	alert(err);
+	showdiv("errorBox");
+	hidediv("introBox");
+	hidediv("installBox");
+	hidediv("startBox");
+	hidediv("detectBox");
+	hidediv("overlay");
+}
+
 
 //Actions to perform once the page is loaded
 function load()
 {
 	try {
+		if (!CheckPlugin())
+		{
+			hidediv("errorBox");
+			hidediv("introBox");
+			showdiv("installBox");
+			hidediv("startBox");
+			hidediv("detectBox");
+			return;
+		}
+
 		addEvent(plugin(), 'progress', function(x){
 			document.getElementById("progressValue").value += x;
 		});
 
+		addEvent(plugin(), 'error', handlePluginError);
+
 		addEvent(plugin(), 'loaded', function(x){
 			refresh();
+			document.getElementById("progressValue").value = 100;
 			document.getElementById("output").value = x.substr(0,20000);
 			diveXML = x;
 			alert("Data loaded !");
 
 			document.getElementById("xmlFormSend").value = x;
-			document.getElementById("logFormSend").value = PLUGIN.logs;
-			document.getElementById("verFormSend").value = PLUGIN.version;
-			document.getElementById("nbrFormSend").value = PLUGIN.nbDivesRead;
-			document.getElementById("nbtFormSend").value = PLUGIN.nbDivesTotal;
+			document.getElementById("logFormSend").value = plugin().logs;
+			document.getElementById("verFormSend").value = plugin().version;
+			document.getElementById("nbrFormSend").value = plugin().nbDivesRead;
+			document.getElementById("nbtFormSend").value = plugin().nbDivesTotal;
 			document.getElementById("subFormSend").submit();
 
 		});
+
+
+		//handle timeouts when loading the plugin
+		//todo : find a way to catch error/exceptions while loadting the plugin
+		setTimeout("if (!CheckPlugin()) handlePluginError('Plugin irresponsive')",20000);
 	}
 	catch (err) {
-		alert(err);
-		hidediv("introBox");
-		showdiv("installBox");
-		hidediv("startBox");
-		hidediv("detectBox");
-		hidediv("overlay");
-		hidediv("progressBox");
+		handlePluginError(err);
 	}
 }
 
@@ -97,7 +130,9 @@ function CheckPlugin()
 		PLUGIN = document.getElementById("plugin");
 		if( PLUGIN.name == "DiveBoard Reader") found=true;
 	}
-	catch (err) {}
+	catch (err) {
+		handlePluginError(err);
+	}
 
 	return(found);
 }
@@ -148,8 +183,7 @@ function detectPlugin()
 			return;
 		}
 
-		PLUGIN = document.getElementById("plugin");
-		var res = PLUGIN.detect();
+		var res = plugin().detect();
 
 		//if plugin
 		if (res && "type" in res)
@@ -172,13 +206,7 @@ function detectPlugin()
 		}
 	}
 	catch (err) {
-		alert(err);
-		hidediv("introBox");
-		showdiv("installBox");
-		hidediv("startBox");
-		hidediv("detectBox");
-		hidediv("progressBox");
-		hidediv("overlay");
+		handlePluginError(err);
 	}
 }
 
@@ -189,28 +217,28 @@ function ExtractDives()
 {
 	try
 	{
-		PLUGIN = document.getElementById("plugin");
 		var port = document.getElementById("port").value;
 		var computer = document.getElementById("computer").value;
 		var a = document.getElementById("output");
 		a.value = "Extracting...";
-		var res = PLUGIN.extract(port, computer);
+		var res = plugin().extract(port, computer);
 
 		showdiv("progressBox");
 		showdiv("overlay");
 	}
-	catch (err) { alert(err); }
+	catch (err) {
+		handlePluginError(err);
+	}
 }
 
 function AutoDetect()
 {
 	try
 	{
-		PLUGIN = document.getElementById("plugin");
 		//if( CheckBrowser() ) return;
 		var a = document.getElementById("output");
 		a.value = "Extracting...";
-		var res = PLUGIN.detect();
+		var res = plugin().detect();
 	}
 	catch (err) { alert(err); }
 }
@@ -226,16 +254,14 @@ function refresh_to(timeout)
 {
 	try
 	{
-		PLUGIN = document.getElementById("plugin");
-		if (PLUGIN)
+		if (CheckPlugin())
 		{
-			var status = PLUGIN.status;
+			var status = plugin().status;
 			document.getElementById("nbDivesRead").innerHTML = status.nbDivesRead;
 			document.getElementById("nbDivesTotal").innerHTML = status.nbDivesTotal;
 			document.getElementById("computerState").innerHTML = status.state;
 			document.getElementById("logs").value = PLUGIN.logs;
 
-	//				alert(status.percent);
 			if (status.nbDivesRead > 0) document.getElementById("progressNumber").value = status.nbDivesRead;
 			if (status.percent > 0) document.getElementById("progressValue").value = status.percent;
 
@@ -246,8 +272,6 @@ function refresh_to(timeout)
 	}
 	catch (err) {alert(err); }
 }
-
-refresh_to(3000);
 
 
 function cancelAll()
@@ -384,6 +408,10 @@ div.hidden
 
 <div id=introBox class=menubox>
 <p>Just waking up, trying to finding out where we are...</p>
+</div>
+
+<div id=errorBox class="menubox hidden">
+<p>An error happened... I don't think you can use the plugin correctly on your computer... Please contact my masters to get more info, and please give them the following message : SAMPLE_ERROR_ID</p>
 </div>
 
 
@@ -577,14 +605,14 @@ div.hidden
 <h1>Scriptable Plugin for Firefox and Chrome</h1>
 </center>
 
-<object id="plugin" type="application/x-diveboard" hidden=true  >
+<object id="plugin" type="application/x-diveboard" hidden=true>
     <param name="onload" value="pluginLoaded" />
 </object><br />
 
 <input value="test Echo" onClick="testEcho()" type="button">
 
 <br>
-<input value="Check Plugin" onClick="CheckPlugin()" type="button">
+<input value="Check Plugin" onClick="alert(CheckPlugin())" type="button">
 <input value="Auto Detect" onClick="AutoDetect()" type="button">
 <br/>
 <br/>

@@ -7,6 +7,21 @@
 using boost::format;
 
 
+
+std::wstring s2ws(const std::string& s)
+{
+ int len;
+ int slength = (int)s.length() + 1;
+ len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0);
+ wchar_t* buf = new wchar_t[len];
+ MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, buf, len);
+ std::wstring r(buf);
+ delete[] buf;
+ return r;
+}
+
+
+
 Logger::Logger(void)
 {
 }
@@ -89,6 +104,38 @@ void Logger::binary(std::string type, unsigned char *data, unsigned int len)
 
 	binary(type, buff);
 }
+
+void Logger::addnthrow(int line, char*file, char * level, std::string s)
+{
+	addnthrow(line, file, level, "%s", s.c_str());
+}
+
+void Logger::addnthrow(int line, char*file, char *level, char *pstrFormat, ...)
+{
+	char buff[2048];
+	std::string str;
+	time_t t;
+	tm * ptm;
+	
+	time(&t);
+	ptm = gmtime(&t);
+
+	sprintf(buff, "%04d%02d%02d %02d%02d%02d GMT - %-8s - %s @ %d - ", ptm->tm_year+1900, ptm->tm_mon, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec, level, file, line);
+	str = buff;
+
+	// format and write the data we were given
+	va_list args;
+	va_start(args, pstrFormat);
+	vsprintf(buff, pstrFormat, args);
+	va_end(args);
+
+	str += buff;
+	
+    append(str);
+	throw DBException(buff);
+}
+
+
 
 
 void Logger::binary(std::string type, std::string data)
