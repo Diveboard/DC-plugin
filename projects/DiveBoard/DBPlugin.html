@@ -4,7 +4,11 @@
 <title>Scriptable Codeproject Plugin for Firefox</title>
 </head>
 
-<script src="raphael-min.js"></SCRIPT>
+<script src="jquery-1.4.4.min.js"></script>
+<script src="raphael-min.js"></script>
+<script src="popup.js"></script>
+<script src="analytics.js"></script>
+
 
 <script>
 //getting the instance of the plugin so we can use it every time
@@ -104,9 +108,9 @@ function refresh_to(timeout)
 	try
 	{
 		PLUGIN = document.getElementById("plugin");
-		document.getElementById("nbDivesRead").innerHTML = PLUGIN.nbDivesRead;
-		document.getElementById("nbDivesTotal").innerHTML = PLUGIN.nbDivesTotal;
-		document.getElementById("computerState").innerHTML = PLUGIN.status;
+		document.getElementById("nbDivesRead").innerHTML = PLUGIN.status.nbDivesRead;
+		document.getElementById("nbDivesTotal").innerHTML = PLUGIN.status.nbDivesTotal;
+		document.getElementById("computerState").innerHTML = PLUGIN.status.state;
 		document.getElementById("logs").value = PLUGIN.logs;
 		document.getElementById("logs").scrollTop = document.getElementById("logs").scrollHeight;
 		if (timeout > 0) setTimeout("refresh();",timeout);
@@ -145,6 +149,8 @@ function pluginXML(xml)
             addEvent(plugin(), 'loaded', function(x){
 				document.getElementById("output").value = x.substr(0,20000);
 				diveXML = x;
+				refresh();
+				createGraphs();
 				alert("Data loaded !");
             });
         }
@@ -188,7 +194,7 @@ function pluginXML(xml)
 <h1>Scriptable Plugin for Firefox and Chrome</h1>
 </center>
 
-<object id="plugin" type="application/x-diveboard" hidden=true  >
+<object id="plugin" type="application/x-diveboard" hidden=true height=10 >
     <param name="onload" value="pluginLoaded" />
 </object><br />
 
@@ -254,7 +260,7 @@ function pluginXML(xml)
 <option value='\\.\COM21' >21</option>
 <option value='\\.\COM22' >22</option>
 <option value='\\.\COM23' >23</option>
-<option selected="true" value='\\.\COM24'>24</option>
+<option value='\\.\COM24'>24</option>
 <option value='\\.\COM25' >25</option>
 <option value='\\.\COM26' >26</option>
 
@@ -263,7 +269,7 @@ function pluginXML(xml)
 <option value='\\.\COM29' >29</option>
 <option value='\\.\COM30' >30</option>
 <option value='\\.\CNCA0' >Com0Com A0</option>
-<option value='\\.\CNCB0' >Com0Com B0</option>
+<option selected="true" value='\\.\CNCB0' >Com0Com B0</option>
 </select>
 <input value="Extract dives" onClick="ExtractDives()" type="button">
 <br/>
@@ -282,6 +288,9 @@ Status : <span id=computerState ></span> </td>
 </tr>
 </table>
 
+
+
+<!-- This is the previous full SVG way
 
 <SCRIPT>
 function test()
@@ -452,17 +461,74 @@ function graph(SVGDoc, idx)
 	  }
 	} catch(e) {}
 }
-
-
-
-
 </SCRIPT>
-
 
 <p>XScale : <input value=0.3 id='xscale'/></p>
 
 <p>YScale : <input value=6 id='yscale'/></p>
 <p><input value="Create graph" onClick="addGraph()" type="button"></p>
+-->
+
+
+<script type="application/javascript">
+function createGraphs()
+{
+		 var divNb = 0;
+
+			$(diveXML).find('DIVE').each(function(){
+				var labels = [0],
+					data = [0];
+
+				$(this).find('t').each(function(){
+					labels.push($(this).text()) });
+				labels.push( 2*labels[labels.length-1]-labels[labels.length-2]);
+				$(this).find('d').each(function(){
+					data.push( Math.round($(this).text()*10)/10 ) });
+				data.push(0);
+
+				var rlabels = $.map(labels, function(x){return(Math.floor(x/60));});
+
+				var labels_trim2 = [0],
+					data_trim2 = [0],
+					labels_trim4 = [0],
+					data_trim4 = [0],
+					trimOf = 2;
+
+				for (i=1+trimOf; i<data.length-trimOf-1; i+=2*trimOf+1)
+				{
+					labels_trim2.push(Math.round(labels[i]/60));
+					data_trim2.push(Math.max.apply(Math,data.slice(i-trimOf,i+trimOf+1)));
+				}
+
+				labels_trim2.push(Math.round(labels[labels.length-1]/60));
+				data_trim2.push(data[data.length-1]);
+
+				trimOf=4;
+				for (i=1+trimOf; i<data.length-trimOf-1; i+=2*trimOf+1)
+				{
+					labels_trim4.push(Math.round(labels[i]/60));
+					data_trim4.push(Math.max.apply(Math,data.slice(i-trimOf,i+trimOf+1)));
+				}
+
+				labels_trim4.push(Math.round(labels[labels.length-1]/60));
+				data_trim4.push(data[data.length-1]);
+
+
+				$('#graphs').append('<div style="float: left" id=Holder'+ ++divNb +' ></div>');
+				analytics(rlabels, data, "Holder"+ divNb, 800, 300, true);
+
+				$('#graphs').append('<div id=Holder'+ ++divNb +' ></div>');
+				analytics(labels_trim2, data_trim2, "Holder"+ divNb, 380, 200, true);
+
+				$('#graphs').append('<div id=Holder'+ ++divNb +' ></div>');
+				analytics(labels_trim4, data_trim4, "Holder"+ divNb, 100, 80, false);
+
+			});
+}
+</script>
+
+
+<p><input value="Create graph" onClick="createGraphs()" type="button"></p>
 
 <div id=graphs></div>
 
