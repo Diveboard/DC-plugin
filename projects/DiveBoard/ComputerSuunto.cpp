@@ -233,24 +233,21 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
 	  data += str(boost::format(" %02X") % (int)read);
       if(read!=command[0]) {
           if(rc==-1) break;
-		  LOGINFO("Illegal start of packet. --- Read data : %s", data.c_str());
-		  throw DBException("Illegal start of packet");
+		  DBthrowError("Illegal start of packet. --- Read data : %s", data.c_str());
       }
       crc=read;
       rc=device->read_serial(&read);
 	  data += str(boost::format(" %02X") % (int)read);
 	  packet_len = read;
       if(rc<0 || packet_len>32) {
-		  LOGINFO("Illegal packet length. --- Read data : %s", data.c_str());
-		  throw DBException("Illegal start of packet");
+		  DBthrowError("Illegal packet length. --- Read data : %s", data.c_str());
       }
       crc^=read;
       for(j=0;j<packet_len&&i<len;j++,i++) {
           rc=device->read_serial(&read);
 		  data += str(boost::format(" %02X") % (int)read);
           if(rc<0) {
-			  LOGINFO("Unexpected end of packet --- Read data : %s", data.c_str());
-			  throw DBException("Unexpected end of packet");
+			  DBthrowError("Unexpected end of packet --- Read data : %s", data.c_str());
           }
           divebuf[i]=read;
 		  data += str(boost::format(" %02X") % (int)divebuf[i]);
@@ -260,8 +257,7 @@ int ComputerSuunto::get_dive(char suunto_dive_which,unsigned char *divebuf,int l
       data += str(boost::format(" %02X") % (int)read);
 	  crc^= read;
       if(crc!=0) {
-		  LOGINFO("CRC check failure. --- Read data : %s", data.c_str());
-          throw DBException("CRC check failure");
+		  DBthrowError("CRC check failure. --- Read data : %s", data.c_str());
       }
   
 	  if(break_prof_read_early && packet_len!=32) break; 
@@ -289,12 +285,12 @@ void ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel mod
   else {
 	  dive.date = str(boost::format("%04d-%02d-%02d") %
       (divebuf[i-9]+(divebuf[i-9]>89?1900:2000)) %
-      divebuf[i-10] %
-      divebuf[i-11]
+      (int)(divebuf[i-10]) %
+      (int)(divebuf[i-11])
 	  );
 	  dive.time = str(boost::format("%02d:%02d:00") %
-      divebuf[i-12] %
-      divebuf[i-13]
+      (int)(divebuf[i-12]) %
+      (int)(divebuf[i-13])
       );
 /*    if(last_dive_datetime) {
       if(g_utf8_collate(dive.datetime,last_dive_datetime)<0) {
@@ -443,7 +439,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 			xml += "</DIVE>";
 
 			step = SUUNTO_DIVE_NEXT;
-		} catch (std::exception e) {
+		} catch (std::exception &e) {
 				LOGERROR("Caught Exception while downloading dive : %s", e.what());
 				xml = "";
 				device->close();

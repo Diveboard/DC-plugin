@@ -6,17 +6,14 @@
 
 
 class DBException :
-	public FB::script_error
+	public std::exception
 {
 private:
-	std::string text;
 	std::exception ex;
-	std::string fulltxt;
 public:
 	DBException(void);
 	DBException(std::string t, std::exception e);
 	DBException(std::string t);
 	~DBException(void);
-	virtual const char* what();
 };
 

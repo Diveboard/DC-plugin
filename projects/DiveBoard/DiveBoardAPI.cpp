@@ -23,10 +23,10 @@
 #include "DBException.h"
 
 
-#define catchall() catch (FB::script_error e)                \
+#define catchall() catch (std::exception &e)                 \
 	{                                                        \
 		LOGERROR("Caught Exception : %s", e.what());         \
-		throw;                                               \
+		throw FB::script_error(e.what());                    \
 	} catch(...)                                             \
 	{                                                        \
 		LOGERROR("Caught Exception Unknown");                \
@@ -199,14 +199,14 @@ void *DiveBoardAPI::asyncfunc(void *p)
 		//todo fix
 		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
 
-	} catch (std::exception e)
+	} catch (std::exception &e)
 	{
 		LOGERROR("Caught Exception : %s", e.what());
-		plugin->FireEvent("onerror", FB::variant_list_of());
+		plugin->FireEvent("onerror", FB::variant_list_of(FB::variant(e.what())));
 	} catch(...)
 	{
 		LOGERROR("Caught Exception Unknown");
-		plugin->FireEvent("onerror", FB::variant_list_of());
+		plugin->FireEvent("onerror", FB::variant_list_of(FB::variant("Undefined exception")));
 	}
 
 	LOGINFO("End async");

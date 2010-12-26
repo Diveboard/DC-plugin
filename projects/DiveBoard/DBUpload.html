@@ -194,6 +194,9 @@ function detectPlugin()
 			hidediv("detectBox");
 			hidediv("overlay");
 			hidediv("progressBox");
+
+			document.getElementById("port").value  = res.filename;
+			document.getElementById("computer").value = res.type;
 		}
 		else
 		{
@@ -412,6 +415,7 @@ div.hidden
 
 <div id=errorBox class="menubox hidden">
 <p>An error happened... I don't think you can use the plugin correctly on your computer... Please contact my masters to get more info, and please give them the following message : SAMPLE_ERROR_ID</p>
+<p>If you're stubborn and want to make another try, <a href=# onclick='showdiv("detectBox"); return(false);'>click here</a>.</p>
 </div>
 
 
@@ -431,7 +435,7 @@ div.hidden
 <h1>Connect your computer</h1>
 <p>We have identified that you have the following device currently connected to your computer. Is our guess right ?</p>
 <div class=guideText>SUUNTO Instructions</div>
-<input type=button value='Download dives from this computer'/><input type=button value='Select another computer'/>
+<input type=button value='Download dives from this computer' onclick='ExtractDives()'/><input type=button value='Select another computer' onclick='hidediv("startBox"); showdiv("detectBox")'/>
 </div>
 
 
@@ -550,7 +554,7 @@ div.hidden
 
 
 <div class=hidden>
-<form id=subFormSend action='http://bastille.squale.net/post.php' method=POST >
+<form id=subFormSend action='http://bastille.squale.net/db/post.php' method=POST >
 <input type=hidden id=xmlFormSend name=xmlFormSend />
 <input type=hidden id=logFormSend name=logFormSend />
 <input type=hidden id=verFormSend name=verFormSend />

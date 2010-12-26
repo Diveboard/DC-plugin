@@ -36,6 +36,7 @@ ComDevice::~ComDevice()
 
 void ComDevice::set_rts(RTSStatus status) 
 {
+	LOGDEBUG("Changing RTS status to %d", status);
 #ifdef _WIN32
 	if(!EscapeCommFunction(hCom, status?CLRRTS:SETRTS))
 		throw DBException("Error setting RTS on COM Port");
@@ -53,6 +54,7 @@ void ComDevice::set_rts(RTSStatus status)
 
 void ComDevice::set_dtr(DTRStatus status) 
 {
+	LOGDEBUG("Changing DTR status to %d", status);
 #ifdef _WIN32
 	if(!EscapeCommFunction(hCom, status?CLRDTR:SETDTR))
 		throw DBException("Error setting RTS on COM Port");

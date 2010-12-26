@@ -31,7 +31,7 @@ protected:
 	ComputerStatus status;
 public:
 	ComputerLibdc(std::string type, std::string filename);
-	~ComputerLibdc(void);
+	virtual ~ComputerLibdc(void);
 	ComputerModel _get_model();
 	int _get_all_dives(std::string &xml);
 	virtual ComputerStatus get_status();

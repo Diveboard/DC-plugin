@@ -57,7 +57,7 @@ protected:
 	virtual ComputerModel _get_model() {return(COMPUTER_MODEL_UNKNOWN);};
 public:
 	Computer(){};
-	~Computer(void){};
+	virtual ~Computer(void){};
 	//virtual int test()=0;
 	int get_all_dives(std::string &xml) {return(_get_all_dives(xml));};
 	ComputerModel get_model() { return(_get_model());};

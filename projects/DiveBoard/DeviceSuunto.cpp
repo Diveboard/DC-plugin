@@ -112,9 +112,8 @@ int DeviceSuunto::open()
    if (hCom == INVALID_HANDLE_VALUE) 
    {
        //  Handle the error.
-	   LOGINFO ("CreateFile on %s failed with error %d.", filename, GetLastError());
        hCom = NULL;
-	   return (SUUNTO_ERR_CREATEFILE);
+	   DBthrowError("CreateFile on %s failed with error %d.", filename, GetLastError());
    }
    
    //  Initialize the DCB structure.
@@ -142,10 +141,9 @@ int DeviceSuunto::open()
 
    if (!fSuccess) 
    {
-      //  Handle the error.
-	  LOGINFO ("SetCommState failed with error %d.\n", GetLastError());
-      hCom = NULL;
-	  return (SUUNTO_ERR_SETCOMMSTATE);
+		//  Handle the error.
+		hCom = NULL;
+		DBthrowError("SetCommState failed with error %d.", GetLastError());
    }
 
 
@@ -250,7 +248,7 @@ int DeviceSuunto::read_serial(unsigned char * buff, unsigned int num, int timeou
   if (rval && out > 0)
   {
 	  Logger::binary("READ", buff, out);
-	 return rval;
+	  return rval;
   }
 
 #elif __MACH__

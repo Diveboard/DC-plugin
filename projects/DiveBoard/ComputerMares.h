@@ -22,7 +22,7 @@ protected:
     bool parse_dive(unsigned char *divebuf,int len,ComputerModel model,DiveData &dive);
 public:
 	ComputerMares(std::string filename);
-	~ComputerMares(void);
+	virtual ~ComputerMares(void);
 	int _get_all_dives(std::string &xml);
 	ComputerModel _get_model(); //todo
 	ComputerStatus get_status();

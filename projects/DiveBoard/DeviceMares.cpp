@@ -63,7 +63,7 @@ int DeviceMares::open()
 	if (hCom == INVALID_HANDLE_VALUE) 
 	{
 		//  Handle the error.
-		LOGINFO ("CreateFile failed with error %d.\n", GetLastError());
+		LOGINFO ("CreateFile failed with error %d.", GetLastError());
 		hCom = NULL;
 		return (SUUNTO_ERR_CREATEFILE);
 	}
@@ -94,7 +94,7 @@ int DeviceMares::open()
 	if (!fSuccess) 
 	{
 		//  Handle the error.
-		LOGINFO("SetCommState failed with error %d.\n", GetLastError());
+		LOGINFO("SetCommState failed with error %d.", GetLastError());
 		hCom = NULL;
 		return (SUUNTO_ERR_SETCOMMSTATE);
 	}

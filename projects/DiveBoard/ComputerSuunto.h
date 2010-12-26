@@ -18,7 +18,7 @@ private:
 	ComputerStatus status;
 public:
 	ComputerSuunto(std::string filename);
-	~ComputerSuunto(void);
+	virtual ~ComputerSuunto(void);
 	ComputerModel _get_model();
 	int _get_all_dives(std::string &xml);
 	ComputerStatus get_status();

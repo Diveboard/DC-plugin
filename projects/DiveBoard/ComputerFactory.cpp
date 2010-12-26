@@ -307,6 +307,7 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 				//We don't really care about the exact model... so if a driver is found let's just use it !
 				ret[std::string("type")] = driverName;
 				ret[std::string("filename")] = fileNames[i];
+				delete foundComputer;
 				return(ret);
 
 				/*

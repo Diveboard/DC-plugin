@@ -331,7 +331,7 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 			break;
 		case SAMPLE_TYPE_PRESSURE:
 			//todo
-			*diveXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>\n") %  value.pressure.tank % value.pressure.value);
+			*diveXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>") %  value.pressure.tank % value.pressure.value);
 			break;
 		case SAMPLE_TYPE_TEMPERATURE:
 			*diveXML += str(boost::format("<temperature>%.2f</temperature>") % value.temperature);
@@ -355,13 +355,13 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 			*diveXML += str(boost::format("<vendor type=\"%u\" size=\"%u\">") % value.vendor.type % value.vendor.size);
 			for (unsigned int i = 0; i < value.vendor.size; ++i)
 				*diveXML += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
-			*diveXML += "</vendor>\n";
+			*diveXML += "</vendor>";
 			break;
 		default:
 			LOGWARNING("Received an element of unknown type '%d'", type);
 			break;
 		}
-	} catch (std::exception e) {
+	} catch (std::exception &e) {
 		DBthrowError("Error in sample_cb : %s", e.what());
 	} catch (...) {
 		DBthrowError("Error in sample_cb");
@@ -503,7 +503,7 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 		}
 
 		// Parse the datetime.
-		LOGINFO("Parsing the datetime.\n");
+		LOGINFO("Parsing the datetime.");
 		dc_datetime_t dt = {0};
 		rc = parser_get_datetime (parser, &dt);
 		if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
@@ -512,7 +512,7 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 			DBthrowError(str(boost::format("Error parsing the datetime - Error code : %1%") % rc));
 		}
 
-		*out += str(boost::format("<DATE>%04i-%02i-%02i</DATE><TIME>%02i:%02i:%02i</TIME>\n")
+		*out += str(boost::format("<DATE>%04i-%02i-%02i</DATE><TIME>%02i:%02i:%02i</TIME>")
 			% dt.year % dt.month % dt.day
 			% dt.hour % dt.minute % dt.second);
 
@@ -520,7 +520,7 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 		unsigned int nsamples = 0;
 
 		// Parse the sample data.
-		LOGINFO("Parsing the sample data.\n");
+		LOGINFO("Parsing the sample data.");
 		*out += "<SAMPLES>";
 		//LDCPARSERSAMPLESFOREACH* parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(GetProcAddress(libdc, "parser_samples_foreach"));
 		rc = parser_samples_foreach (parser, sample_cb, out);
@@ -530,18 +530,18 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 			DBthrowError(str(boost::format("Error parsing the sample data - Error code : %1%") % rc));
 		}
 
-		*out += "</SAMPLES>\n";
+		*out += "</SAMPLES>";
 
-	} catch(std::exception e) {
+	} catch(std::exception &e) {
 		LOGWARNING("Caught Exception : %s",e.what());
-		LOGINFO("Destroying the parser.\n");
+		LOGINFO("Destroying the parser.");
 		rc = parser_destroy (parser);
 		if (rc != PARSER_STATUS_SUCCESS) {
 			LOGINFO("WARNING - Error destroying the parser - Error %d", rc);
 		}
 		throw;
 	} catch(...) {
-		LOGINFO("Destroying the parser.\n");
+		LOGINFO("Destroying the parser.");
 		rc = parser_destroy (parser);
 		if (rc != PARSER_STATUS_SUCCESS) {
 			LOGINFO("WARNING - Error destroying the parser - Error %d", rc);
@@ -550,7 +550,7 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 	}
 
 	// Destroy the parser.
-	LOGINFO("Destroying the parser.\n");
+	LOGINFO("Destroying the parser.");
 	rc = parser_destroy (parser);
 	if (rc != PARSER_STATUS_SUCCESS) {
 		LOGINFO("WARNING - Error destroying the parser - Error %d", rc);
@@ -576,12 +576,12 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 
 		switch (event) {
 		case DEVICE_EVENT_WAITING:
-			LOGDEBUG("Event: waiting for user action\n");
+			LOGDEBUG("Event: waiting for user action");
 			break;
 		case DEVICE_EVENT_PROGRESS:
 			if (progress->maximum >0)
 			{
-				LOGDEBUG("Event: progress %3.2f%% (%u/%u)\n",
+				LOGDEBUG("Event: progress %3.2f%% (%u/%u)",
 				         100.0 * (double) progress->current / (double) progress->maximum,
 				         progress->current, progress->maximum);
 
@@ -594,7 +594,7 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 			break;
 		case DEVICE_EVENT_DEVINFO:
 			devdata->devinfo = *devinfo;
-			LOGINFO("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)\n",
+			LOGINFO("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)",
 				devinfo->model, devinfo->model,
 				devinfo->firmware, devinfo->firmware,
 				devinfo->serial, devinfo->serial);
@@ -609,7 +609,7 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 			break;
 		case DEVICE_EVENT_CLOCK:
 			devdata->clock = *clock;
-			LOGDEBUG("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
+			LOGDEBUG("Event: systime=" DC_TICKS_FORMAT ", devtime=%u",
 				clock->systime, clock->devtime);
 			break;
 		default:
@@ -617,7 +617,7 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 			break;
 		}
 
-	} catch(std::exception e) {
+	} catch(std::exception &e) {
 		LOGWARNING("Caught Exception : %s",e.what());
 		throw;
 	} catch(...) {
@@ -664,7 +664,7 @@ static int dive_cb (const unsigned char *data, unsigned int size, const unsigned
 
 		*(divedata->out) += "<DIVE><PROGRAM><fingerprint>";
 		for (unsigned int i = 0; i < fsize; ++i)
-				*(divedata->out) += str(boost::format( "%02X") % fingerprint[i]);
+				*(divedata->out) += str(boost::format( "%02X") % (int)(fingerprint[i]));
 		*(divedata->out) += "</fingerprint></PROGRAM>";
 
 		LOGINFO("Parsing the data");
@@ -673,7 +673,7 @@ static int dive_cb (const unsigned char *data, unsigned int size, const unsigned
 
 		*(divedata->out) += "</DIVE>";
 
-	} catch(std::exception e) {
+	} catch(std::exception &e) {
 		LOGWARNING("Caught Exception : %s",e.what());
 		throw;
 	} catch(...) {
@@ -711,7 +711,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	LOGDEBUG("General pointers to LibDiveComputer fetched");
 	
 	// Open the device.
-	LOGINFO("Opening the device (%s, %s).\n", lookup_name (backend), devname.c_str());
+	LOGINFO("Opening the device (%s, %s).", lookup_name (backend), devname.c_str());
 	device_t *device = NULL;
 
 
@@ -805,7 +805,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 		DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
 
 	//Register the event handler.
-	LOGINFO("Registering the event handler.\n");
+	LOGINFO("Registering the event handler.");
 	int events = DEVICE_EVENT_WAITING | DEVICE_EVENT_PROGRESS | DEVICE_EVENT_DEVINFO | DEVICE_EVENT_CLOCK;
 	event_data_t evdata;
 	evdata.devdata = &devdata;
@@ -818,7 +818,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	}
 
 	// todo Register the cancellation handler.
-	/*LOGINFO("Registering the cancellation handler.\n");
+	/*LOGINFO("Registering the cancellation handler.");
 	rc = device_set_cancel (device, cancel_cb, NULL);
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		LOGINFO("Error registering the cancellation handler.");
@@ -829,7 +829,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 
 	// todo Register the fingerprint data.
 	/*if (fingerprint) {
-		LOGINFO("Registering the fingerprint data.\n");
+		LOGINFO("Registering the fingerprint data.");
 		rc = device_set_fingerprint (device, dc_buffer_get_data (fingerprint), dc_buffer_get_size (fingerprint));
 		if (rc != DEVICE_STATUS_SUCCESS) {
 			LOGINFO("Error registering the fingerprint data.");
@@ -869,7 +869,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	diveXML.append("<profile udcf='1'><REPGROUP>");
 
 	// Download the dives.
-	LOGINFO("Downloading the dives.\n");
+	LOGINFO("Downloading the dives.");
 
 	rc = device_foreach (device, dive_cb, &divedata);
 	if (rc != DEVICE_STATUS_SUCCESS) {
@@ -890,7 +890,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	diveXML.append("</REPGROUP></profile>");
 
 	// Close the device.
-	LOGINFO("Closing the device.\n");
+	LOGINFO("Closing the device.");
 	rc = device_close (device);
 	if (rc != DEVICE_STATUS_SUCCESS)
 		LOGWARNING("Error closing the device. %s", errmsg(rc));
