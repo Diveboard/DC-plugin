@@ -16,6 +16,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		printf("Which computer would you like to emulate ?\n");
 		printf("  1. Suunto Vyper\n");
 		printf("  2. Mares Nemo Excel\n");
+		scanf("%d", &choice);
 	}
 	else {
 		choice = _wtoi(argv[1]);
@@ -31,6 +32,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		break;
 	default:
 		printf("Choice unrecognised");
+		Sleep(10000);
 		return(-1);
 	}
 
@@ -38,6 +40,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	com->run();
 
 	free(com);
+	Sleep(10000);
 	return 0;
 }
 
