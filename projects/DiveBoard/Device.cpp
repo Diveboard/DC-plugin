@@ -57,17 +57,17 @@ void ComDevice::set_dtr(DTRStatus status)
 	LOGDEBUG("Changing DTR status to %d", status);
 #ifdef _WIN32
 	if(!EscapeCommFunction(hCom, status?CLRDTR:SETDTR))
-		throw DBException("Error setting RTS on COM Port");
+		throw DBException("Error setting DTR on COM Port");
 #elif __MACH__
 	
 	unsigned int bits;
 	
 	if(ioctl(hCom,TIOCMGET,&bits)) 
-		throw DBException("Error setting RTS on COM Port");
+		throw DBException("Error setting DTR on COM Port");
 	if(status==DTR_STATUS_ON) bits|=TIOCM_DTR;
 	else bits&=TIOCM_DTR;
 	if(ioctl(hCom,TIOCMSET,&bits))
-		throw DBException("Error setting RTS on COM Port");
+		throw DBException("Error setting DTR on COM Port");
 	
 #else	
 #error Platform not supported
@@ -77,16 +77,20 @@ void ComDevice::set_dtr(DTRStatus status)
 
 void ComDevice::close() 
 {
-	LOGINFO("Closing handle");
-	set_dtr(DTR_STATUS_OFF);
+	try {
+		LOGINFO("Closing handle");
+		set_dtr(DTR_STATUS_OFF);
 #ifdef _WIN32
-	if (!CloseHandle(hCom))
-		LOGINFO("Warning - Error closing COM Port");
+		if (!CloseHandle(hCom))
+			LOGINFO("Warning - Error closing COM Port");
 #elif __MACH__
-	::close(hCom);
+		::close(hCom);
 #else	
 #error Platform not supported
 	//todo : tcsetattr(fd,TCSANOW,&old_termios);
 #endif
-	hCom = NULL;
+	} catch (std::exception &e) {
+		LOGWARNING("Error caught while closing the COM port : %s", e.what());
+	}
+		hCom = NULL;
 }
