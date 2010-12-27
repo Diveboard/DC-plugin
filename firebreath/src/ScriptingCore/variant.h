@@ -18,6 +18,7 @@
 
 //#define ANY_IMPLICIT_CASTING    // added to enable implicit casting
 
+#include <boost/cstdint.hpp>
 #include <stdexcept>
 #include <typeinfo>
 #include <algorithm>
@@ -676,6 +677,8 @@ namespace FB
         FB_CONVERT_ENTRY_TO_STRING(unsigned short);
         FB_CONVERT_ENTRY_TO_STRING(char);
         FB_CONVERT_ENTRY_TO_STRING(unsigned char);
+        FB_CONVERT_ENTRY_TO_STRING(boost::int64_t);
+        FB_CONVERT_ENTRY_TO_STRING(boost::uint64_t);
         FB_END_CONVERT_MAP(std::string);
     }
 
