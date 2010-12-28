@@ -4,13 +4,23 @@
 #include "Logger.h"
 
 #ifdef WIN32
-#define DLL_PATH _T("D:\\DATA\\My Documents\\Personnel\\DB_plugins\\libdivecomputer\\Debug\\libdivecomputer.dll")
+#define DLL_PATH (L"DiveBoard\\libdivecomputer.dll")
+//return reinterpret_cast<HINSTANCE>(&__ImageBase);
+//#define DLL_PATH _T("libdivecomputer.dll")
 #endif
 
 HINSTANCE openDLLLibrary()
 {
 	//Load the LibDiveComputer library
-	HINSTANCE libdc = LoadLibrary(DLL_PATH);
+	wchar_t path[1024]; 
+	DWORD l = GetEnvironmentVariable(L"APPDATA", path, sizeof(path));
+	if (l>sizeof(path))
+		DBthrowError("path buffer is too small !!!");
+	std::wstring dll = path;
+	dll += L"\\";
+	dll += DLL_PATH;
+	LOGINFO("Searching DLL at ", dll.c_str());
+	HINSTANCE libdc = LoadLibrary(dll.c_str());
 	if (!libdc)
 	{
     LPVOID lpMsgBuf;
