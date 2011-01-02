@@ -1,16 +1,30 @@
 #include "ComputerLibdc.h"
 #include "stdafx.h"
+
+#ifdef WIN32
 #include <tchar.h>
+#endif
+
+#ifdef __MACH__
+#include <dlfcn.h>
+#endif
+
 #include "Logger.h"
 
 #ifdef WIN32
+#define LIBTYPE HINSTANCE
 #define DLL_PATH (L"DiveBoard\\libdivecomputer.dll")
 //return reinterpret_cast<HINSTANCE>(&__ImageBase);
 //#define DLL_PATH _T("libdivecomputer.dll")
 #endif
 
-HINSTANCE openDLLLibrary()
+#ifdef __MACH__
+#define LIBTYPE void*
+#endif
+
+LIBTYPE openDLLLibrary()
 {
+#ifdef WIN32
 	//Load the LibDiveComputer library
 	wchar_t path[1024]; 
 	DWORD l = GetEnvironmentVariable(L"APPDATA", path, sizeof(path));
@@ -41,11 +55,33 @@ HINSTANCE openDLLLibrary()
 	}
 
 	return libdc;
+#elif __MACH__
+	
+	void *libdc;
+	libdc = dlopen("/Users/squale/Documents/dev/DB_plugins/libd/libdivecomputer/build/Debug/liblibdivecomputer.dylib",RTLD_LAZY);
+	if (!libdc) DBthrowError("Impossible to load library : %s", dlerror());
+	
+	return libdc;
+	
+	
+#else
+#error "not supported"
+	
+#endif
 }
 
-void *getDLLFunction(HINSTANCE libdc, const char *function)
+void *getDLLFunction(LIBTYPE libdc, const char *function)
 {
-	void *ptr = GetProcAddress(libdc, function);
+	void *ptr;
+
+#ifdef WIN32
+	ptr = GetProcAddress(libdc, function);
+#elif __MACH__
+	ptr = dlsym(libdc, function);
+#else
+#error "OS not supported"
+#endif
+	
 	if (!ptr)
 		DBthrowError("Error fetching DLL pointer to %s", function);
 
@@ -213,6 +249,7 @@ hex2dec (unsigned char value)
 	}
 }
 
+/*
 static dc_buffer_t *
 fpconvert (const char *fingerprint)
 {
@@ -391,7 +428,7 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 	//todo factorize this in ComputerLibdc constructor
 	LOGINFO("Getting pointers to DLL");
 	LOGDEBUG("Opening LibDiveComputer");
-	HINSTANCE libdc = openDLLLibrary();
+	LIBTYPE libdc = openDLLLibrary();
 	LOGDEBUG("LibDiveComputer DLL loaded");
 	LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
@@ -645,7 +682,7 @@ static int dive_cb (const unsigned char *data, unsigned int size, const unsigned
 		//getting general pointers to functions of libDiveComputer
 		//todo factorize this in ComputerLibdc constructor
 		LOGDEBUG("Opening LibDiveComputer DLL");
-		HINSTANCE libdc = openDLLLibrary();
+		LIBTYPE libdc = openDLLLibrary();
 		LOGDEBUG("LibDiveComputer DLL loaded");
 		LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 		LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
@@ -706,7 +743,7 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	//getting general pointers to functions of libDiveComputer
 	//todo factorize this in ComputerLibdc constructor
 	LOGDEBUG("Opening LibDiveComputer");
-	HINSTANCE libdc = openDLLLibrary();
+	LIBTYPE libdc = openDLLLibrary();
 	LOGDEBUG("LibDiveComputer DLL loaded");
 	LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));

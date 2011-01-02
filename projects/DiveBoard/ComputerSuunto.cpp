@@ -459,7 +459,8 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 
 	device->close();
 
-    LOGDEBUG("device closed");
+    LOGDEBUG("device closed", "");
+	Logger::appendL(12, "toto", "warn", "hell");
 	return(0);
 }
 

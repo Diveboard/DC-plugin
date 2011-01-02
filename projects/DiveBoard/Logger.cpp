@@ -10,6 +10,7 @@ using boost::format;
 
 std::wstring s2ws(const std::string& s)
 {
+#ifdef WIN32
  int len;
  int slength = (int)s.length() + 1;
  len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), slength, 0, 0);
@@ -18,6 +19,12 @@ std::wstring s2ws(const std::string& s)
  std::wstring r(buf);
  delete[] buf;
  return r;
+#else 
+
+	std::wstring ws(s.length(), L' ');
+	std::copy(s.begin(),s.end(), ws.begin());
+	return(ws);
+#endif
 }
 
 
@@ -36,7 +43,7 @@ void Logger::append(std::string line)
 	logs.push_back(line);
 }
 
-void Logger::append(char *pstrFormat, ...)
+void Logger::append(const char *pstrFormat, ...)
 {
    //CTime timeWrite;
    //timeWrite = CTime::GetCurrentTime();
@@ -63,12 +70,12 @@ void Logger::append(char *pstrFormat, ...)
 }
 
 
-void Logger::append(int line, char*file, char * level, std::string s)
+void Logger::appendL(int line, const char*file, const char * level, std::string s)
 {
-	append(line, file, level, "%s", s.c_str());
+	appendL(line, file, level, "%s", s.c_str());
 }
 
-void Logger::append(int line, char*file, char *level, char *pstrFormat, ...)
+void Logger::appendL(int line, const char*file, const char *level, const char *pstrFormat, ...)
 {
 	char buff[2048];
 	std::string str;
@@ -105,12 +112,12 @@ void Logger::binary(std::string type, unsigned char *data, unsigned int len)
 	binary(type, buff);
 }
 
-void Logger::addnthrow(int line, char*file, char * level, std::string s)
+void Logger::addnthrow(int line, const char*file, const char * level, std::string s)
 {
 	addnthrow(line, file, level, "%s", s.c_str());
 }
 
-void Logger::addnthrow(int line, char*file, char *level, char *pstrFormat, ...)
+void Logger::addnthrow(int line, const char*file, const char *level, const char *pstrFormat, ...)
 {
 	char buff[2048];
 	std::string str;

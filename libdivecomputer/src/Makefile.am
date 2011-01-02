@@ -7,7 +7,7 @@ libdivecomputer_HEADERS = 	\
 	version.h \
 	utils.h \
 	buffer.h \
-	device.h \
+	deviceL.h \
 	parser.h \
 	datetime.h \
 	units.h \
@@ -56,7 +56,7 @@ endif
 
 libdivecomputer_la_SOURCES = \
 	version.c \
-	device.h device-private.h device.c \
+	devicel.h device-private.h deviceL.c \
 	parser.h parser-private.h parser.c \
 	datetime.h datetime.c \
 	suunto.h \

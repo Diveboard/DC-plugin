@@ -1,10 +1,21 @@
 #pragma once
 #include "computer.h"
-#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\buffer.h"
-#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\deviceL.h"
-#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\parser.h"
+#include "../../libdivecomputer/src/deviceL.h"
+#include "../../libdivecomputer/src/parser.h"
+#include "../../libdivecomputer/src/buffer.h"
+
+//#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\buffer.h"
+//#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\deviceL.h"
+//#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\parser.h"
 
 
+#ifdef WIN32
+
+
+#elif __MACH__
+#define __cdecl 
+
+#endif
 
 //For DLL loading
 typedef device_status_t (__cdecl LDCOPEN2)(device_t**, const char *);

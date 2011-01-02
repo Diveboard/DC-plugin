@@ -82,8 +82,8 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(defdir)" \
 	"$(DESTDIR)$(libdivecomputerdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-am__libdivecomputer_la_SOURCES_DIST = version.c device.h \
-	device-private.h device.c parser.h parser-private.h parser.c \
+am__libdivecomputer_la_SOURCES_DIST = version.c deviceL.h \
+	device-private.h deviceL.c parser.h parser-private.h parser.c \
 	datetime.h datetime.c suunto.h suunto_common.h suunto_common.c \
 	suunto_common2.h suunto_common2.c suunto_solution.h \
 	suunto_solution.c suunto_solution_parser.c suunto_eon.h \
@@ -113,7 +113,7 @@ am__libdivecomputer_la_SOURCES_DIST = version.c device.h \
 @IRDA_TRUE@am__objects_3 = irda.lo
 @IRDA_FALSE@am__objects_4 = irda_dummy.lo
 @OS_WIN32_TRUE@am__objects_5 = libdivecomputer.lo
-am_libdivecomputer_la_OBJECTS = version.lo device.lo parser.lo \
+am_libdivecomputer_la_OBJECTS = version.lo deviceL.lo parser.lo \
 	datetime.lo suunto_common.lo suunto_common2.lo \
 	suunto_solution.lo suunto_solution_parser.lo suunto_eon.lo \
 	suunto_eon_parser.lo suunto_vyper.lo suunto_vyper_parser.lo \
@@ -298,7 +298,7 @@ libdivecomputer_HEADERS = \
 	version.h \
 	utils.h \
 	buffer.h \
-	device.h \
+	deviceL.h \
 	parser.h \
 	datetime.h \
 	units.h \
@@ -338,8 +338,8 @@ libdivecomputer_la_LDFLAGS = -version-info $(DC_VERSION_LIBTOOL) \
 	$(am__append_1)
 @OS_WIN32_TRUE@defdir = $(libdir)
 @OS_WIN32_TRUE@dist_def_DATA = libdivecomputer.def
-libdivecomputer_la_SOURCES = version.c device.h device-private.h \
-	device.c parser.h parser-private.h parser.c datetime.h \
+libdivecomputer_la_SOURCES = version.c deviceL.h device-private.h \
+	deviceL.c parser.h parser-private.h parser.c datetime.h \
 	datetime.c suunto.h suunto_common.h suunto_common.c \
 	suunto_common2.h suunto_common2.c suunto_solution.h \
 	suunto_solution.c suunto_solution_parser.c suunto_eon.h \
@@ -454,7 +454,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cressi_edy.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cressi_edy_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/datetime.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/device.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/deviceL.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hw_ostc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hw_ostc_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/irda.Plo@am__quote@

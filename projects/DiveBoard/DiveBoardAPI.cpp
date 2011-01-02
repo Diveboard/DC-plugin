@@ -49,7 +49,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
+#ifdef __MACH__
+		alwaysAsync=false;
+#else
 		alwaysAsync=true;
+#endif
+	
 		status.nbDivesRead=-1;
 		status.nbDivesTotal=-1;
 		status.state = COMPUTER_NOT_STARTED;

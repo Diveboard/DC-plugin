@@ -2,21 +2,21 @@
 #include <boost/format.hpp>
 
 DBException::DBException(std::string t, std::exception e)
-	: exception((t + " --- " + e.what()).c_str())
+	: m_error((t + " --- " + e.what()).c_str())
 {
 	ex = e;
 }
 
 DBException::DBException(std::string t)
-	: exception(t.c_str())
+	: m_error(t.c_str())
 {
 }
 
 DBException::DBException()
-	: exception("Unqualified DBO Exception")
+	: m_error("Unqualified DBO Exception")
 {
 }
 
-DBException::~DBException(void)
+DBException::~DBException(void) throw()
 {
 }

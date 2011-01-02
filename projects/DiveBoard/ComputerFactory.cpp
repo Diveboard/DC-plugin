@@ -261,10 +261,12 @@ bool ComputerFactory::mapDevice(std::string identifier, std::string &found)
 	} 
 #elif __MACH__
 	if (!identifier.compare("tty.usbserial-PtTFP8W4")) {
-		return(new ComputerSuunto(fileName));
+		found = "Suunto";
+		return true;
 	}
 	else if (!identifier.compare("tty.SLAB_USBtoUART")) {
-		return(new ComputerMares(fileName));
+		found = "Mares M2";
+		return true;
 	}
 								 
 #else

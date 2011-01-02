@@ -136,9 +136,10 @@ int DeviceMares::open()
 	tcflush(hCom,TCIFLUSH);
 	
 	if(tcsetattr(hCom,TCSANOW,&options)!=-1) {
-		if(set_dtr(DTR_STATUS_ON) && set_rts(RTS_STATUS_OFF)) {
-			usleep(100000);
-		}
+		//todo : should be in a try/catch ?
+		set_dtr(DTR_STATUS_ON);
+		set_rts(RTS_STATUS_OFF);
+		usleep(100000);
 	}
 	else {
 		LOGINFO("Error while setting properties of Com port");

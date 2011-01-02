@@ -224,10 +224,9 @@ function ExtractDives()
 		var computer = document.getElementById("computer").value;
 		var a = document.getElementById("output");
 		a.value = "Extracting...";
-		var res = plugin().extract(port, computer);
-
 		showdiv("progressBox");
 		showdiv("overlay");
+		var res = plugin().extract(port, computer);
 	}
 	catch (err) {
 		handlePluginError(err);
@@ -476,6 +475,8 @@ div.hidden
 <div id=advancedLink ><a href=# onclick='hidediv("advancedLink"); showdiv("advancedText");return(false);'>Show advanced options</a></div>
 <div id=advancedText >
 <p>Select the port on which the Computer is connected :<select id=port autocomplete="off">
+<option value='/dev/tty.SLAB_USBtoUART' >tty.SLAB_USBtoUART for Mares</option>
+<option value='/dev/tty.usbserial-PtTFP8W4' >tty.usbserial-PtTFP8W4 for Suunto</option>
 <option value='\\.\COM1' >1</option>
 <option value='\\.\COM2' >2</option>
 <option value='\\.\COM3' >3</option>

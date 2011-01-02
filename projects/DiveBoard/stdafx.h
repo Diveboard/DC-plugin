@@ -1,7 +1,10 @@
 //#define _WIN32_WINNT 0x601
 
+#ifdef WIN32
 #include <windows.h>
 //#include <windowsx.h>
+#endif
+
 #include <stdio.h>
 //#include <atlstr.h>
 
