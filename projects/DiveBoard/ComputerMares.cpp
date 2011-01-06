@@ -145,7 +145,7 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
 		if(!memcmp(command, reply, 12)) {
 		}
 
-		rc = device->read_serial(retbuffer, len*2);
+		rc = device->read_serial(retbuffer, len*2, 10);
 	  for (int i=0; i<len*2; i++) data += str(boost::format(" %02X") % (int)retbuffer[i]);
 
 
@@ -260,7 +260,7 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 
 
 				std::string alarm;
-				if (map[profilePos[2]]>0) alarm += str(boost::format("%d") % map[profilePos[2]]);
+				if (map[profilePos[2]]>0) alarm += str(boost::format("%d") % (int)(map[profilePos[2]]));
 				if (map[profilePos[3]] && 8) alarm += "  F_8  ";
 				if (map[profilePos[3]] && 4) alarm += "  F_4  ";
 				if (alarm.size() > 0) dive->profile += "<ALARM>" + alarm + "</ALARM>";

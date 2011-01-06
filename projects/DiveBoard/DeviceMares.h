@@ -40,5 +40,5 @@ public:
 	~DeviceMares();
 	int open();
 	int write_serial(unsigned char *,int);
-	int read_serial(unsigned char * buff, unsigned int num = 1, int timeout=0);
+	int read_serial(unsigned char * buff, unsigned int num = 1, int timeout=10);
 };

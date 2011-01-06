@@ -286,7 +286,7 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 	std::vector<std::string> friendlyNames;
 	std::string driverName;
 	unsigned int i;
-	Computer *foundComputer;
+	Computer *foundComputer = NULL;
 
 	//1 list ports
 #ifdef _WIN32
@@ -303,27 +303,32 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 		LOGINFO("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
 		bool found = mapDevice(friendlyNames[i], driverName);
 		if (found) {
-			foundComputer = createComputer(driverName, fileNames[i]);
-			if (foundComputer) {
+			try {
+				//calling createComputer here makes some calls to computer which it cannot always answer....
+				//foundComputer = createComputer(driverName, fileNames[i]);
+				if (foundComputer) {
 
-				//We don't really care about the exact model... so if a driver is found let's just use it !
-				ret[std::string("type")] = driverName;
-				ret[std::string("filename")] = fileNames[i];
-				delete foundComputer;
-				return(ret);
-
-				/*
-				//3 test port with Computer Driver
-				ComputerModel model = foundComputer->get_model();
-				LOGINFO("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
-
-				//4 return identified device
-				if (model != COMPUTER_MODEL_UNKNOWN){			
+					//We don't really care about the exact model... so if a driver is found let's just use it !
 					ret[std::string("type")] = driverName;
 					ret[std::string("filename")] = fileNames[i];
+					//delete foundComputer;
 					return(ret);
+
+					/*
+					 //3 test port with Computer Driver
+					 ComputerModel model = foundComputer->get_model();
+					 LOGINFO("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
+
+					 //4 return identified device
+					 if (model != COMPUTER_MODEL_UNKNOWN){			
+						ret[std::string("type")] = driverName;
+						ret[std::string("filename")] = fileNames[i];
+						return(ret);
+					 }
+					 */
 				}
-				*/
+			} catch(std::exception &e) {
+				LOGINFO("An exception was raised while detecting the computers and has been ignored : %s", e.what());
 			}
 		}
 	}

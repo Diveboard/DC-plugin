@@ -1,0 +1,565 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F849AF4612D53D5000A7FA84 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1412D53D5000A7FA84 /* version.c */; };
+		F849AF4712D53D5000A7FA84 /* uwatec_smart.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1512D53D5000A7FA84 /* uwatec_smart.c */; };
+		F849AF4812D53D5000A7FA84 /* uwatec_smart_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1612D53D5000A7FA84 /* uwatec_smart_parser.c */; };
+		F849AF4912D53D5000A7FA84 /* uwatec_memomouse.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1712D53D5000A7FA84 /* uwatec_memomouse.c */; };
+		F849AF4A12D53D5000A7FA84 /* uwatec_memomouse_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1812D53D5000A7FA84 /* uwatec_memomouse_parser.c */; };
+		F849AF4B12D53D5000A7FA84 /* uwatec_aladin.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1912D53D5000A7FA84 /* uwatec_aladin.c */; };
+		F849AF4C12D53D5000A7FA84 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1A12D53D5000A7FA84 /* utils.c */; };
+		F849AF4D12D53D5000A7FA84 /* suunto_vyper2.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1B12D53D5000A7FA84 /* suunto_vyper2.c */; };
+		F849AF4E12D53D5000A7FA84 /* suunto_vyper.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1C12D53D5000A7FA84 /* suunto_vyper.c */; };
+		F849AF4F12D53D5000A7FA84 /* suunto_vyper_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1D12D53D5000A7FA84 /* suunto_vyper_parser.c */; };
+		F849AF5012D53D5000A7FA84 /* suunto_solution.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1E12D53D5000A7FA84 /* suunto_solution.c */; };
+		F849AF5112D53D5000A7FA84 /* suunto_solution_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF1F12D53D5000A7FA84 /* suunto_solution_parser.c */; };
+		F849AF5212D53D5000A7FA84 /* suunto_eon.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2012D53D5000A7FA84 /* suunto_eon.c */; };
+		F849AF5312D53D5000A7FA84 /* suunto_eon_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2112D53D5000A7FA84 /* suunto_eon_parser.c */; };
+		F849AF5412D53D5000A7FA84 /* suunto_d9.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2212D53D5000A7FA84 /* suunto_d9.c */; };
+		F849AF5512D53D5000A7FA84 /* suunto_d9_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2312D53D5000A7FA84 /* suunto_d9_parser.c */; };
+		F849AF5612D53D5000A7FA84 /* suunto_common2.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2412D53D5000A7FA84 /* suunto_common2.c */; };
+		F849AF5712D53D5000A7FA84 /* suunto_common.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2512D53D5000A7FA84 /* suunto_common.c */; };
+		F849AF5912D53D5000A7FA84 /* serial_posix.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2712D53D5000A7FA84 /* serial_posix.c */; };
+		F849AF5A12D53D5000A7FA84 /* ringbuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2812D53D5000A7FA84 /* ringbuffer.c */; };
+		F849AF5B12D53D5000A7FA84 /* reefnet_sensusultra.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2912D53D5000A7FA84 /* reefnet_sensusultra.c */; };
+		F849AF5C12D53D5000A7FA84 /* reefnet_sensusultra_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2A12D53D5000A7FA84 /* reefnet_sensusultra_parser.c */; };
+		F849AF5D12D53D5000A7FA84 /* reefnet_sensuspro.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2B12D53D5000A7FA84 /* reefnet_sensuspro.c */; };
+		F849AF5E12D53D5000A7FA84 /* reefnet_sensuspro_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2C12D53D5000A7FA84 /* reefnet_sensuspro_parser.c */; };
+		F849AF5F12D53D5000A7FA84 /* reefnet_sensus.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2D12D53D5000A7FA84 /* reefnet_sensus.c */; };
+		F849AF6012D53D5000A7FA84 /* reefnet_sensus_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2E12D53D5000A7FA84 /* reefnet_sensus_parser.c */; };
+		F849AF6112D53D5000A7FA84 /* parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF2F12D53D5000A7FA84 /* parser.c */; };
+		F849AF6212D53D5000A7FA84 /* oceanic_vtpro.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3012D53D5000A7FA84 /* oceanic_vtpro.c */; };
+		F849AF6312D53D5000A7FA84 /* oceanic_vtpro_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3112D53D5000A7FA84 /* oceanic_vtpro_parser.c */; };
+		F849AF6412D53D5000A7FA84 /* oceanic_veo250.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3212D53D5000A7FA84 /* oceanic_veo250.c */; };
+		F849AF6512D53D5000A7FA84 /* oceanic_veo250_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3312D53D5000A7FA84 /* oceanic_veo250_parser.c */; };
+		F849AF6612D53D5000A7FA84 /* oceanic_common.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3412D53D5000A7FA84 /* oceanic_common.c */; };
+		F849AF6712D53D5000A7FA84 /* oceanic_atom2.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3512D53D5000A7FA84 /* oceanic_atom2.c */; };
+		F849AF6812D53D5000A7FA84 /* oceanic_atom2_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3612D53D5000A7FA84 /* oceanic_atom2_parser.c */; };
+		F849AF6912D53D5000A7FA84 /* mares_puck.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3712D53D5000A7FA84 /* mares_puck.c */; };
+		F849AF6A12D53D5000A7FA84 /* mares_nemo.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3812D53D5000A7FA84 /* mares_nemo.c */; };
+		F849AF6B12D53D5000A7FA84 /* mares_nemo_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3912D53D5000A7FA84 /* mares_nemo_parser.c */; };
+		F849AF6C12D53D5000A7FA84 /* mares_common.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3A12D53D5000A7FA84 /* mares_common.c */; };
+		F849AF6E12D53D5000A7FA84 /* irda_dummy.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3C12D53D5000A7FA84 /* irda_dummy.c */; };
+		F849AF6F12D53D5000A7FA84 /* hw_ostc.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3D12D53D5000A7FA84 /* hw_ostc.c */; };
+		F849AF7012D53D5000A7FA84 /* hw_ostc_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3E12D53D5000A7FA84 /* hw_ostc_parser.c */; };
+		F849AF7112D53D5000A7FA84 /* deviceL.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF3F12D53D5000A7FA84 /* deviceL.c */; };
+		F849AF7212D53D5000A7FA84 /* datetime.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF4012D53D5000A7FA84 /* datetime.c */; };
+		F849AF7312D53D5000A7FA84 /* cressi_edy.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF4112D53D5000A7FA84 /* cressi_edy.c */; };
+		F849AF7412D53D5000A7FA84 /* cressi_edy_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF4212D53D5000A7FA84 /* cressi_edy_parser.c */; };
+		F849AF7512D53D5000A7FA84 /* checksum.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF4312D53D5000A7FA84 /* checksum.c */; };
+		F849AF7612D53D5000A7FA84 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF4412D53D5000A7FA84 /* buffer.c */; };
+		F849AF7712D53D5000A7FA84 /* array.c in Sources */ = {isa = PBXBuildFile; fileRef = F849AF4512D53D5000A7FA84 /* array.c */; };
+		F849AFA412D53D6900A7FA84 /* version.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7912D53D6900A7FA84 /* version.h */; };
+		F849AFA512D53D6900A7FA84 /* uwatec.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7A12D53D6900A7FA84 /* uwatec.h */; };
+		F849AFA612D53D6900A7FA84 /* uwatec_smart.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7B12D53D6900A7FA84 /* uwatec_smart.h */; };
+		F849AFA712D53D6900A7FA84 /* uwatec_memomouse.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7C12D53D6900A7FA84 /* uwatec_memomouse.h */; };
+		F849AFA812D53D6900A7FA84 /* uwatec_aladin.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7D12D53D6900A7FA84 /* uwatec_aladin.h */; };
+		F849AFA912D53D6900A7FA84 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7E12D53D6900A7FA84 /* utils.h */; };
+		F849AFAA12D53D6900A7FA84 /* units.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF7F12D53D6900A7FA84 /* units.h */; };
+		F849AFAB12D53D6900A7FA84 /* suunto.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8012D53D6900A7FA84 /* suunto.h */; };
+		F849AFAC12D53D6900A7FA84 /* suunto_vyper2.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8112D53D6900A7FA84 /* suunto_vyper2.h */; };
+		F849AFAD12D53D6900A7FA84 /* suunto_vyper.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8212D53D6900A7FA84 /* suunto_vyper.h */; };
+		F849AFAE12D53D6900A7FA84 /* suunto_solution.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8312D53D6900A7FA84 /* suunto_solution.h */; };
+		F849AFAF12D53D6900A7FA84 /* suunto_eon.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8412D53D6900A7FA84 /* suunto_eon.h */; };
+		F849AFB012D53D6900A7FA84 /* suunto_d9.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8512D53D6900A7FA84 /* suunto_d9.h */; };
+		F849AFB112D53D6900A7FA84 /* suunto_common2.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8612D53D6900A7FA84 /* suunto_common2.h */; };
+		F849AFB212D53D6900A7FA84 /* suunto_common.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8712D53D6900A7FA84 /* suunto_common.h */; };
+		F849AFB312D53D6900A7FA84 /* serial.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8812D53D6900A7FA84 /* serial.h */; };
+		F849AFB412D53D6900A7FA84 /* ringbuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8912D53D6900A7FA84 /* ringbuffer.h */; };
+		F849AFB512D53D6900A7FA84 /* reefnet.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8A12D53D6900A7FA84 /* reefnet.h */; };
+		F849AFB612D53D6900A7FA84 /* reefnet_sensusultra.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8B12D53D6900A7FA84 /* reefnet_sensusultra.h */; };
+		F849AFB712D53D6900A7FA84 /* reefnet_sensuspro.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8C12D53D6900A7FA84 /* reefnet_sensuspro.h */; };
+		F849AFB812D53D6900A7FA84 /* reefnet_sensus.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8D12D53D6900A7FA84 /* reefnet_sensus.h */; };
+		F849AFB912D53D6900A7FA84 /* parser.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8E12D53D6900A7FA84 /* parser.h */; };
+		F849AFBA12D53D6900A7FA84 /* parser-private.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF8F12D53D6900A7FA84 /* parser-private.h */; };
+		F849AFBB12D53D6900A7FA84 /* oceanic.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9012D53D6900A7FA84 /* oceanic.h */; };
+		F849AFBC12D53D6900A7FA84 /* oceanic_vtpro.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9112D53D6900A7FA84 /* oceanic_vtpro.h */; };
+		F849AFBD12D53D6900A7FA84 /* oceanic_veo250.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9212D53D6900A7FA84 /* oceanic_veo250.h */; };
+		F849AFBE12D53D6900A7FA84 /* oceanic_common.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9312D53D6900A7FA84 /* oceanic_common.h */; };
+		F849AFBF12D53D6900A7FA84 /* oceanic_atom2.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9412D53D6900A7FA84 /* oceanic_atom2.h */; };
+		F849AFC012D53D6900A7FA84 /* mares.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9512D53D6900A7FA84 /* mares.h */; };
+		F849AFC112D53D6900A7FA84 /* mares_puck.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9612D53D6900A7FA84 /* mares_puck.h */; };
+		F849AFC212D53D6900A7FA84 /* mares_nemo.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9712D53D6900A7FA84 /* mares_nemo.h */; };
+		F849AFC312D53D6900A7FA84 /* mares_common.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9812D53D6900A7FA84 /* mares_common.h */; };
+		F849AFC412D53D6900A7FA84 /* irda.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9912D53D6900A7FA84 /* irda.h */; };
+		F849AFC512D53D6900A7FA84 /* hw.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9A12D53D6900A7FA84 /* hw.h */; };
+		F849AFC612D53D6900A7FA84 /* hw_ostc.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9B12D53D6900A7FA84 /* hw_ostc.h */; };
+		F849AFC712D53D6900A7FA84 /* deviceL.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9C12D53D6900A7FA84 /* deviceL.h */; };
+		F849AFC812D53D6900A7FA84 /* device-private.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9D12D53D6900A7FA84 /* device-private.h */; };
+		F849AFC912D53D6900A7FA84 /* datetime.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9E12D53D6900A7FA84 /* datetime.h */; };
+		F849AFCA12D53D6900A7FA84 /* cressi.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AF9F12D53D6900A7FA84 /* cressi.h */; };
+		F849AFCB12D53D6900A7FA84 /* cressi_edy.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AFA012D53D6900A7FA84 /* cressi_edy.h */; };
+		F849AFCC12D53D6900A7FA84 /* checksum.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AFA112D53D6900A7FA84 /* checksum.h */; };
+		F849AFCD12D53D6900A7FA84 /* buffer.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AFA212D53D6900A7FA84 /* buffer.h */; };
+		F849AFCE12D53D6900A7FA84 /* array.h in Headers */ = {isa = PBXBuildFile; fileRef = F849AFA312D53D6900A7FA84 /* array.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D2AAC0630554660B00DB518D /* liblibdivecomputer.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = liblibdivecomputer.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F849AF1412D53D5000A7FA84 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = version.c; path = src/version.c; sourceTree = "<group>"; };
+		F849AF1512D53D5000A7FA84 /* uwatec_smart.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uwatec_smart.c; path = src/uwatec_smart.c; sourceTree = "<group>"; };
+		F849AF1612D53D5000A7FA84 /* uwatec_smart_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uwatec_smart_parser.c; path = src/uwatec_smart_parser.c; sourceTree = "<group>"; };
+		F849AF1712D53D5000A7FA84 /* uwatec_memomouse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uwatec_memomouse.c; path = src/uwatec_memomouse.c; sourceTree = "<group>"; };
+		F849AF1812D53D5000A7FA84 /* uwatec_memomouse_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uwatec_memomouse_parser.c; path = src/uwatec_memomouse_parser.c; sourceTree = "<group>"; };
+		F849AF1912D53D5000A7FA84 /* uwatec_aladin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uwatec_aladin.c; path = src/uwatec_aladin.c; sourceTree = "<group>"; };
+		F849AF1A12D53D5000A7FA84 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = utils.c; path = src/utils.c; sourceTree = "<group>"; };
+		F849AF1B12D53D5000A7FA84 /* suunto_vyper2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_vyper2.c; path = src/suunto_vyper2.c; sourceTree = "<group>"; };
+		F849AF1C12D53D5000A7FA84 /* suunto_vyper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_vyper.c; path = src/suunto_vyper.c; sourceTree = "<group>"; };
+		F849AF1D12D53D5000A7FA84 /* suunto_vyper_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_vyper_parser.c; path = src/suunto_vyper_parser.c; sourceTree = "<group>"; };
+		F849AF1E12D53D5000A7FA84 /* suunto_solution.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_solution.c; path = src/suunto_solution.c; sourceTree = "<group>"; };
+		F849AF1F12D53D5000A7FA84 /* suunto_solution_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_solution_parser.c; path = src/suunto_solution_parser.c; sourceTree = "<group>"; };
+		F849AF2012D53D5000A7FA84 /* suunto_eon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_eon.c; path = src/suunto_eon.c; sourceTree = "<group>"; };
+		F849AF2112D53D5000A7FA84 /* suunto_eon_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_eon_parser.c; path = src/suunto_eon_parser.c; sourceTree = "<group>"; };
+		F849AF2212D53D5000A7FA84 /* suunto_d9.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_d9.c; path = src/suunto_d9.c; sourceTree = "<group>"; };
+		F849AF2312D53D5000A7FA84 /* suunto_d9_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_d9_parser.c; path = src/suunto_d9_parser.c; sourceTree = "<group>"; };
+		F849AF2412D53D5000A7FA84 /* suunto_common2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_common2.c; path = src/suunto_common2.c; sourceTree = "<group>"; };
+		F849AF2512D53D5000A7FA84 /* suunto_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = suunto_common.c; path = src/suunto_common.c; sourceTree = "<group>"; };
+		F849AF2712D53D5000A7FA84 /* serial_posix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = serial_posix.c; path = src/serial_posix.c; sourceTree = "<group>"; };
+		F849AF2812D53D5000A7FA84 /* ringbuffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ringbuffer.c; path = src/ringbuffer.c; sourceTree = "<group>"; };
+		F849AF2912D53D5000A7FA84 /* reefnet_sensusultra.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reefnet_sensusultra.c; path = src/reefnet_sensusultra.c; sourceTree = "<group>"; };
+		F849AF2A12D53D5000A7FA84 /* reefnet_sensusultra_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reefnet_sensusultra_parser.c; path = src/reefnet_sensusultra_parser.c; sourceTree = "<group>"; };
+		F849AF2B12D53D5000A7FA84 /* reefnet_sensuspro.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reefnet_sensuspro.c; path = src/reefnet_sensuspro.c; sourceTree = "<group>"; };
+		F849AF2C12D53D5000A7FA84 /* reefnet_sensuspro_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reefnet_sensuspro_parser.c; path = src/reefnet_sensuspro_parser.c; sourceTree = "<group>"; };
+		F849AF2D12D53D5000A7FA84 /* reefnet_sensus.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reefnet_sensus.c; path = src/reefnet_sensus.c; sourceTree = "<group>"; };
+		F849AF2E12D53D5000A7FA84 /* reefnet_sensus_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reefnet_sensus_parser.c; path = src/reefnet_sensus_parser.c; sourceTree = "<group>"; };
+		F849AF2F12D53D5000A7FA84 /* parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = parser.c; path = src/parser.c; sourceTree = "<group>"; };
+		F849AF3012D53D5000A7FA84 /* oceanic_vtpro.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_vtpro.c; path = src/oceanic_vtpro.c; sourceTree = "<group>"; };
+		F849AF3112D53D5000A7FA84 /* oceanic_vtpro_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_vtpro_parser.c; path = src/oceanic_vtpro_parser.c; sourceTree = "<group>"; };
+		F849AF3212D53D5000A7FA84 /* oceanic_veo250.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_veo250.c; path = src/oceanic_veo250.c; sourceTree = "<group>"; };
+		F849AF3312D53D5000A7FA84 /* oceanic_veo250_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_veo250_parser.c; path = src/oceanic_veo250_parser.c; sourceTree = "<group>"; };
+		F849AF3412D53D5000A7FA84 /* oceanic_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_common.c; path = src/oceanic_common.c; sourceTree = "<group>"; };
+		F849AF3512D53D5000A7FA84 /* oceanic_atom2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_atom2.c; path = src/oceanic_atom2.c; sourceTree = "<group>"; };
+		F849AF3612D53D5000A7FA84 /* oceanic_atom2_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = oceanic_atom2_parser.c; path = src/oceanic_atom2_parser.c; sourceTree = "<group>"; };
+		F849AF3712D53D5000A7FA84 /* mares_puck.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mares_puck.c; path = src/mares_puck.c; sourceTree = "<group>"; };
+		F849AF3812D53D5000A7FA84 /* mares_nemo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mares_nemo.c; path = src/mares_nemo.c; sourceTree = "<group>"; };
+		F849AF3912D53D5000A7FA84 /* mares_nemo_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mares_nemo_parser.c; path = src/mares_nemo_parser.c; sourceTree = "<group>"; };
+		F849AF3A12D53D5000A7FA84 /* mares_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mares_common.c; path = src/mares_common.c; sourceTree = "<group>"; };
+		F849AF3C12D53D5000A7FA84 /* irda_dummy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = irda_dummy.c; path = src/irda_dummy.c; sourceTree = "<group>"; };
+		F849AF3D12D53D5000A7FA84 /* hw_ostc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hw_ostc.c; path = src/hw_ostc.c; sourceTree = "<group>"; };
+		F849AF3E12D53D5000A7FA84 /* hw_ostc_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hw_ostc_parser.c; path = src/hw_ostc_parser.c; sourceTree = "<group>"; };
+		F849AF3F12D53D5000A7FA84 /* deviceL.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = deviceL.c; path = src/deviceL.c; sourceTree = "<group>"; };
+		F849AF4012D53D5000A7FA84 /* datetime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = datetime.c; path = src/datetime.c; sourceTree = "<group>"; };
+		F849AF4112D53D5000A7FA84 /* cressi_edy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cressi_edy.c; path = src/cressi_edy.c; sourceTree = "<group>"; };
+		F849AF4212D53D5000A7FA84 /* cressi_edy_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cressi_edy_parser.c; path = src/cressi_edy_parser.c; sourceTree = "<group>"; };
+		F849AF4312D53D5000A7FA84 /* checksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = checksum.c; path = src/checksum.c; sourceTree = "<group>"; };
+		F849AF4412D53D5000A7FA84 /* buffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = buffer.c; path = src/buffer.c; sourceTree = "<group>"; };
+		F849AF4512D53D5000A7FA84 /* array.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = array.c; path = src/array.c; sourceTree = "<group>"; };
+		F849AF7912D53D6900A7FA84 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
+		F849AF7A12D53D6900A7FA84 /* uwatec.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uwatec.h; path = src/uwatec.h; sourceTree = "<group>"; };
+		F849AF7B12D53D6900A7FA84 /* uwatec_smart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uwatec_smart.h; path = src/uwatec_smart.h; sourceTree = "<group>"; };
+		F849AF7C12D53D6900A7FA84 /* uwatec_memomouse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uwatec_memomouse.h; path = src/uwatec_memomouse.h; sourceTree = "<group>"; };
+		F849AF7D12D53D6900A7FA84 /* uwatec_aladin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uwatec_aladin.h; path = src/uwatec_aladin.h; sourceTree = "<group>"; };
+		F849AF7E12D53D6900A7FA84 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = src/utils.h; sourceTree = "<group>"; };
+		F849AF7F12D53D6900A7FA84 /* units.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = units.h; path = src/units.h; sourceTree = "<group>"; };
+		F849AF8012D53D6900A7FA84 /* suunto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto.h; path = src/suunto.h; sourceTree = "<group>"; };
+		F849AF8112D53D6900A7FA84 /* suunto_vyper2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_vyper2.h; path = src/suunto_vyper2.h; sourceTree = "<group>"; };
+		F849AF8212D53D6900A7FA84 /* suunto_vyper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_vyper.h; path = src/suunto_vyper.h; sourceTree = "<group>"; };
+		F849AF8312D53D6900A7FA84 /* suunto_solution.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_solution.h; path = src/suunto_solution.h; sourceTree = "<group>"; };
+		F849AF8412D53D6900A7FA84 /* suunto_eon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_eon.h; path = src/suunto_eon.h; sourceTree = "<group>"; };
+		F849AF8512D53D6900A7FA84 /* suunto_d9.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_d9.h; path = src/suunto_d9.h; sourceTree = "<group>"; };
+		F849AF8612D53D6900A7FA84 /* suunto_common2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_common2.h; path = src/suunto_common2.h; sourceTree = "<group>"; };
+		F849AF8712D53D6900A7FA84 /* suunto_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = suunto_common.h; path = src/suunto_common.h; sourceTree = "<group>"; };
+		F849AF8812D53D6900A7FA84 /* serial.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = serial.h; path = src/serial.h; sourceTree = "<group>"; };
+		F849AF8912D53D6900A7FA84 /* ringbuffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ringbuffer.h; path = src/ringbuffer.h; sourceTree = "<group>"; };
+		F849AF8A12D53D6900A7FA84 /* reefnet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reefnet.h; path = src/reefnet.h; sourceTree = "<group>"; };
+		F849AF8B12D53D6900A7FA84 /* reefnet_sensusultra.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reefnet_sensusultra.h; path = src/reefnet_sensusultra.h; sourceTree = "<group>"; };
+		F849AF8C12D53D6900A7FA84 /* reefnet_sensuspro.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reefnet_sensuspro.h; path = src/reefnet_sensuspro.h; sourceTree = "<group>"; };
+		F849AF8D12D53D6900A7FA84 /* reefnet_sensus.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reefnet_sensus.h; path = src/reefnet_sensus.h; sourceTree = "<group>"; };
+		F849AF8E12D53D6900A7FA84 /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = src/parser.h; sourceTree = "<group>"; };
+		F849AF8F12D53D6900A7FA84 /* parser-private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "parser-private.h"; path = "src/parser-private.h"; sourceTree = "<group>"; };
+		F849AF9012D53D6900A7FA84 /* oceanic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oceanic.h; path = src/oceanic.h; sourceTree = "<group>"; };
+		F849AF9112D53D6900A7FA84 /* oceanic_vtpro.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oceanic_vtpro.h; path = src/oceanic_vtpro.h; sourceTree = "<group>"; };
+		F849AF9212D53D6900A7FA84 /* oceanic_veo250.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oceanic_veo250.h; path = src/oceanic_veo250.h; sourceTree = "<group>"; };
+		F849AF9312D53D6900A7FA84 /* oceanic_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oceanic_common.h; path = src/oceanic_common.h; sourceTree = "<group>"; };
+		F849AF9412D53D6900A7FA84 /* oceanic_atom2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = oceanic_atom2.h; path = src/oceanic_atom2.h; sourceTree = "<group>"; };
+		F849AF9512D53D6900A7FA84 /* mares.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mares.h; path = src/mares.h; sourceTree = "<group>"; };
+		F849AF9612D53D6900A7FA84 /* mares_puck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mares_puck.h; path = src/mares_puck.h; sourceTree = "<group>"; };
+		F849AF9712D53D6900A7FA84 /* mares_nemo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mares_nemo.h; path = src/mares_nemo.h; sourceTree = "<group>"; };
+		F849AF9812D53D6900A7FA84 /* mares_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mares_common.h; path = src/mares_common.h; sourceTree = "<group>"; };
+		F849AF9912D53D6900A7FA84 /* irda.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = irda.h; path = src/irda.h; sourceTree = "<group>"; };
+		F849AF9A12D53D6900A7FA84 /* hw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hw.h; path = src/hw.h; sourceTree = "<group>"; };
+		F849AF9B12D53D6900A7FA84 /* hw_ostc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hw_ostc.h; path = src/hw_ostc.h; sourceTree = "<group>"; };
+		F849AF9C12D53D6900A7FA84 /* deviceL.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = deviceL.h; path = src/deviceL.h; sourceTree = "<group>"; };
+		F849AF9D12D53D6900A7FA84 /* device-private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "device-private.h"; path = "src/device-private.h"; sourceTree = "<group>"; };
+		F849AF9E12D53D6900A7FA84 /* datetime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = datetime.h; path = src/datetime.h; sourceTree = "<group>"; };
+		F849AF9F12D53D6900A7FA84 /* cressi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cressi.h; path = src/cressi.h; sourceTree = "<group>"; };
+		F849AFA012D53D6900A7FA84 /* cressi_edy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cressi_edy.h; path = src/cressi_edy.h; sourceTree = "<group>"; };
+		F849AFA112D53D6900A7FA84 /* checksum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = checksum.h; path = src/checksum.h; sourceTree = "<group>"; };
+		F849AFA212D53D6900A7FA84 /* buffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = buffer.h; path = src/buffer.h; sourceTree = "<group>"; };
+		F849AFA312D53D6900A7FA84 /* array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = array.h; path = src/array.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D289988505E68E00004EDB86 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* libdivecomputer */ = {
+			isa = PBXGroup;
+			children = (
+				F849AF7812D53D5300A7FA84 /* Header */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = libdivecomputer;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				F849AF1412D53D5000A7FA84 /* version.c */,
+				F849AF1512D53D5000A7FA84 /* uwatec_smart.c */,
+				F849AF1612D53D5000A7FA84 /* uwatec_smart_parser.c */,
+				F849AF1712D53D5000A7FA84 /* uwatec_memomouse.c */,
+				F849AF1812D53D5000A7FA84 /* uwatec_memomouse_parser.c */,
+				F849AF1912D53D5000A7FA84 /* uwatec_aladin.c */,
+				F849AF1A12D53D5000A7FA84 /* utils.c */,
+				F849AF1B12D53D5000A7FA84 /* suunto_vyper2.c */,
+				F849AF1C12D53D5000A7FA84 /* suunto_vyper.c */,
+				F849AF1D12D53D5000A7FA84 /* suunto_vyper_parser.c */,
+				F849AF1E12D53D5000A7FA84 /* suunto_solution.c */,
+				F849AF1F12D53D5000A7FA84 /* suunto_solution_parser.c */,
+				F849AF2012D53D5000A7FA84 /* suunto_eon.c */,
+				F849AF2112D53D5000A7FA84 /* suunto_eon_parser.c */,
+				F849AF2212D53D5000A7FA84 /* suunto_d9.c */,
+				F849AF2312D53D5000A7FA84 /* suunto_d9_parser.c */,
+				F849AF2412D53D5000A7FA84 /* suunto_common2.c */,
+				F849AF2512D53D5000A7FA84 /* suunto_common.c */,
+				F849AF2712D53D5000A7FA84 /* serial_posix.c */,
+				F849AF2812D53D5000A7FA84 /* ringbuffer.c */,
+				F849AF2912D53D5000A7FA84 /* reefnet_sensusultra.c */,
+				F849AF2A12D53D5000A7FA84 /* reefnet_sensusultra_parser.c */,
+				F849AF2B12D53D5000A7FA84 /* reefnet_sensuspro.c */,
+				F849AF2C12D53D5000A7FA84 /* reefnet_sensuspro_parser.c */,
+				F849AF2D12D53D5000A7FA84 /* reefnet_sensus.c */,
+				F849AF2E12D53D5000A7FA84 /* reefnet_sensus_parser.c */,
+				F849AF2F12D53D5000A7FA84 /* parser.c */,
+				F849AF3012D53D5000A7FA84 /* oceanic_vtpro.c */,
+				F849AF3112D53D5000A7FA84 /* oceanic_vtpro_parser.c */,
+				F849AF3212D53D5000A7FA84 /* oceanic_veo250.c */,
+				F849AF3312D53D5000A7FA84 /* oceanic_veo250_parser.c */,
+				F849AF3412D53D5000A7FA84 /* oceanic_common.c */,
+				F849AF3512D53D5000A7FA84 /* oceanic_atom2.c */,
+				F849AF3612D53D5000A7FA84 /* oceanic_atom2_parser.c */,
+				F849AF3712D53D5000A7FA84 /* mares_puck.c */,
+				F849AF3812D53D5000A7FA84 /* mares_nemo.c */,
+				F849AF3912D53D5000A7FA84 /* mares_nemo_parser.c */,
+				F849AF3A12D53D5000A7FA84 /* mares_common.c */,
+				F849AF3C12D53D5000A7FA84 /* irda_dummy.c */,
+				F849AF3D12D53D5000A7FA84 /* hw_ostc.c */,
+				F849AF3E12D53D5000A7FA84 /* hw_ostc_parser.c */,
+				F849AF3F12D53D5000A7FA84 /* deviceL.c */,
+				F849AF4012D53D5000A7FA84 /* datetime.c */,
+				F849AF4112D53D5000A7FA84 /* cressi_edy.c */,
+				F849AF4212D53D5000A7FA84 /* cressi_edy_parser.c */,
+				F849AF4312D53D5000A7FA84 /* checksum.c */,
+				F849AF4412D53D5000A7FA84 /* buffer.c */,
+				F849AF4512D53D5000A7FA84 /* array.c */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2AAC0630554660B00DB518D /* liblibdivecomputer.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F849AF7812D53D5300A7FA84 /* Header */ = {
+			isa = PBXGroup;
+			children = (
+				F849AF7912D53D6900A7FA84 /* version.h */,
+				F849AF7A12D53D6900A7FA84 /* uwatec.h */,
+				F849AF7B12D53D6900A7FA84 /* uwatec_smart.h */,
+				F849AF7C12D53D6900A7FA84 /* uwatec_memomouse.h */,
+				F849AF7D12D53D6900A7FA84 /* uwatec_aladin.h */,
+				F849AF7E12D53D6900A7FA84 /* utils.h */,
+				F849AF7F12D53D6900A7FA84 /* units.h */,
+				F849AF8012D53D6900A7FA84 /* suunto.h */,
+				F849AF8112D53D6900A7FA84 /* suunto_vyper2.h */,
+				F849AF8212D53D6900A7FA84 /* suunto_vyper.h */,
+				F849AF8312D53D6900A7FA84 /* suunto_solution.h */,
+				F849AF8412D53D6900A7FA84 /* suunto_eon.h */,
+				F849AF8512D53D6900A7FA84 /* suunto_d9.h */,
+				F849AF8612D53D6900A7FA84 /* suunto_common2.h */,
+				F849AF8712D53D6900A7FA84 /* suunto_common.h */,
+				F849AF8812D53D6900A7FA84 /* serial.h */,
+				F849AF8912D53D6900A7FA84 /* ringbuffer.h */,
+				F849AF8A12D53D6900A7FA84 /* reefnet.h */,
+				F849AF8B12D53D6900A7FA84 /* reefnet_sensusultra.h */,
+				F849AF8C12D53D6900A7FA84 /* reefnet_sensuspro.h */,
+				F849AF8D12D53D6900A7FA84 /* reefnet_sensus.h */,
+				F849AF8E12D53D6900A7FA84 /* parser.h */,
+				F849AF8F12D53D6900A7FA84 /* parser-private.h */,
+				F849AF9012D53D6900A7FA84 /* oceanic.h */,
+				F849AF9112D53D6900A7FA84 /* oceanic_vtpro.h */,
+				F849AF9212D53D6900A7FA84 /* oceanic_veo250.h */,
+				F849AF9312D53D6900A7FA84 /* oceanic_common.h */,
+				F849AF9412D53D6900A7FA84 /* oceanic_atom2.h */,
+				F849AF9512D53D6900A7FA84 /* mares.h */,
+				F849AF9612D53D6900A7FA84 /* mares_puck.h */,
+				F849AF9712D53D6900A7FA84 /* mares_nemo.h */,
+				F849AF9812D53D6900A7FA84 /* mares_common.h */,
+				F849AF9912D53D6900A7FA84 /* irda.h */,
+				F849AF9A12D53D6900A7FA84 /* hw.h */,
+				F849AF9B12D53D6900A7FA84 /* hw_ostc.h */,
+				F849AF9C12D53D6900A7FA84 /* deviceL.h */,
+				F849AF9D12D53D6900A7FA84 /* device-private.h */,
+				F849AF9E12D53D6900A7FA84 /* datetime.h */,
+				F849AF9F12D53D6900A7FA84 /* cressi.h */,
+				F849AFA012D53D6900A7FA84 /* cressi_edy.h */,
+				F849AFA112D53D6900A7FA84 /* checksum.h */,
+				F849AFA212D53D6900A7FA84 /* buffer.h */,
+				F849AFA312D53D6900A7FA84 /* array.h */,
+			);
+			name = Header;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D2AAC0600554660B00DB518D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F849AFA412D53D6900A7FA84 /* version.h in Headers */,
+				F849AFA512D53D6900A7FA84 /* uwatec.h in Headers */,
+				F849AFA612D53D6900A7FA84 /* uwatec_smart.h in Headers */,
+				F849AFA712D53D6900A7FA84 /* uwatec_memomouse.h in Headers */,
+				F849AFA812D53D6900A7FA84 /* uwatec_aladin.h in Headers */,
+				F849AFA912D53D6900A7FA84 /* utils.h in Headers */,
+				F849AFAA12D53D6900A7FA84 /* units.h in Headers */,
+				F849AFAB12D53D6900A7FA84 /* suunto.h in Headers */,
+				F849AFAC12D53D6900A7FA84 /* suunto_vyper2.h in Headers */,
+				F849AFAD12D53D6900A7FA84 /* suunto_vyper.h in Headers */,
+				F849AFAE12D53D6900A7FA84 /* suunto_solution.h in Headers */,
+				F849AFAF12D53D6900A7FA84 /* suunto_eon.h in Headers */,
+				F849AFB012D53D6900A7FA84 /* suunto_d9.h in Headers */,
+				F849AFB112D53D6900A7FA84 /* suunto_common2.h in Headers */,
+				F849AFB212D53D6900A7FA84 /* suunto_common.h in Headers */,
+				F849AFB312D53D6900A7FA84 /* serial.h in Headers */,
+				F849AFB412D53D6900A7FA84 /* ringbuffer.h in Headers */,
+				F849AFB512D53D6900A7FA84 /* reefnet.h in Headers */,
+				F849AFB612D53D6900A7FA84 /* reefnet_sensusultra.h in Headers */,
+				F849AFB712D53D6900A7FA84 /* reefnet_sensuspro.h in Headers */,
+				F849AFB812D53D6900A7FA84 /* reefnet_sensus.h in Headers */,
+				F849AFB912D53D6900A7FA84 /* parser.h in Headers */,
+				F849AFBA12D53D6900A7FA84 /* parser-private.h in Headers */,
+				F849AFBB12D53D6900A7FA84 /* oceanic.h in Headers */,
+				F849AFBC12D53D6900A7FA84 /* oceanic_vtpro.h in Headers */,
+				F849AFBD12D53D6900A7FA84 /* oceanic_veo250.h in Headers */,
+				F849AFBE12D53D6900A7FA84 /* oceanic_common.h in Headers */,
+				F849AFBF12D53D6900A7FA84 /* oceanic_atom2.h in Headers */,
+				F849AFC012D53D6900A7FA84 /* mares.h in Headers */,
+				F849AFC112D53D6900A7FA84 /* mares_puck.h in Headers */,
+				F849AFC212D53D6900A7FA84 /* mares_nemo.h in Headers */,
+				F849AFC312D53D6900A7FA84 /* mares_common.h in Headers */,
+				F849AFC412D53D6900A7FA84 /* irda.h in Headers */,
+				F849AFC512D53D6900A7FA84 /* hw.h in Headers */,
+				F849AFC612D53D6900A7FA84 /* hw_ostc.h in Headers */,
+				F849AFC712D53D6900A7FA84 /* deviceL.h in Headers */,
+				F849AFC812D53D6900A7FA84 /* device-private.h in Headers */,
+				F849AFC912D53D6900A7FA84 /* datetime.h in Headers */,
+				F849AFCA12D53D6900A7FA84 /* cressi.h in Headers */,
+				F849AFCB12D53D6900A7FA84 /* cressi_edy.h in Headers */,
+				F849AFCC12D53D6900A7FA84 /* checksum.h in Headers */,
+				F849AFCD12D53D6900A7FA84 /* buffer.h in Headers */,
+				F849AFCE12D53D6900A7FA84 /* array.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D2AAC0620554660B00DB518D /* libdivecomputer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libdivecomputer" */;
+			buildPhases = (
+				D2AAC0600554660B00DB518D /* Headers */,
+				D2AAC0610554660B00DB518D /* Sources */,
+				D289988505E68E00004EDB86 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libdivecomputer;
+			productName = libdivecomputer;
+			productReference = D2AAC0630554660B00DB518D /* liblibdivecomputer.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libdivecomputer" */;
+			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* libdivecomputer */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2AAC0620554660B00DB518D /* libdivecomputer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2AAC0610554660B00DB518D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F849AF4612D53D5000A7FA84 /* version.c in Sources */,
+				F849AF4712D53D5000A7FA84 /* uwatec_smart.c in Sources */,
+				F849AF4812D53D5000A7FA84 /* uwatec_smart_parser.c in Sources */,
+				F849AF4912D53D5000A7FA84 /* uwatec_memomouse.c in Sources */,
+				F849AF4A12D53D5000A7FA84 /* uwatec_memomouse_parser.c in Sources */,
+				F849AF4B12D53D5000A7FA84 /* uwatec_aladin.c in Sources */,
+				F849AF4C12D53D5000A7FA84 /* utils.c in Sources */,
+				F849AF4D12D53D5000A7FA84 /* suunto_vyper2.c in Sources */,
+				F849AF4E12D53D5000A7FA84 /* suunto_vyper.c in Sources */,
+				F849AF4F12D53D5000A7FA84 /* suunto_vyper_parser.c in Sources */,
+				F849AF5012D53D5000A7FA84 /* suunto_solution.c in Sources */,
+				F849AF5112D53D5000A7FA84 /* suunto_solution_parser.c in Sources */,
+				F849AF5212D53D5000A7FA84 /* suunto_eon.c in Sources */,
+				F849AF5312D53D5000A7FA84 /* suunto_eon_parser.c in Sources */,
+				F849AF5412D53D5000A7FA84 /* suunto_d9.c in Sources */,
+				F849AF5512D53D5000A7FA84 /* suunto_d9_parser.c in Sources */,
+				F849AF5612D53D5000A7FA84 /* suunto_common2.c in Sources */,
+				F849AF5712D53D5000A7FA84 /* suunto_common.c in Sources */,
+				F849AF5912D53D5000A7FA84 /* serial_posix.c in Sources */,
+				F849AF5A12D53D5000A7FA84 /* ringbuffer.c in Sources */,
+				F849AF5B12D53D5000A7FA84 /* reefnet_sensusultra.c in Sources */,
+				F849AF5C12D53D5000A7FA84 /* reefnet_sensusultra_parser.c in Sources */,
+				F849AF5D12D53D5000A7FA84 /* reefnet_sensuspro.c in Sources */,
+				F849AF5E12D53D5000A7FA84 /* reefnet_sensuspro_parser.c in Sources */,
+				F849AF5F12D53D5000A7FA84 /* reefnet_sensus.c in Sources */,
+				F849AF6012D53D5000A7FA84 /* reefnet_sensus_parser.c in Sources */,
+				F849AF6112D53D5000A7FA84 /* parser.c in Sources */,
+				F849AF6212D53D5000A7FA84 /* oceanic_vtpro.c in Sources */,
+				F849AF6312D53D5000A7FA84 /* oceanic_vtpro_parser.c in Sources */,
+				F849AF6412D53D5000A7FA84 /* oceanic_veo250.c in Sources */,
+				F849AF6512D53D5000A7FA84 /* oceanic_veo250_parser.c in Sources */,
+				F849AF6612D53D5000A7FA84 /* oceanic_common.c in Sources */,
+				F849AF6712D53D5000A7FA84 /* oceanic_atom2.c in Sources */,
+				F849AF6812D53D5000A7FA84 /* oceanic_atom2_parser.c in Sources */,
+				F849AF6912D53D5000A7FA84 /* mares_puck.c in Sources */,
+				F849AF6A12D53D5000A7FA84 /* mares_nemo.c in Sources */,
+				F849AF6B12D53D5000A7FA84 /* mares_nemo_parser.c in Sources */,
+				F849AF6C12D53D5000A7FA84 /* mares_common.c in Sources */,
+				F849AF6E12D53D5000A7FA84 /* irda_dummy.c in Sources */,
+				F849AF6F12D53D5000A7FA84 /* hw_ostc.c in Sources */,
+				F849AF7012D53D5000A7FA84 /* hw_ostc_parser.c in Sources */,
+				F849AF7112D53D5000A7FA84 /* deviceL.c in Sources */,
+				F849AF7212D53D5000A7FA84 /* datetime.c in Sources */,
+				F849AF7312D53D5000A7FA84 /* cressi_edy.c in Sources */,
+				F849AF7412D53D5000A7FA84 /* cressi_edy_parser.c in Sources */,
+				F849AF7512D53D5000A7FA84 /* checksum.c in Sources */,
+				F849AF7612D53D5000A7FA84 /* buffer.c in Sources */,
+				F849AF7712D53D5000A7FA84 /* array.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB914B08733D8E0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = libdivecomputer;
+			};
+			name = Debug;
+		};
+		1DEB914C08733D8E0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_PREFIX = lib;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = libdivecomputer;
+			};
+			name = Release;
+		};
+		1DEB914F08733D8E0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PREBINDING = NO;
+				SDKROOT = macosx10.5;
+			};
+			name = Debug;
+		};
+		1DEB915008733D8E0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = macosx10.6;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libdivecomputer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB914B08733D8E0010E9CD /* Debug */,
+				1DEB914C08733D8E0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libdivecomputer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB914F08733D8E0010E9CD /* Debug */,
+				1DEB915008733D8E0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

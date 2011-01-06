@@ -208,10 +208,18 @@ void *DiveBoardAPI::asyncfunc(void *p)
 	{
 		LOGERROR("Caught Exception : %s", e.what());
 		plugin->FireEvent("onerror", FB::variant_list_of(FB::variant(e.what())));
+		plugin->status = plugin->comp->get_status();
+		plugin->status.state = COMPUTER_FINISHED;
+		delete plugin->comp;
+		plugin->comp = NULL;
 	} catch(...)
 	{
 		LOGERROR("Caught Exception Unknown");
 		plugin->FireEvent("onerror", FB::variant_list_of(FB::variant("Undefined exception")));
+		plugin->status = plugin->comp->get_status();
+		plugin->status.state = COMPUTER_FINISHED;
+		delete plugin->comp;
+		plugin->comp = NULL;
 	}
 
 	LOGINFO("End async");
@@ -248,11 +256,7 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 			//pthread_create(&threads, NULL, &DiveBoardAPI::asyncfunc, (void *) this);
 		}
 		else {
-			std::string diveXML;
-			comp->get_all_dives(diveXML);
-			FireEvent("onloaded", FB::variant_list_of(FB::variant(diveXML)));
-			delete comp;
-			comp = NULL;
+			asyncfunc((void*)this);
 		}
 
 	} catchall()

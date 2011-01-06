@@ -7,20 +7,18 @@
 
 #ifdef __MACH__
 #include <dlfcn.h>
+#define SO_LIB "/Users/squale/Documents/dev/DB_plugins/libd/libdivecomputer/build/Debug/liblibdivecomputer.dylib"
 #endif
 
 #include "Logger.h"
 
 #ifdef WIN32
-#define LIBTYPE HINSTANCE
+
 #define DLL_PATH (L"DiveBoard\\libdivecomputer.dll")
 //return reinterpret_cast<HINSTANCE>(&__ImageBase);
 //#define DLL_PATH _T("libdivecomputer.dll")
 #endif
 
-#ifdef __MACH__
-#define LIBTYPE void*
-#endif
 
 LIBTYPE openDLLLibrary()
 {
@@ -58,7 +56,7 @@ LIBTYPE openDLLLibrary()
 #elif __MACH__
 	
 	void *libdc;
-	libdc = dlopen("/Users/squale/Documents/dev/DB_plugins/libd/libdivecomputer/build/Debug/liblibdivecomputer.dylib",RTLD_LAZY);
+	libdc = dlopen(SO_LIB,RTLD_LAZY);
 	if (!libdc) DBthrowError("Impossible to load library : %s", dlerror());
 	
 	return libdc;
@@ -69,6 +67,19 @@ LIBTYPE openDLLLibrary()
 	
 #endif
 }
+
+void closeDLLLibrary(LIBTYPE &lib)
+{
+#ifdef __MACH__
+	if (!dlclose(lib)) 
+		lib=NULL;
+#else 
+#error TODO
+#endif
+}
+
+
+
 
 void *getDLLFunction(LIBTYPE libdc, const char *function)
 {
@@ -127,36 +138,6 @@ void *getDLLFunction(LIBTYPE libdc, const char *function)
 static const char *g_cachedir = NULL;
 static int g_cachedir_read = 1;
 
-typedef struct device_data_t {
-	device_type_t backend;
-	device_devinfo_t devinfo;
-	device_clock_t clock;
-} device_data_t;
-
-typedef struct dive_data_t {
-	device_data_t *devdata;
-	//FILE* fp;
-	std::string *out;
-	unsigned int number;
-	dc_buffer_t *fingerprint;
-	ComputerStatus *status;
-} dive_data_t;
-
-typedef struct sample_data_t {
-	//FILE* fp;
-	std::string *out;
-	unsigned int nsamples;
-} sample_data_t;
-
-typedef struct backend_table_t {
-	const char *name;
-	device_type_t type;
-} backend_table_t;
-
-typedef struct event_data_t {
-	ComputerStatus *status;
-	device_data_t *devdata;
-} event_data_t;
 
 static const backend_table_t g_backends[] = {
 	{"LDC solution",	DEVICE_TYPE_SUUNTO_SOLUTION},
@@ -417,7 +398,7 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 
 
 
-static parser_status_t doparse (std::string *out, device_data_t *devdata, const unsigned char data[], unsigned int size)
+parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata, const unsigned char data[], unsigned int size)
 {
 	// Create the parser.
 	LOGINFO("starting doparse");
@@ -427,8 +408,6 @@ static parser_status_t doparse (std::string *out, device_data_t *devdata, const 
 	//getting general pointers to functions of libDiveComputer
 	//todo factorize this in ComputerLibdc constructor
 	LOGINFO("Getting pointers to DLL");
-	LOGDEBUG("Opening LibDiveComputer");
-	LIBTYPE libdc = openDLLLibrary();
 	LOGDEBUG("LibDiveComputer DLL loaded");
 	LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
@@ -672,7 +651,15 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 	}
 }
 
-static int dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize, void *userdata)
+int G_dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize, void *userdata)
+{
+	dive_data_t *divedata = (dive_data_t *) userdata;
+	ComputerLibdc *computer = divedata->computer;
+	
+	return(computer->dive_cb (data, size, fingerprint, fsize, userdata));
+}
+
+int ComputerLibdc::dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize, void *userdata)
 {
 	try {
 		dive_data_t *divedata = (dive_data_t *) userdata;
@@ -682,7 +669,6 @@ static int dive_cb (const unsigned char *data, unsigned int size, const unsigned
 		//getting general pointers to functions of libDiveComputer
 		//todo factorize this in ComputerLibdc constructor
 		LOGDEBUG("Opening LibDiveComputer DLL");
-		LIBTYPE libdc = openDLLLibrary();
 		LOGDEBUG("LibDiveComputer DLL loaded");
 		LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 		LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
@@ -731,7 +717,7 @@ static int dive_cb (const unsigned char *data, unsigned int size, const unsigned
 }
 
 
-void dowork (device_type_t &backend, const std::string &devname, std ::string &diveXML, dc_buffer_t *fingerprint, ComputerStatus &status)
+void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, std ::string &diveXML, dc_buffer_t *fingerprint, ComputerStatus &status)
 {
 	LOGINFO("Starting dowork");
 	device_status_t rc = DEVICE_STATUS_SUCCESS;
@@ -742,8 +728,6 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 
 	//getting general pointers to functions of libDiveComputer
 	//todo factorize this in ComputerLibdc constructor
-	LOGDEBUG("Opening LibDiveComputer");
-	LIBTYPE libdc = openDLLLibrary();
 	LOGDEBUG("LibDiveComputer DLL loaded");
 	LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
@@ -912,13 +896,14 @@ void dowork (device_type_t &backend, const std::string &devname, std ::string &d
 	divedata.number = 0;
 	divedata.out = &diveXML;
 	divedata.status = &status;
+	divedata.computer = this;
 
 	diveXML.append("<profile udcf='1'><REPGROUP>");
 
 	// Download the dives.
 	LOGINFO("Downloading the dives.");
 
-	rc = device_foreach (device, dive_cb, &divedata);
+	rc = device_foreach (device, G_dive_cb, &divedata);
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		LOGDEBUG("Error downloading the dives.");
 		dc_buffer_free (divedata.fingerprint);
@@ -1009,6 +994,10 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 	LOGINFO(str(boost::format("Using type %1% on %2%") % type % file));
 	devname = file;
 
+	LOGDEBUG("Opening LibDiveComputer");
+	libdc = openDLLLibrary();
+
+		
 	//message_set_logfile("d:\\temp\\libdc.log");
 	//return COMPUTER_MODEL_UNKNOWN;
 }
@@ -1016,6 +1005,7 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 
 ComputerLibdc::~ComputerLibdc(void)
 {
+	closeDLLLibrary(libdc);
 }
 
 

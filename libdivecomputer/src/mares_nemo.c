@@ -116,7 +116,7 @@ mares_nemo_device_open (device_t **out, const char* name)
 	}
 
 	// Set the timeout for receiving data (1000 ms).
-	if (serial_set_timeout (device->port, -1) == -1) {
+	if (serial_set_timeout (device->port, 30000) == -1) {
 		WARNING ("Failed to set the timeout.");
 		serial_close (device->port);
 		free (device);

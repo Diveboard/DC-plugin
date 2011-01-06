@@ -182,7 +182,7 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 	if (!hCom)
 	{
 		int ret = open();
-		if (ret < 0) return(ret);
+		if (ret < 0) DBthrowError("Error while opening device : %d", ret);
 	}
 	
 	/*----------------------------------*/ 
@@ -211,7 +211,10 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 	FD_SET(hCom,&fds);
 	tv.tv_sec = timeoutmod;
 	tv.tv_usec = TIMEOUT;
-	if(select(hCom+1,&fds,NULL,NULL,&tv)==1) {
+	int cr = select(hCom+1,&fds,NULL,NULL,&tv);
+	if (cr <  0) DBthrowError("Error while reading Mares device");
+	if (cr == 0) DBthrowError("Timeout while reading Mares device");
+	else {
 		rval = read(hCom,buff,num);
 		return rval;
 	}
@@ -220,7 +223,7 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 #error Platform not supported
 #endif
 	
-	return SUUNTO_ERR_READ;
+	DBthrowError("Error while reading Mares device");
 }
 
 int DeviceMares::write_serial(unsigned char *buffer,int len) 
