@@ -51,6 +51,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <CompileAs>CompileAsCpp</CompileAs>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -102,61 +103,6 @@
     <None Include="src\libdivecomputer.def" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\array.cpp" />
-    <ClCompile Include="src\buffer.cpp" />
-    <ClCompile Include="src\checksum.cpp" />
-    <ClCompile Include="src\cressi_edy.cpp" />
-    <ClCompile Include="src\cressi_edy_parser.cpp" />
-    <ClCompile Include="src\datetime.cpp" />
-    <ClCompile Include="src\deviceL.cpp" />
-    <ClCompile Include="src\hw_ostc.cpp" />
-    <ClCompile Include="src\hw_ostc_parser.cpp" />
-    <ClCompile Include="src\irda_dummy.cpp" />
-    <ClCompile Include="src\mares_common.cpp" />
-    <ClCompile Include="src\mares_nemo.cpp" />
-    <ClCompile Include="src\mares_nemo_parser.cpp" />
-    <ClCompile Include="src\mares_puck.cpp" />
-    <ClCompile Include="src\oceanic_atom2.cpp" />
-    <ClCompile Include="src\oceanic_atom2_parser.cpp" />
-    <ClCompile Include="src\oceanic_common.cpp" />
-    <ClCompile Include="src\oceanic_veo250.cpp" />
-    <ClCompile Include="src\oceanic_veo250_parser.cpp" />
-    <ClCompile Include="src\oceanic_vtpro.cpp" />
-    <ClCompile Include="src\oceanic_vtpro_parser.cpp" />
-    <ClCompile Include="src\parser.cpp" />
-    <ClCompile Include="src\reefnet_sensus.cpp" />
-    <ClCompile Include="src\reefnet_sensuspro.cpp" />
-    <ClCompile Include="src\reefnet_sensuspro_parser.cpp" />
-    <ClCompile Include="src\reefnet_sensusultra.cpp" />
-    <ClCompile Include="src\reefnet_sensusultra_parser.cpp" />
-    <ClCompile Include="src\reefnet_sensus_parser.cpp" />
-    <ClCompile Include="src\ringbuffer.cpp" />
-    <ClCompile Include="src\serial_posix.cpp" />
-    <ClCompile Include="src\serial_win32.cpp" />
-    <ClCompile Include="src\suunto_common.cpp" />
-    <ClCompile Include="src\suunto_common2.cpp" />
-    <ClCompile Include="src\suunto_d9.cpp" />
-    <ClCompile Include="src\suunto_d9_parser.cpp" />
-    <ClCompile Include="src\suunto_eon.cpp" />
-    <ClCompile Include="src\suunto_eon_parser.cpp" />
-    <ClCompile Include="src\suunto_solution.cpp" />
-    <ClCompile Include="src\suunto_solution_parser.cpp" />
-    <ClCompile Include="src\suunto_vyper.cpp" />
-    <ClCompile Include="src\suunto_vyper2.cpp" />
-    <ClCompile Include="src\suunto_vyper_parser.cpp" />
-    <ClCompile Include="src\utils.cpp" />
-    <ClCompile Include="src\uwatec_aladin.cpp" />
-    <ClCompile Include="src\uwatec_memomouse.cpp" />
-    <ClCompile Include="src\uwatec_memomouse_parser.cpp" />
-    <ClCompile Include="src\uwatec_smart.cpp" />
-    <ClCompile Include="src\uwatec_smart_parser.cpp" />
-    <ClCompile Include="src\version.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="Resource.h" />
     <ClInclude Include="src\array.h" />
     <ClInclude Include="src\buffer.h" />
@@ -206,6 +152,57 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="src\libdivecomputer.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\array.c" />
+    <ClCompile Include="src\buffer.c" />
+    <ClCompile Include="src\checksum.c" />
+    <ClCompile Include="src\cressi_edy.c" />
+    <ClCompile Include="src\cressi_edy_parser.c" />
+    <ClCompile Include="src\datetime.c" />
+    <ClCompile Include="src\deviceL.c" />
+    <ClCompile Include="src\hw_ostc.c" />
+    <ClCompile Include="src\hw_ostc_parser.c" />
+    <ClCompile Include="src\irda_dummy.c" />
+    <ClCompile Include="src\mares_common.c" />
+    <ClCompile Include="src\mares_nemo.c" />
+    <ClCompile Include="src\mares_nemo_parser.c" />
+    <ClCompile Include="src\mares_puck.c" />
+    <ClCompile Include="src\oceanic_atom2.c" />
+    <ClCompile Include="src\oceanic_atom2_parser.c" />
+    <ClCompile Include="src\oceanic_common.c" />
+    <ClCompile Include="src\oceanic_veo250.c" />
+    <ClCompile Include="src\oceanic_veo250_parser.c" />
+    <ClCompile Include="src\oceanic_vtpro.c" />
+    <ClCompile Include="src\oceanic_vtpro_parser.c" />
+    <ClCompile Include="src\parser.c" />
+    <ClCompile Include="src\reefnet_sensus.c" />
+    <ClCompile Include="src\reefnet_sensuspro.c" />
+    <ClCompile Include="src\reefnet_sensuspro_parser.c" />
+    <ClCompile Include="src\reefnet_sensusultra.c" />
+    <ClCompile Include="src\reefnet_sensusultra_parser.c" />
+    <ClCompile Include="src\reefnet_sensus_parser.c" />
+    <ClCompile Include="src\ringbuffer.c" />
+    <ClCompile Include="src\serial_posix.c" />
+    <ClCompile Include="src\serial_win32.c" />
+    <ClCompile Include="src\suunto_common.c" />
+    <ClCompile Include="src\suunto_common2.c" />
+    <ClCompile Include="src\suunto_d9.c" />
+    <ClCompile Include="src\suunto_d9_parser.c" />
+    <ClCompile Include="src\suunto_eon.c" />
+    <ClCompile Include="src\suunto_eon_parser.c" />
+    <ClCompile Include="src\suunto_solution.c" />
+    <ClCompile Include="src\suunto_solution_parser.c" />
+    <ClCompile Include="src\suunto_vyper.c" />
+    <ClCompile Include="src\suunto_vyper2.c" />
+    <ClCompile Include="src\suunto_vyper_parser.c" />
+    <ClCompile Include="src\utils.c" />
+    <ClCompile Include="src\uwatec_aladin.c" />
+    <ClCompile Include="src\uwatec_memomouse.c" />
+    <ClCompile Include="src\uwatec_memomouse_parser.c" />
+    <ClCompile Include="src\uwatec_smart.c" />
+    <ClCompile Include="src\uwatec_smart_parser.c" />
+    <ClCompile Include="src\version.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
