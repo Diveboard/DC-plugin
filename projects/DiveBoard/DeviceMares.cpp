@@ -224,6 +224,7 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 #endif
 	
 	DBthrowError("Error while reading Mares device");
+	return(-1);
 }
 
 int DeviceMares::write_serial(unsigned char *buffer,int len) 

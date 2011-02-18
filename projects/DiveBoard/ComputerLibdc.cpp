@@ -65,7 +65,6 @@ LIBTYPE openDLLLibrary()
 	
 #else
 #error "not supported"
-	
 #endif
 }
 
@@ -74,8 +73,11 @@ void closeDLLLibrary(LIBTYPE &lib)
 #ifdef __MACH__
 	if (!dlclose(lib)) 
 		lib=NULL;
+#elif _WIN32
+	if (FreeLibrary(lib))
+		lib=NULL;
 #else 
-#error TODO
+#error "Not supported"
 #endif
 }
 
