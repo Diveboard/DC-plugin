@@ -1,0 +1,95 @@
+#!/usr/bin/perl
+
+#2005.06.13
+
+########################################################
+#my $ALERT_APP			= "$ARGV[0]"."/Contents/Resources/DisplayAlert.app/Contents/MacOS/DisplayAlert";
+my $GESTALT_TOOL		= "$ARGV[0]"."/Contents/Resources/GestaltTool";
+my $INSTALLERVERS       = "/System/Library/PrivateFrameworks/Installation.framework/Versions/A/Resources/Info.plist";
+my $SU_IS_RUNNING = 0, $EXIT_VALUE = 0;
+########################################################
+
+# determine if installation can proceed.
+DO_CHECKS: 
+{
+##
+## Patch system folder privilege, which has changed to 777 by previous version(1.0.9b4) driver
+##
+    system("chmod a-w,u+w /System/Library/Extensions");
+    system("chown root /System/Library/Extensions");
+    system("chgrp wheel /System/Library/Extensions");
+}
+
+exit(0);
+
+
+sub CheckVersion
+{
+    my $path            = $_[0];
+    my $version         = $_[1];
+    my $keyName         = $_[2];
+    my $operator        = $_[3];
+
+    if (! -e $path) {
+        return 0;
+    }
+
+    if (!$operator) {
+        $operator = "==";
+    }
+
+    my $oldSeperator = $/;
+    $/ = \0;
+
+    open( PLIST, "$path") || do {
+        return 0;
+    };
+
+    $plistData = <PLIST>;
+    $plistData =~ /<dict>(.*?)<\/dict>/gis;
+
+    @items = split(/<key>/, $plistData);
+
+    shift @items;
+    foreach $item (@items) {
+        $item =~ /(.*?)<\/key>.*?<string>(.*?)<\/string>/gis;
+        $versiondata{ $1 } = $2;
+    }
+
+    close(PLIST);
+
+    $/ = $oldSeperator;
+
+    @theVersionArray = split(/\./, $versiondata{$keyName});
+    for ($i = 0; $i < 3; $i++) {
+        if(!$theVersionArray[$i]) {
+            $theVersionArray[$i] = '0';
+        }
+    }
+
+    @versionArray = split(/\./, $version);
+    
+    my $actualVersion;
+
+    for ($i = 0; $i < 3; $i++) {
+        if (($theVersionArray[$i] != $versionArray[$i]) or ($i == 2)) {
+
+            $actualVersion = $theVersionArray[$i];
+            $version = $versionArray[$i];
+
+            last;
+        }
+    }
+
+    my $expression = '$actualVersion ' . $operator . ' $version';
+    if( eval ($expression) )
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+
+}
+

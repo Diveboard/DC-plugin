@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+
+#2005.08.23
+
+##
+## Patch system folder privilege, which has changed to 777 by previous version(1.0.9b4) driver
+##
+{
+    system("chmod a-w,u+w /System/Library/Extensions");
+    system("chown root /System/Library/Extensions");
+    system("chgrp wheel /System/Library/Extensions");
+}
+
+##
+## unload driver before installing new driver file
+##
+{
+    system("kextunload /System/Library/Extensions/ProlificUsbSerial.kext");
+    system("rm -rf /System/Library/Extensions/ProlificUsbSerial.kext")
+}
+
+exit(0);
