@@ -7,7 +7,8 @@
 
 #ifdef __MACH__
 #include <dlfcn.h>
-#define SO_LIB "/Users/squale/Documents/dev/DB_plugins/libd/libdivecomputer/build/Debug/liblibdivecomputer.dylib"
+//#define SO_LIB "/Users/squale/Documents/dev/DB_plugins/libdivecomputer/build/Debug/liblibdivecomputer.dylib"
+#define SO_LIB "/Library/Internet Plug-Ins/Diveboard.plugin/Contents/MacOS/liblibdivecomputer.dylib"
 #endif
 
 #include "Logger.h"

@@ -229,6 +229,8 @@
 			<key>Layout</key>
 			<array>
 				<dict>
+					<key>BecomeActive</key>
+					<true/>
 					<key>ContentConfiguration</key>
 					<dict>
 						<key>PBXBottomSmartGroupGIDs</key>
@@ -264,13 +266,15 @@
 							<key>PBXSmartGroupTreeModuleOutlineStateExpansionKey</key>
 							<array>
 								<string>08FB7794FE84155DC02AAC07</string>
+								<string>1C37FBAC04509CD000000102</string>
+								<string>F8893AB7130DFF8E00816D99</string>
+								<string>F8893AB8130DFF8E00816D99</string>
 								<string>1C37FABC05509CD000000102</string>
 							</array>
 							<key>PBXSmartGroupTreeModuleOutlineStateSelectionKey</key>
 							<array>
 								<array>
-									<integer>2</integer>
-									<integer>0</integer>
+									<integer>9</integer>
 								</array>
 							</array>
 							<key>PBXSmartGroupTreeModuleOutlineStateVisibleRectKey</key>
@@ -293,7 +297,7 @@
 							<real>186</real>
 						</array>
 						<key>RubberWindowFrame</key>
-						<string>246 236 788 504 0 0 1280 778 </string>
+						<string>418 133 788 504 0 0 1280 778 </string>
 					</dict>
 					<key>Module</key>
 					<string>PBXSmartGroupTreeModule</string>
@@ -321,10 +325,10 @@
 										<key>_historyCapacity</key>
 										<integer>0</integer>
 										<key>bookmark</key>
-										<string>F849AFD412D53D9E00A7FA84</string>
+										<string>F8893AB9130DFF8E00816D99</string>
 										<key>history</key>
 										<array>
-											<string>F849AFD312D53D9E00A7FA84</string>
+											<string>F89CC67713044ABC00962CBE</string>
 										</array>
 									</dict>
 									<key>SplitCount</key>
@@ -336,18 +340,16 @@
 							<key>GeometryConfiguration</key>
 							<dict>
 								<key>Frame</key>
-								<string>{{0, 0}, {580, 277}}</string>
+								<string>{{0, 0}, {580, 260}}</string>
 								<key>RubberWindowFrame</key>
-								<string>246 236 788 504 0 0 1280 778 </string>
+								<string>418 133 788 504 0 0 1280 778 </string>
 							</dict>
 							<key>Module</key>
 							<string>PBXNavigatorGroup</string>
 							<key>Proportion</key>
-							<string>277pt</string>
+							<string>260pt</string>
 						</dict>
 						<dict>
-							<key>BecomeActive</key>
-							<true/>
 							<key>ContentConfiguration</key>
 							<dict>
 								<key>PBXProjectModuleGUID</key>
@@ -358,14 +360,14 @@
 							<key>GeometryConfiguration</key>
 							<dict>
 								<key>Frame</key>
-								<string>{{0, 282}, {580, 181}}</string>
+								<string>{{0, 265}, {580, 198}}</string>
 								<key>RubberWindowFrame</key>
-								<string>246 236 788 504 0 0 1280 778 </string>
+								<string>418 133 788 504 0 0 1280 778 </string>
 							</dict>
 							<key>Module</key>
 							<string>XCDetailModule</string>
 							<key>Proportion</key>
-							<string>181pt</string>
+							<string>198pt</string>
 						</dict>
 					</array>
 					<key>Proportion</key>
@@ -384,9 +386,9 @@
 			</array>
 			<key>TableOfContents</key>
 			<array>
-				<string>F849AF0C12D53D3100A7FA84</string>
+				<string>F8893ABA130DFF8E00816D99</string>
 				<string>1CE0B1FE06471DED0097A5F4</string>
-				<string>F849AF0D12D53D3100A7FA84</string>
+				<string>F8893ABB130DFF8E00816D99</string>
 				<string>1CE0B20306471E060097A5F4</string>
 				<string>1CE0B20506471E060097A5F4</string>
 			</array>
@@ -528,7 +530,7 @@
 		<string>/Users/squale/Documents/dev/DB_plugins/libdivecomputer/libdivecomputer.xcodeproj</string>
 	</array>
 	<key>WindowString</key>
-	<string>246 236 788 504 0 0 1280 778 </string>
+	<string>418 133 788 504 0 0 1280 778 </string>
 	<key>WindowToolsV3</key>
 	<array>
 		<dict>
@@ -605,7 +607,7 @@
 			<key>TableOfContents</key>
 			<array>
 				<string>F849AF0F12D53D3100A7FA84</string>
-				<string>F849AF1012D53D3100A7FA84</string>
+				<string>F8893ABC130DFF8E00816D99</string>
 				<string>1CD0528F0623707200166675</string>
 				<string>XCMainBuildResultsModuleGUID</string>
 			</array>

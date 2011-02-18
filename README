@@ -1,4 +1,4 @@
-For the main plugin :
+1/ Build the main plugin :
 
 - in a shell, place yourself in the same folder as this readme
 - launch the correct prep... command for your platform with the arguments "projects" and "build" :
@@ -10,12 +10,32 @@ For the main plugin :
 	FireBreath.sln
 
 
-- In order to compile libdivecomputer
-	include all .C and .H files in the project, except irda.cpp
+2/ Build the library libdivecomputer :
 
+- Open the project file
+	Mac : libdivecomputer/libdivecomputer.xcodeproj
+	Windows : libdivecomputer/libdivecomputer.sdf
+
+
+- The built library will be :
+	Mac : libdivecomputer/build/Debug/liblibdivecomputer.dylib 
+
+3/ Build the package
+
+- To build the package run
+	Mac : mkpkg4mac.sh
+
+
+- The installation package will be placed in
+	Mac : build/packages/diveboard.dmg
+
+
+Notes : 
 
 On windows, the easiest way is to register the dll in build/bin/DiveBoard/Debug
 	regsvr32 npPluginTemplate.dll
+
+
 
 
 

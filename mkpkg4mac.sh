@@ -42,7 +42,7 @@ cp -a "$TMPDIR/$PKGNAME" "$OUTDIR/bigpack.mpkg/Contents/Packages/$PKGNAME"
 ####
 
 # getting the space used 
-SIZE=$(($(du -ks build/packages/bigpack.mpkg.tmp/ | sed 's/[^0-9].*//') + 500 ))
+SIZE=$(($(du -ks build/packages/bigpack.mpkg/ | sed 's/[^0-9].*//') + 500 ))
 
 # Creating a dmg image
 DMGFILE=/tmp/pack.temp.dmg
