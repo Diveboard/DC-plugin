@@ -55,6 +55,8 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		alwaysAsync=true;
 #endif
 	
+		LOGINFO(get_version());
+
 		status.nbDivesRead=-1;
 		status.nbDivesTotal=-1;
 		status.state = COMPUTER_NOT_STARTED;

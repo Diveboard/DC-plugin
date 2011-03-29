@@ -27,7 +27,24 @@ std::wstring s2ws(const std::string& s)
 #endif
 }
 
+std::string ws2s(const std::wstring& s)
+{
+#ifdef WIN32
+ int len;
+ int slength = (int)s.length() + 1;
+ len = WideCharToMultiByte(CP_ACP, 0, s.c_str(), slength, 0, 0, NULL, NULL);
+ char* buf = new char[len];
+ WideCharToMultiByte(CP_ACP, 0, s.c_str(), slength, buf, len, NULL, NULL);
+ std::string r(buf);
+ delete[] buf;
+ return r;
+#else 
 
+	std::wstring ws(s.length(), L' ');
+	std::copy(s.begin(),s.end(), ws.begin());
+	return(ws);
+#endif
+}
 
 Logger::Logger(void)
 {

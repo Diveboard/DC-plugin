@@ -11,15 +11,16 @@ Caption "DiveBoard browser plugin"
 OutFile "..\..\build\bin\DiveBoard\Debug\DiveBoard-debug.exe"
 
 
-InstallDir "$APPDATA\DiveBoard"
-InstallDirRegKey HKCU "Software\DiveBoard" ""
+InstallDir "$COMMONFILES\DiveBoard"
+InstallDirRegKey HKLM "Software\DiveBoard" ""
 
 XPStyle on
 
-RequestExecutionLevel user
+RequestExecutionLevel admin
 
-!define DLL_LibDiveComputer '"..\..\build\bin\DiveBoard\Debug\libdivecomputer.dll"'
+!define DLL_LibDiveComputer '"..\..\libdivecomputer\Debug\libdivecomputer.dll"'
 !define DLL_DiveBoardPlugin '"..\..\build\bin\DiveBoard\Debug\npDiveBoard.dll"'
+
 
 
 #--------------------------------
@@ -29,7 +30,9 @@ RequestExecutionLevel user
 
 !define MUI_ABORTWARNING
 
-!insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE checkRights
+
+!insertmacro MUI_PAGE_WELCOME 
 #  !insertmacro MUI_PAGE_LICENSE "${NSISDIR}\Docs\Modern UI\License.txt"
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
@@ -55,6 +58,44 @@ LangString DESC_Driver3 ${LANG_ENGLISH} "Description of section 3."
 
 
 #--------------------------------
+# Admin rights check
+#--------------------------------
+
+Function checkRights
+
+	ClearErrors
+	UserInfo::GetName
+	IfErrors Win9x
+	Pop $0
+	UserInfo::GetAccountType
+	Pop $1
+	UserInfo::GetOriginalAccountType
+	Pop $2
+	# GetOriginalAccountType will check the tokens of the original user of the
+	# current thread/process. If the user tokens were elevated or limited for
+	# this process, GetOriginalAccountType will return the non-restricted
+	# account type.
+	# On Vista with UAC, for example, this is not the same value when running
+	# with `RequestExecutionLevel user`. GetOriginalAccountType will return
+	# "admin" while GetAccountType will return "user".
+
+	# StrCmp $2 "Admin" 0 +3
+	StrCmp $2 "Power" 0 +3
+		MessageBox MB_OK 'You need to have administration rights to install this software.'
+		Quit
+	StrCmp $2 "User" 0 +3
+		MessageBox MB_OK 'You need to have administration rights to install this software.'
+		Quit
+	StrCmp $2 "Guest" 0 +3
+		MessageBox MB_OK 'You need to have administration rights to install this software.'
+		Quit
+
+	Win9x:
+
+	done:
+FunctionEnd
+
+#--------------------------------
 # Main Installation commands
 #--------------------------------
 
@@ -62,16 +103,17 @@ LangString DESC_Driver3 ${LANG_ENGLISH} "Description of section 3."
 
 Section
 
+SetShellVarContext all
 CreateDirectory "$INSTDIR"
 !insertmacro InstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_LibDiveComputer} $INSTDIR\libdivecomputer.dll $INSTDIR
 !insertmacro InstallLib REGDLL    NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_DiveBoardPlugin} $INSTDIR\npDiveBoard.dll $INSTDIR
 WriteUninstaller $INSTDIR\uninstall.exe
-WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "DisplayName" "TestLibrary"
-WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "DisplayVersion" "1.0"
-WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "UninstallString" "$INSTDIR\uninstall.exe"
-WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "InstallLocation" "$INSTDIR"
-WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "NoModify" "1"
-WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "NoRepair" "1"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "DisplayName" "TestLibrary"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "DisplayVersion" "1.0"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "UninstallString" "$INSTDIR\uninstall.exe"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "InstallLocation" "$INSTDIR"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "NoModify" "1"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "NoRepair" "1"
 
 SectionEnd
 
@@ -79,15 +121,32 @@ SectionEnd
 #---  Low level drivers ---
 
 Section "FTDI" Driver1
-	MessageBox MB_OK "on track" IDOK 0
+        SetOutPath $TEMP\DB_FTDI
+	File /r "..\..\drivers\ftdi_win"
+	ExecWait 'rundll32 syssetup,SetupInfObjectInstallAction DefaultInstall 128 "$TEMP\DB_FTDI\ftdi_win\ftdibus.inf"' $0
+	MessageBox MB_OK "FTDI Driver installed. Installer returned $0.\n $TEMP" IDOK 0
+
+	Delete "$TEMP\DB_FTDI"
 SectionEnd
 
 Section "SiliconLabs CP210x" Driver2
-	MessageBox MB_OK "on track" IDOK 0
+        SetOutPath $TEMP\DB_SILABS
+	File /r "..\..\drivers\Silabs_windows"
+	ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210x_VCP_Win2K.exe"' $0
+
+	MessageBox MB_OK "SiliconLabs CP210x Driver installed. Installer returned $0.\n $TEMP" IDOK 0
+
+	Delete "$TEMP\DB_SILABS"
 SectionEnd
 
 Section "Prolific" Driver3
-	MessageBox MB_OK "on track" IDOK 0
+        SetOutPath $TEMP\DB_PROLIFIC
+	File /r "..\..\drivers\prolific_win"
+	ExecWait '"$TEMP\DB_PROLIFIC\prolific_win\PL2303_Prolific_DriverInstaller_v130.exe"' $0
+
+	MessageBox MB_OK "Prolific Driver installed. Installer returned $0 \n $TEMP" IDOK 0
+
+	Delete "$TEMP\DB_PROLIFIC"
 SectionEnd
 
 
@@ -120,8 +179,7 @@ IfFileExists "$INSTDIR\npDiveBoard.dll" 0 NoErrorMsgD2
 NoErrorMsgD2:
 
 
-DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" 
-DeleteRegKey HKLM "SOFTWARE\NSISTest\BigNSISTest"
+DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" 
 Delete "$INSTDIR\uninstall.exe"
 RMDir "$INSTDIR"
 

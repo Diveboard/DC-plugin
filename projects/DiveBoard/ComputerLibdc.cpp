@@ -20,20 +20,23 @@
 //#define DLL_PATH _T("libdivecomputer.dll")
 #endif
 
+#define MAX_TEMP 99999
+
 
 LIBTYPE openDLLLibrary()
 {
 #ifdef WIN32
 	//Load the LibDiveComputer library
 	wchar_t path[1024]; 
-	DWORD l = GetEnvironmentVariable(L"APPDATA", path, sizeof(path));
+	DWORD l = GetEnvironmentVariable(L"ProgramFiles", path, sizeof(path));
 	if (l>sizeof(path))
 		DBthrowError("path buffer is too small !!!");
 	std::wstring dll = path;
-	dll += L"\\";
+	dll += L"\\Common Files\\";
 	dll += DLL_PATH;
-	LOGINFO("Searching DLL at ", dll.c_str());
-	HINSTANCE libdc = LoadLibrary(dll.c_str());
+	
+	LOGINFO("Searching DLL at %s", dll.c_str());
+	HINSTANCE libdc = LoadLibrary(TEXT("J:\\Dev\\DB_plugin\\libdivecomputer\\Debug\\libdivecomputer.dll"));
 	if (!libdc)
 	{
     LPVOID lpMsgBuf;
@@ -49,8 +52,12 @@ LIBTYPE openDLLLibrary()
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
         (LPTSTR) &lpMsgBuf,
         0, NULL );
+		
+		std::string msg = str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf);
 
-		DBthrowError(str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf));
+		LocalFree(lpMsgBuf);
+
+		DBthrowError(msg);
 	}
 
 	return libdc;
@@ -103,6 +110,13 @@ void *getDLLFunction(LIBTYPE libdc, const char *function)
 }
 
 
+
+struct sample_cb_data {
+	std::string sampleXML;
+	unsigned int duration;
+	double max_depth;
+	double min_temp;
+};
 
 
 /*
@@ -348,45 +362,48 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 
 		//sample_data_t *sampledata = (sample_data_t *) userdata;
 		unsigned int nsamples = 0;
-		std::string *diveXML = (std::string *)userdata;
+		struct sample_cb_data *data = (struct sample_cb_data *) userdata;
 
 		LOGDEBUG("Parsing element of type '%d'", type);
 
 		switch (type) {
 		case SAMPLE_TYPE_TIME:
 			nsamples++;
-			*diveXML += str(boost::format("<t>%02u</t>") % value.time);
+			if (data->duration < value.time) data->duration = value.time;
+			data->sampleXML += str(boost::format("<t>%02u</t>") % value.time);
 			break;
 		case SAMPLE_TYPE_DEPTH:
-			*diveXML += str(boost::format("<d>%.2f</d>") % value.depth);
+			data->sampleXML += str(boost::format("<d>%.2f</d>") % value.depth);
+			if (data->max_depth < value.depth) data->max_depth = value.depth;
 			break;
 		case SAMPLE_TYPE_PRESSURE:
 			//todo
-			*diveXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>") %  value.pressure.tank % value.pressure.value);
+			data->sampleXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>") %  value.pressure.tank % value.pressure.value);
 			break;
 		case SAMPLE_TYPE_TEMPERATURE:
-			*diveXML += str(boost::format("<temperature>%.2f</temperature>") % value.temperature);
+			if (data->min_temp < value.temperature) data->min_temp = value.temperature;
+			data->sampleXML += str(boost::format("<temperature>%.2f</temperature>") % value.temperature);
 			break;
 		case SAMPLE_TYPE_EVENT:
-			*diveXML += str(boost::format("<ALARM type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</ALARM>")
+			data->sampleXML += str(boost::format("<ALARM type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</ALARM>")
 				% value.event.type % value.event.time % value.event.flags % value.event.value % events[value.event.type]);
 			break;
 		case SAMPLE_TYPE_RBT:
-			*diveXML += str(boost::format("<rbt>%u</rbt>") % value.rbt);
+			data->sampleXML += str(boost::format("<rbt>%u</rbt>") % value.rbt);
 			break;
 		case SAMPLE_TYPE_HEARTBEAT:
 			//todo
-			*diveXML += str(boost::format("<heartbeat>%u</heartbeat>") % value.heartbeat);
+			data->sampleXML += str(boost::format("<heartbeat>%u</heartbeat>") % value.heartbeat);
 			break;
 		case SAMPLE_TYPE_BEARING:
 			//todo
-			*diveXML += str(boost::format("<bearing>%u</bearing>") % value.bearing);
+			data->sampleXML += str(boost::format("<bearing>%u</bearing>") % value.bearing);
 			break;
 		case SAMPLE_TYPE_VENDOR:
-			*diveXML += str(boost::format("<vendor type=\"%u\" size=\"%u\">") % value.vendor.type % value.vendor.size);
+			data->sampleXML += str(boost::format("<vendor type=\"%u\" size=\"%u\">") % value.vendor.type % value.vendor.size);
 			for (unsigned int i = 0; i < value.vendor.size; ++i)
-				*diveXML += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
-			*diveXML += "</vendor>";
+				data->sampleXML += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
+			data->sampleXML += "</vendor>";
 			break;
 		default:
 			LOGWARNING("Received an element of unknown type '%d'", type);
@@ -550,15 +567,27 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 
 		// Parse the sample data.
 		LOGINFO("Parsing the sample data.");
-		*out += "<SAMPLES>";
 		//LDCPARSERSAMPLESFOREACH* parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(GetProcAddress(libdc, "parser_samples_foreach"));
-		rc = parser_samples_foreach (parser, sample_cb, out);
+
+		struct sample_cb_data cbd;
+		cbd.sampleXML = "";
+		cbd.duration = 0;
+		cbd.max_depth = 0;
+		cbd.min_temp = MAX_TEMP;
+		rc = parser_samples_foreach (parser, sample_cb, &cbd);
 		if (rc != PARSER_STATUS_SUCCESS) {
 			LOGDEBUG("Error parsing the sample data.");
 			parser_destroy (parser);
 			DBthrowError(str(boost::format("Error parsing the sample data - Error code : %1%") % rc));
 		}
 
+		//adding calculated data
+		//*out += str(boost::format("<MAXDEPTH???>%02u</MAXDEPTH???>") % cbd.max_depth);
+		*out += str(boost::format("<DURATION>%02u</DURATION>") % cbd.duration);
+		if (cbd.min_temp < MAX_TEMP) *out += str(boost::format("<TEMPERATURE>%.2f</TEMPERATURE>") % cbd.min_temp);
+
+		*out += "<SAMPLES>";
+		*out += cbd.sampleXML;
 		*out += "</SAMPLES>";
 
 	} catch(std::exception &e) {

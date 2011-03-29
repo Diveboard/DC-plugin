@@ -19,15 +19,18 @@
 
 - The built library will be :
 	Mac : libdivecomputer/build/Debug/liblibdivecomputer.dylib 
+	Windows : 
 
 3/ Build the package
 
 - To build the package run
 	Mac : mkpkg4mac.sh
-
+	Windows : compile with NSIS (Nullsoft Installer) projects\diveboard\installer.nsi
 
 - The installation package will be placed in
 	Mac : build/packages/diveboard.dmg
+	Windows : build\bin\DiveBoard\Debug\DiveBoard-debug.exe
+
 
 
 Notes : 
