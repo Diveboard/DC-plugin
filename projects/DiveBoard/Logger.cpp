@@ -40,9 +40,9 @@ std::string ws2s(const std::wstring& s)
  return r;
 #else 
 
-	std::wstring ws(s.length(), L' ');
-	std::copy(s.begin(),s.end(), ws.begin());
-	return(ws);
+	std::string r(s.length(), L' ');
+	std::copy(s.begin(),s.end(), r.begin());
+	return(r);
 #endif
 }
 

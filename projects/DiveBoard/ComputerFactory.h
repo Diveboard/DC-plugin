@@ -4,6 +4,7 @@
 #include "Computer.h"
 #include <string>
 #include <map>
+#include <vector>
 
 class ComputerFactory
 {
@@ -18,6 +19,6 @@ public:
 protected:
 	void listPorts(std::string &);
 	bool mapDevice(std::string identifier, std::string &found);
-	std::map <std::string, std::vector<std::string>> recognisedPorts;
+	std::map <std::string, std::vector<std::string> > recognisedPorts;
 };
 
