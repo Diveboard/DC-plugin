@@ -45,10 +45,10 @@ function pm_choice1_enabled() {
     <choice id="choice6" title="FTDIUSBSerialDriverInstaller Preflight" start_visible="false">
         <pkg-ref id="com.FTDI.ftdiusbserialdriverinstaller.preflight.pkg"/>
     </choice>
-    <choice id="choice0" title="FTDIUSBSerialDriver_10_4_10_5" selected="pm_choice0_selected()" enabled="pm_choice0_enabled()">
+    <choice id="choice0" title="FTDIUSBSerialDriver_10_4_10_5" start_selected="pm_choice0_selected()" enabled="pm_choice0_enabled()">
         <pkg-ref id="com.FTDI.ftdiusbserialdriverinstaller.FTDIUSBSerialDriver.pkg"/>
     </choice>
-    <choice id="choice1" title="FTDIUSBSerialDriver_10_6" selected="pm_choice1_selected()" enabled="pm_choice1_enabled()">
+    <choice id="choice1" title="FTDIUSBSerialDriver_10_6" start_selected="pm_choice1_selected()" enabled="pm_choice1_enabled()">
         <pkg-ref id="com.FTDI.ftdiusbserialdriverinstaller.FTDIUSBSerialDriver-2.pkg"/>
     </choice>
     <choice id="choice7" title="FTDIUSBSerialDriverInstaller Postflight" start_visible="false">

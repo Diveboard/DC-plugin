@@ -80,6 +80,7 @@ chmod -Rf go-w /Volumes/"Diveboard plugin"
 sync
 sync
 hdiutil detach ${device}
+rm -f "$DMGFINALFILE"
 hdiutil convert "$DMGFILE" -format UDZO -imagekey zlib-level=9 -o "${DMGFINALFILE}"
 rm -f "$DMGFILE"
 
