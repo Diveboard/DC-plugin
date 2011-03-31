@@ -20,8 +20,66 @@
 #include <dirent.h>
 #endif
 
+
+#define NO_PORT_NEEDED "NO PORT NEEDED"
+
+
+
 ComputerFactory::ComputerFactory(void)
 {
+#ifdef _WIN32
+	recognisedPorts["Emu Suunto"].push_back(NO_PORT_NEEDED);
+	recognisedPorts["Emu Mares M2"].push_back(NO_PORT_NEEDED);
+
+	recognisedPorts["Suunto"].push_back("Suunto USB Serial Port");
+	recognisedPorts["LDC vyper"].push_back("Suunto USB Serial Port");
+	recognisedPorts["LDC vyper2"].push_back("Suunto USB Serial Port");
+	recognisedPorts["LDC solution"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC eon"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC d9"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC aladin"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC memomouse"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC smart"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC sensus"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC sensuspro"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC sensusultra"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC vtpro"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC veo250"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC atom2"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["Mares M2"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC nemo"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
+
+#elif __MACH__
+	recognisedPorts["Emu Suunto"].push_back(NO_PORT_NEEDED);
+	recognisedPorts["Emu Mares M2"].push_back(NO_PORT_NEEDED);
+
+	recognisedPorts["Suunto"].push_back("tty.usbserial-PtTFP8W4");
+	recognisedPorts["LDC vyper"].push_back("tty.usbserial-PtTFP8W4");
+	recognisedPorts["LDC vyper2"].push_back("tty.usbserial-PtTFP8W4");
+	recognisedPorts["LDC solution"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC eon"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC d9"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC aladin"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC memomouse"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC smart"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC sensus"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC sensuspro"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC sensusultra"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC vtpro"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC veo250"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC atom2"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["Mares M2"].push_back("tty.SLAB_USBtoUART");
+	recognisedPorts["LDC nemo"].push_back("tty.SLAB_USBtoUART");
+	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
+							 
+#else
+#error Platform not supported
+#endif
 }
 
 
@@ -250,36 +308,9 @@ void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendly
 #endif
 
 
-//This function decides which driver to test on which COM port
-bool ComputerFactory::mapDevice(std::string identifier, std::string &found)
-{
-
-#ifdef _WIN32
-	if (!identifier.compare("Suunto USB Serial Port")) {
-		found = "Suunto";
-		return true;
-	} 
-#elif __MACH__
-	if (!identifier.compare("tty.usbserial-PtTFP8W4")) {
-		found = "Suunto";
-		return true;
-	}
-	else if (!identifier.compare("tty.SLAB_USBtoUART")) {
-		found = "Mares M2";
-		return true;
-	}
-								 
-#else
-#error Platform not supported
-#endif
-	return false;
-}
-
-
-
 
 //This functions goes through all COM ports and checks if one is a known computer
-std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
+std::string ComputerFactory::detectConnectedDevice(const std::string &computerType)
 {
 	std::map <std::string, std::string> ret;
 	std::vector<std::string> fileNames;
@@ -287,6 +318,8 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 	std::string driverName;
 	unsigned int i;
 	Computer *foundComputer = NULL;
+
+	LOGINFO("Checking for interesting ports for %s", computerType.c_str());
 
 	//1 list ports
 #ifdef _WIN32
@@ -301,39 +334,42 @@ std::map <std::string, std::string> ComputerFactory::detectConnectedDevice()
 	//2 filter interesting ones
 	for (i=0; i< fileNames.size();i++) {
 		LOGINFO("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
-		bool found = mapDevice(friendlyNames[i], driverName);
-		if (found) {
-			try {
-				//calling createComputer here makes some calls to computer which it cannot always answer....
-				//foundComputer = createComputer(driverName, fileNames[i]);
-				if (foundComputer) {
-
-					//We don't really care about the exact model... so if a driver is found let's just use it !
-					ret[std::string("type")] = driverName;
-					ret[std::string("filename")] = fileNames[i];
-					//delete foundComputer;
-					return(ret);
-
-					/*
-					 //3 test port with Computer Driver
-					 ComputerModel model = foundComputer->get_model();
-					 LOGINFO("Device found on port %s has modeltype %d", fileNames[i].c_str(), model);
-
-					 //4 return identified device
-					 if (model != COMPUTER_MODEL_UNKNOWN){			
-						ret[std::string("type")] = driverName;
-						ret[std::string("filename")] = fileNames[i];
-						return(ret);
-					 }
-					 */
-				}
-			} catch(std::exception &e) {
-				LOGINFO("An exception was raised while detecting the computers and has been ignored : %s", e.what());
-			}
+		
+		for (unsigned int j=0; j<recognisedPorts[computerType].size(); j++)
+		{
+			LOGDEBUG("Comparing '%s' with '%s' : %d", friendlyNames[i].c_str(), recognisedPorts[computerType][j].c_str(),recognisedPorts[computerType][j].compare(friendlyNames[i]));
+			if (!recognisedPorts[computerType][j].compare(NO_PORT_NEEDED))
+					return(NO_PORT_NEEDED);
+			if (!recognisedPorts[computerType][j].compare(friendlyNames[i]))
+					return(fileNames[i]);
 		}
 	}
+	
 	LOGINFO("No interesting port found !");
-	return(ret);
+	DBthrowError("Not found");
+}
+
+std::map <std::string, std::string> ComputerFactory::allPorts()
+{
+	std::vector<std::string> fileNames;
+	std::vector<std::string> friendlyNames;
+	std::map <std::string, std::string> ports;
+
+	LOGINFO("Getting all ports");
+
+#ifdef _WIN32
+	LOGINFO("Using SetupAPI");
+	UsingSetupAPI1(fileNames, friendlyNames);
+#elif __MACH__
+	ListTTY(fileNames, friendlyNames);
+#else
+#error "Platform not supported"
+#endif
+
+	for (int i=0; i < fileNames.size(); i++)
+		ports[fileNames[i]] = friendlyNames[i];
+
+	return(ports);
 }
 
 

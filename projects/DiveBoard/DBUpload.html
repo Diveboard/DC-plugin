@@ -55,6 +55,7 @@ function addEvent(obj, name, func)
 function pluginLoaded() {
 		refresh_to(3000);
 		detectPlugin();
+		alert(plugin());
 }
 
 function handlePluginError(err){
@@ -74,13 +75,8 @@ function handlePluginError(err){
 function load()
 {
 	try {
-		if (!CheckPlugin())
+		if (!detectPlugin())
 		{
-			hidediv("errorBox");
-			hidediv("introBox");
-			showdiv("installBox");
-			hidediv("startBox");
-			hidediv("detectBox");
 			return;
 		}
 
@@ -180,7 +176,7 @@ function detectPlugin()
 			hidediv("detectBox");
 			hidediv("progressBox");
 			hidediv("overlay");
-			return;
+			return(false);
 		}
 
 		var res = plugin().detect();
@@ -207,6 +203,7 @@ function detectPlugin()
 			hidediv("overlay");
 			hidediv("progressBox");
 		}
+		return(true);
 	}
 	catch (err) {
 		handlePluginError(err);
@@ -610,7 +607,7 @@ div.hidden
 <h1>Scriptable Plugin for Firefox and Chrome</h1>
 </center>
 
-<object id="plugin" type="application/x-diveboard" hidden=true>
+<object id="plugin" type="application/x-diveboard" onload='alert(2)' >
     <param name="onload" value="pluginLoaded" />
 </object><br />
 

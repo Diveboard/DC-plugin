@@ -63,9 +63,10 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		comp = NULL;
 
 		//methods
-		registerMethod("echo",      make_method(this, &DiveBoardAPI::echo));
+		registerMethod("echo",    make_method(this, &DiveBoardAPI::echo));
 		registerMethod("extract", make_method(this, &DiveBoardAPI::extract));
-		registerMethod("detect", make_method(this, &DiveBoardAPI::detect));
+		registerMethod("detect",  make_method(this, &DiveBoardAPI::detect));
+		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
 
 		// Read-only property
 		registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
@@ -265,22 +266,31 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 }
 
 
-FB::VariantMap DiveBoardAPI::detect()
+FB::variant DiveBoardAPI::detect(const std::string& computerType)
 {
 	try
 	{
 		ComputerFactory factory;
-		
-		//if (comp) throw DBException("Computer already running ?");
+		std::string port = factory.detectConnectedDevice(computerType);
+		return(FB::variant(port));
 
-		std::map<std::string, std::string> ret = factory.detectConnectedDevice();
-		FB::VariantMap ret2;
+	} catch(DBException e)
+	{
+		LOGINFO("Caught Exception : %s", e.what());
+	}
+	return(FB::variant(""));
+}
 
-	    for (std::map<std::string, std::string>::iterator it = ret.begin(); it != ret.end(); it++) {
-			ret2[it->first] = FB::variant(it->second);
-		}
+FB::VariantMap DiveBoardAPI::allports()
+{
+	FB::VariantMap ret;
+	ComputerFactory factory;
+	std::map<std::string, std::string> ports;
 
-		return(ret2);
+	ports = factory.allPorts();
 
-	} catchall()
+	for (std::map<std::string, std::string>::iterator it = ports.begin(); it != ports.end(); ++it)
+		ret[it->first] = FB::variant(it->second);
+
+	return(ret);
 }
