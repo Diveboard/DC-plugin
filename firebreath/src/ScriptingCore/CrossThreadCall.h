@@ -47,16 +47,13 @@ namespace FB {
             FBLOG_TRACE("FunctorCall", "Destroying FunctorCall object (non-void)");
         }
         void call() {
-            boost::shared_ptr<C> tmp;
-            if (ref) tmp = reference.lock();
-            if (!ref || tmp)
-                retVal = func();
+            retVal = func();
         }
         RT getResult() { return retVal; }
 
     protected:
         bool ref;
-        boost::weak_ptr<C> reference;
+        boost::shared_ptr<C> reference;
         Functor func;
         RT retVal;
     };
@@ -71,16 +68,13 @@ namespace FB {
             FBLOG_TRACE("FunctorCall", "Destroying FunctorCall object (void)");
         }
         void call() {
-            boost::shared_ptr<C> tmp;
-            if (ref) tmp = reference.lock();
-            if (!ref || tmp)
-                func();
+            func();
         }
 
     protected:
         Functor func;
         bool ref;
-        boost::weak_ptr<C> reference;
+        boost::shared_ptr<C> reference;
     };
 
     class CrossThreadCall
@@ -96,10 +90,10 @@ namespace FB {
         static typename Functor::result_type syncCallHelper(const FB::BrowserHostPtr &host, Functor func, boost::false_type /* is void */);
 
         template<class C, class Functor>
-        static void asyncCall(const FB::BrowserHostPtr &host, boost::shared_ptr<C> obj, Functor func);
+        static void asyncCall(const FB::BrowserHostPtr &host, const boost::shared_ptr<C>& obj, Functor func);
 
     protected:
-        CrossThreadCall(boost::shared_ptr<FunctorCall> funct) : funct(funct), m_returned(false) { }
+        CrossThreadCall(const boost::shared_ptr<FunctorCall>& funct) : funct(funct), m_returned(false) { }
 
         static void asyncCallbackFunctor(void *userData);
         static void syncCallbackFunctor(void *userData);
@@ -113,11 +107,15 @@ namespace FB {
     };
 
     template<class C, class Functor>
-    void CrossThreadCall::asyncCall(const FB::BrowserHostPtr &host, boost::shared_ptr<C> obj, Functor func)
+    void CrossThreadCall::asyncCall(const FB::BrowserHostPtr &host, const boost::shared_ptr<C>& obj, Functor func)
     {
         boost::shared_ptr<FunctorCall> funct = boost::make_shared<FunctorCallImpl<Functor, C> >(obj, func);
         CrossThreadCall *call = new CrossThreadCall(funct);
-        host->ScheduleAsyncCall(&CrossThreadCall::asyncCallbackFunctor, call);
+        if (!host->ScheduleAsyncCall(&CrossThreadCall::asyncCallbackFunctor, call)) {
+            // Host is likely shut down; at any rate, this didn't work. Since it's asynchronous, fail silently
+            delete call;
+            return;
+        }
     }
 
     template<class Functor>
@@ -141,11 +139,16 @@ namespace FB {
             boost::scoped_ptr<CrossThreadCall> call(new CrossThreadCall(funct));
             {
                 boost::unique_lock<boost::mutex> lock(call->m_mutex);
-                host->ScheduleAsyncCall(&CrossThreadCall::syncCallbackFunctor, call.get());
+                if (!host->ScheduleAsyncCall(&CrossThreadCall::syncCallbackFunctor, call.get())) {
+                    // Browser probably shutting down, but cross thread call failed.
+                    throw FB::script_error("Could not marshal to main thread");
+                }
 
-                while (!call->m_returned) {
+                while (!call->m_returned && !host->isShutDown()) {
                     call->m_cond.wait(lock);
                 }
+                if (host->isShutDown())
+                    throw FB::script_error("Shutting down");
                 varResult = call->m_result;
             }
         } else {
@@ -174,7 +177,10 @@ namespace FB {
             boost::scoped_ptr<CrossThreadCall> call(new CrossThreadCall(funct));
             {
                 boost::unique_lock<boost::mutex> lock(call->m_mutex);
-                host->ScheduleAsyncCall(&CrossThreadCall::syncCallbackFunctor, call.get());
+                if (!host->ScheduleAsyncCall(&CrossThreadCall::syncCallbackFunctor, call.get())) {
+                    // Browser probably shutting down, but cross thread call failed.
+                    throw FB::script_error("Could not marshal to main thread");
+                }
 
                 while (!call->m_returned) {
                     call->m_cond.wait(lock);
@@ -190,7 +196,7 @@ namespace FB {
             FB::script_error* tmp(varResult.cast<FB::script_error*>());
             std::string msg = tmp->what();
             delete tmp;
-            throw FB::script_error(varResult.cast<const FB::script_error>().what());
+            throw FB::script_error(msg);
         }
         return result;
     }
@@ -199,14 +205,17 @@ namespace FB {
     template <class Functor>
     typename Functor::result_type BrowserHost::CallOnMainThread(Functor func)
     {
-        return CrossThreadCall::syncCall(shared_ptr(), func);
+        boost::shared_lock<boost::shared_mutex> _l(m_xtmutex);
+        return CrossThreadCall::syncCall(shared_from_this(), func);
     }
     
     template <class C, class Functor>
-    void BrowserHost::ScheduleOnMainThread(boost::shared_ptr<C> obj, Functor func)
+    void BrowserHost::ScheduleOnMainThread(const boost::shared_ptr<C>& obj, Functor func)
     {
-        CrossThreadCall::asyncCall(shared_ptr(), obj, func);
+        boost::shared_lock<boost::shared_mutex> _l(m_xtmutex);
+        CrossThreadCall::asyncCall(shared_from_this(), obj, func);
     }    
 };
 
 #endif // H_FB_CROSSTHREADCALL
+

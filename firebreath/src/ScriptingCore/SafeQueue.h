@@ -35,7 +35,6 @@ namespace FB {
         mutable boost::mutex the_mutex;
         boost::condition_variable the_condition_variable;
     public:
-
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn void SafeQueue::push(Data const& data)
         ///
@@ -90,7 +89,7 @@ namespace FB {
         /// @fn void SafeQueue::wait_and_pop(Data& popped_value)
         ///
         /// @brief  Tries to pop a value off the front of the queue; if the queue is empty it will wait
-        /// 		indefinitely until something is pushed onto the back of the queue by another thread.
+        ///         indefinitely until something is pushed onto the back of the queue by another thread.
         ///
         /// @param [out] popped_value    The popped value. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,3 +109,4 @@ namespace FB {
 };
 
 #endif //H_FB_SafeQueue
+

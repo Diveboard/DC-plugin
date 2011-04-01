@@ -202,6 +202,9 @@
 #  define BOOST_REGEX_DECL
 #endif
 
+#if defined(BOOST_LIB_NAME)
+#undef BOOST_LIB_NAME
+#endif
 #if !defined(BOOST_REGEX_NO_LIB) && !defined(BOOST_REGEX_SOURCE) && !defined(BOOST_ALL_NO_LIB) && defined(__cplusplus)
 #  define BOOST_LIB_NAME boost_regex
 #  if defined(BOOST_REGEX_DYN_LINK) || defined(BOOST_ALL_DYN_LINK)
@@ -253,6 +256,10 @@
 
 #ifdef BOOST_RE_LOCALE_CPP
 #  define BOOST_REGEX_USE_CPP_LOCALE
+#endif
+
+#if defined(__CYGWIN__)
+#  define BOOST_REGEX_USE_C_LOCALE
 #endif
 
 /* Win32 defaults to native Win32 locale: */

@@ -17,81 +17,18 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #define H_FB_JSAPI
 
 #include "APITypes.h"
-#include <stdexcept>
+#include <list>
+#include <deque>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/noncopyable.hpp>
+#include "JSExceptions.h"
+#include "boost/thread/recursive_mutex.hpp"
+#include "boost/thread/mutex.hpp"
 
 namespace FB
 {
     class JSObject;
     class BrowserHost;
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// @exception script_error
-    ///
-    /// @brief  Exception type; when thrown in a JSAPI method, a javascript exception will be thrown. 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    struct script_error : std::exception
-    {
-        script_error(const std::string& error)
-            : m_error(error)
-        { }
-        ~script_error() throw() { }
-        virtual const char* what() const throw() { 
-            return m_error.c_str(); 
-        }
-        std::string m_error;
-    };
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// @exception invalid_arguments
-    ///
-    /// @brief  Thrown by a JSAPI object when the argument(s) provided to a SetProperty or Invoke
-    ///         call are found to be invalid.  JSAPIAuto will throw this automatically if the argument
-    ///         cannot be convert_cast to the type expected by the function.
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    struct invalid_arguments : script_error
-    {
-        invalid_arguments()
-            : script_error("Invalid Arguments")
-        { }
-        ~invalid_arguments() throw() { }
-
-        invalid_arguments(const std::string& error)
-            : script_error(error)
-        { }
-    };
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// @exception object_invalidated
-    ///
-    /// @brief  Thrown by a JSAPI object when a call is made on it after the object has been
-    ///         invalidated.
-    ///         
-    /// This is particularly useful when you want to invalidate the object
-    /// when the plugin gets released, as the PluginCore-derived Plugin object will usually get
-    /// released before the JSAPI object
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    struct object_invalidated : script_error
-    {
-        object_invalidated()
-            : script_error("This object is no longer valid")
-        { }
-        ~object_invalidated() throw() { }
-    };
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// @exception invalid_member
-    ///
-    /// @brief  Thrown when an Invoke, SetProperty, or GetProperty call is made for a member that is
-    ///         invalid (does not exist, not accessible, only supports Get or Set, etc) 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    struct invalid_member : script_error
-    {
-        invalid_member(const std::string& memberName)
-            : script_error("The specified member does not exist: " + memberName)
-        { }
-        ~invalid_member() throw() { }
-    };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  JSAPI
@@ -114,8 +51,9 @@ namespace FB
     ///     objects which extend JSAPI.
     ///
     /// @author Richard Bateman
+    /// @see FB::JSAPIAuto
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    class JSAPI : public boost::enable_shared_from_this<JSAPI>
+    class JSAPI : public boost::enable_shared_from_this<JSAPI>, boost::noncopyable
     {
     public:
 
@@ -125,6 +63,7 @@ namespace FB
         /// @brief  Default constructor. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         JSAPI(void);
+        JSAPI( const SecurityZone& securityLevel );
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual ~JSAPI(void)
@@ -155,16 +94,22 @@ namespace FB
         void invalidate();
 
     protected:
+        void fireAsyncEvent( const std::string& eventName, const std::vector<variant>& args );
+
+    protected:
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual void FireEvent(const std::wstring& eventName, const std::vector<variant> &args)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void FireEvent(const std::wstring& eventName, const std::vector<variant> &args);
+        virtual void FireEvent(const std::wstring& eventName, const std::vector<variant> &args)
+        {
+            FireEvent(wstring_to_utf8(eventName), args);
+        }
         
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void FireEvent(const std::string& eventName, const std::vector<variant> &args)
         ///
         /// @brief  Fires an event into javascript asynchronously
-        /// 		
+        ///         
         /// This fires an event to all handlers attached to the given event in javascript.
         /// 
         /// IE:
@@ -173,18 +118,18 @@ namespace FB
         /// @endcode
         /// Firefox/Safari/Chrome/Opera:
         /// @code
-        /// 	 // Note that the convention used by these browsers is that "on" is implied
-        /// 	 document.getElementByID("plugin").addEventListener("load", function() { alert("loaded!"); }, false);;/.
+        ///      // Note that the convention used by these browsers is that "on" is implied
+        ///      document.getElementByID("plugin").addEventListener("load", function() { alert("loaded!"); }, false);;/.
         /// @endcode
         ///
         /// You can then fire the event -- from any thread -- from the JSAPI object like so:
         /// @code
-        /// 	 FireEvent("onload", FB::variant_list_of("param1")(2)(3.0));
+        ///      FireEvent("onload", FB::variant_list_of("param1")(2)(3.0));
         /// @endcode
-        /// 		
+        ///         
         /// Also note that registerEvent must be called from the constructor to register the event.
         /// @code
-        /// 	 registerEvent("onload");
+        ///      registerEvent("onload");
         /// @endcode
         /// 
         /// @param  eventName   Name of the event.  This event must start with "on"
@@ -193,8 +138,155 @@ namespace FB
         /// @see registerEvent
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void FireEvent(const std::string& eventName, const std::vector<variant> &args);
+        
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @brief  Fires an event into javascript asynchronously using a W3C-compliant event parameter
+        ///         
+        /// This fires an event to all handlers attached to the given event in javascript. With a
+        /// W3C-compliant event parameter
+        /// 
+        /// IE:
+        /// @code
+        ///      document.getElementByID("plugin").attachEvent("onload", function() { alert("loaded!"); });
+        /// @endcode
+        /// Firefox/Safari/Chrome/Opera:
+        /// @code
+        ///      // Note that the convention used by these browsers is that "on" is implied
+        ///      document.getElementByID("plugin").addEventListener("load", function() { alert("loaded!"); }, false);;/.
+        /// @endcode
+        ///
+        /// You can then fire the event -- from any thread -- from the JSAPI object like so:
+        /// @code
+        ///      FireEvent("onload", FB::variant_list_of("param1")(2)(3.0));
+        /// @endcode
+        ///         
+        /// Also note that registerEvent must be called from the constructor to register the event.
+        /// @code
+        ///      registerEvent("onload");
+        /// @endcode
+        /// 
+        /// @param  eventName   Name of the event.  This event must start with "on"
+        /// @param  args        The arguments that should be sent to each attached event handler
+        ///
+        /// @see registerEvent
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void FireJSEvent(const std::string& eventName, const FB::VariantMap &members, const FB::VariantList &arguments);
+        /// @overload
+        virtual void FireJSEvent(const std::string& eventName, const FB::VariantMap &params)
+        {
+            FireJSEvent(eventName, params, FB::VariantList());
+        }
+        /// @overload
+        virtual void FireJSEvent(const std::string& eventName, const FB::VariantList &arguments)
+        {
+            FireJSEvent(eventName, FB::VariantMap(), arguments);
+        }
 
     public:
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public  void FB::JSAPI::pushZone(const SecurityZone& securityLevel)
+        ///
+        /// @brief  Pushes a new security level and locks a mutex (for every Push there *must* be a Pop!)
+        ///
+        /// This should be used to temporarily set the security zone of the API object. Note that this
+        /// also locks a mutex to ensure that access to members under a non-default security level is
+        /// serialized. Do not *ever* leave an unmatched push (a push with no pop after it). For safety,
+        /// use the helper FB::scoped_zonelock:
+        /// @code
+        ///      // In the constructor
+        ///      // Register protected members
+        ///      {
+        ///          FB::scoped_zonelock _l(this, SecurityScope_Protected);
+        ///          registerMethod("start", make_method(this, &MyPluginAPI::start));
+        ///      } // Zone automatically popped off
+        ///      // Register private members
+        ///      {
+        ///          FB::scoped_zonelock _l(this, SecurityScope_Protected);
+        ///          registerMethod("getDirectoryListing", make_method(this, &MyPluginAPI::getDirectoryListing));
+        ///      } // Zone automatically popped off
+        /// @endcode
+        ///
+        /// @param  securityLevel   const SecurityZone &    Zone id to push on the stack
+        /// @since 1.4a3
+        /// @see FB::scoped_zonelock
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void pushZone(const SecurityZone& securityLevel)
+        {
+            m_zoneMutex.lock();
+            m_zoneStack.push_back(securityLevel);
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public  void FB::JSAPI::popZone()
+        ///
+        /// @brief  Pops off a security level and unlocks the mutex (for every Push there *must* be a Pop!)
+        ///
+        /// Seriously, it's far better to use FB::scoped_zonelock instead of using popZone and pushZone
+        ///
+        /// @returns void
+        /// @since 1.4a3
+        /// @see FB::scoped_zonelock
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void popZone()
+        {
+            m_zoneStack.pop_back();
+            m_zoneMutex.unlock();
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public void setDefaultZone(const SecurityZone& securityLevel)
+        ///
+        /// @brief  Sets the default zone (the zone the class operates on before a push)
+        ///
+        /// @returns void
+        /// @since 1.4a3
+        /// @see FB::scoped_zonelock
+        /// @see pushZone
+        /// @see popZone
+        /// @see getDefaultZone
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void setDefaultZone(const SecurityZone& securityLevel)
+        {
+            assert(m_zoneStack.size() > 0);
+            m_zoneStack.pop_front();
+            m_zoneStack.push_front(securityLevel);
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public virtual SecurityZone getDefaultZone() const
+        ///
+        /// @brief  Gets the default zone (the zone the class operates on before a push)
+        ///
+        /// @returns SecurityZone the default zone
+        /// @since 1.4a3
+        /// @see FB::scoped_zonelock
+        /// @see pushZone
+        /// @see popZone
+        /// @see getDefaultZone
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual SecurityZone getDefaultZone() const
+        {
+            assert(m_zoneStack.size() > 0);
+            return m_zoneStack.front();
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public SecurityZone getZone() const
+        ///
+        /// @brief  Gets the currently active zone
+        ///
+        /// @returns SecurityZone the current zone
+        /// @since 1.4a3
+        /// @see FB::scoped_zonelock
+        /// @see pushZone
+        /// @see popZone
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual SecurityZone getZone() const
+        {
+            assert(m_zoneStack.size() > 0);
+            boost::recursive_mutex::scoped_lock lock(m_zoneMutex);
+            return m_zoneStack.back();
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void registerEvent(const std::string& name)
@@ -207,7 +299,11 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual void registerEvent(const std::wstring& name)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void registerEvent(const std::wstring& name);
+        virtual void registerEvent(const std::wstring& name)
+        {
+            registerEvent(wstring_to_utf8(name));
+        }
+
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void registerEventMethod(const std::string& name, JSObjectPtr& event)
@@ -221,7 +317,10 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual void registerEventMethod(const std::wstring& name, JSObjectPtr& event)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void registerEventMethod(const std::wstring& name, JSObjectPtr& event);
+        virtual void registerEventMethod(const std::wstring& name, JSObjectPtr& event)
+        {
+            registerEventMethod(wstring_to_utf8(name), event);
+        }
         
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void unregisterEventMethod(const std::string& name, JSObjectPtr& event)
@@ -235,46 +334,60 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual void unregisterEventMethod(const std::wstring& name, JSObjectPtr& event)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void unregisterEventMethod(const std::wstring& name, JSObjectPtr& event);
+        virtual void unregisterEventMethod(const std::wstring& name, JSObjectPtr& event)
+        {
+            unregisterEventMethod(wstring_to_utf8(name), event);
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual void registerEventInterface(JSObjectPtr& event)
+        /// @fn virtual void registerEventInterface(const JSObjectPtr& event)
         ///
         /// @brief  Called by the browser to register a JSObject interface that handles events.  This is
-        /// 		primarily used by IE.  Objects provided to this method are called when events are fired
-        /// 		by calling a method of the event name on the event interface
+        ///         primarily used by IE.  Objects provided to this method are called when events are fired
+        ///         by calling a method of the event name on the event interface
         ///
         /// @param  event   The JSAPI interface 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void registerEventInterface(JSObjectPtr& event);
+        virtual void registerEventInterface(const JSObjectPtr& event)
+        {
+            m_evtIfaces[static_cast<void*>(event.get())] = event;
+        }
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual void unregisterEventInterface(JSObjectPtr& event)
+        /// @fn virtual void unregisterEventInterface(const JSObjectPtr& event)
         ///
         /// @brief  Called by the browser to unregister a JSObject interface that handles events.  
         ///
         /// @param  event   The JSAPI interface
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void unregisterEventInterface(JSObjectPtr& event);
+        virtual void unregisterEventInterface(const JSObjectPtr& event)
+        {
+            EventIFaceMap::iterator fnd = m_evtIfaces.find(static_cast<void*>(event.get()));
+            m_evtIfaces.erase(fnd);
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @overload virtual JSObjectPtr getDefaultEventMethod(const std::wstring& name)
+        /// @overload virtual JSObjectPtr getDefaultEventMethod(const std::wstring& name) const
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual JSObjectPtr getDefaultEventMethod(const std::wstring& name);
+        virtual JSObjectPtr getDefaultEventMethod(const std::wstring& name) const
+        {
+            return getDefaultEventMethod(wstring_to_utf8(name));
+        }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual JSObjectPtr getDefaultEventMethod(const std::string& name)
+        /// @fn virtual JSObjectPtr getDefaultEventMethod(const std::string& name) const
         ///
         /// @brief  Called by the browser to get the default event handler method for an event.
-        /// 		
+        ///         
         /// This is called when the following occurs iff onload is a registered event:
         /// @code
-        /// 	 var handler = document.getElementByID("plugin").onload;
+        ///      var handler = document.getElementByID("plugin").onload;
         /// @endcode
-        /// 		
+        ///         
         /// @param  name    The event name. 
         ///
         /// @return The default event method. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual JSObjectPtr getDefaultEventMethod(const std::string& name);
+        virtual JSObjectPtr getDefaultEventMethod(const std::string& name) const;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void setDefaultEventMethod(const std::string& name, JSObjectPtr event)
@@ -283,7 +396,7 @@ namespace FB
         ///
         /// This is called when the following occurs iff onload is a registered event:
         /// @code
-        /// 	 document.getElementByID("plugin").onload = function() { alert("loaded"); };
+        ///      document.getElementByID("plugin").onload = function() { alert("loaded"); };
         /// @endcode
         ///
         /// @param  name    The event name
@@ -293,38 +406,51 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual void setDefaultEventMethod(const std::wstring& name, JSObjectPtr event)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void setDefaultEventMethod(const std::wstring& name, JSObjectPtr event);
+        virtual void setDefaultEventMethod(const std::wstring& name, JSObjectPtr event)
+        {
+            setDefaultEventMethod(wstring_to_utf8(name), event);
+        }
 
-        virtual void getMemberNames(std::vector<std::wstring> &nameVector);
-        virtual void getMemberNames(std::vector<std::wstring> *nameVector);
+        virtual void getMemberNames(std::vector<std::wstring> &nameVector) const;
+        virtual void getMemberNames(std::vector<std::wstring> *nameVector) const
+        {
+            getMemberNames(*nameVector);
+        }
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual void getMemberNames(std::vector<std::string> &nameVector) = 0
+        /// @fn virtual void getMemberNames(std::vector<std::string> &nameVector) const = 0
         ///
         /// @brief  Called by the browser to enumerate the members of this JSAPI object
-        /// 		
+        ///         
         /// This must be implemented by anything extending JSAPI directly.  JSAPIAuto implements this
         /// for you.
         ///
         /// @param [out] nameVector  The name vector. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void getMemberNames(std::vector<std::string> &nameVector) = 0;
-        virtual void getMemberNames(std::vector<std::string> *nameVector);
+        virtual void getMemberNames(std::vector<std::string> &nameVector) const = 0;
+        virtual void getMemberNames(std::vector<std::string> *nameVector) const
+        {
+            getMemberNames(*nameVector);
+        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual size_t getMemberCount() = 0
+        /// @fn virtual size_t getMemberCount() const = 0
         ///
         /// @brief  Gets the member count. 
         ///
         /// @return The member count. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual size_t getMemberCount() = 0;
+        virtual size_t getMemberCount() const = 0;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @overload virtual bool HasMethod(const std::wstring& methodName)
+        /// @overload virtual bool HasMethod(const std::wstring& methodName) const
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasMethod(const std::wstring& methodName);
+        virtual bool HasMethod(const std::wstring& methodName) const
+        {
+            return HasMethod(wstring_to_utf8(methodName));
+        }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual bool HasMethod(const std::string& methodName) = 0
+        /// @fn virtual bool HasMethod(const std::string& methodName) const = 0
         ///
         /// @brief  Query if the JSAPI object has the 'methodName' method. 
         ///
@@ -332,14 +458,39 @@ namespace FB
         ///
         /// @return true if method exists, false if not. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasMethod(const std::string& methodName) = 0;
+        virtual bool HasMethod(const std::string& methodName) const = 0;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @overload virtual bool HasProperty(const std::wstring& propertyName)
+        /// @overload virtual bool HasMethodObject(const std::wstring& methodObjName) const
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasProperty(const std::wstring& propertyName);
+        virtual bool HasMethodObject(const std::wstring& methodObjName) const
+        {
+            return HasMethodObject(wstring_to_utf8(methodObjName));
+        }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual bool HasProperty(const std::string& propertyName)
+        /// @fn virtual bool HasMethodObject(const std::string& methodObjName) const
+        ///
+        /// @brief  Query if 'methodObjName' is a valid methodObj. 
+        ///
+        /// @param  methodObjName    Name of the method to fetch an object for. 
+        ///
+        /// If this feature is supported 
+        ///
+        /// @return true if methodObj exists, false if not. 
+        /// @since 1.4
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual bool HasMethodObject(const std::string& methodObjName) const { return false; }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @overload virtual bool HasProperty(const std::wstring& propertyName) const
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual bool HasProperty(const std::wstring& propertyName) const
+        {
+            return HasProperty(wstring_to_utf8(propertyName));
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual bool HasProperty(const std::string& propertyName) const
         ///
         /// @brief  Query if 'propertyName' is a valid property. 
         ///
@@ -347,26 +498,26 @@ namespace FB
         ///
         /// @return true if property exists, false if not. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasProperty(const std::string& propertyName) = 0;
+        virtual bool HasProperty(const std::string& propertyName) const = 0;
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual bool HasProperty(int idx) = 0
+        /// @fn virtual bool HasProperty(int idx) const = 0
         ///
         /// @brief  Query if the property at "idx" exists.
-        /// 	
+        ///     
         /// This can be used for providing array-style access on your object.  For example, the following
         /// will result in a call to HasProperty with idx = 12:
         /// @code
-        /// 	  document.getElementById("plugin")[12];
+        ///       document.getElementById("plugin")[12];
         /// @endcode 
         ///
         /// @param  idx Zero-based index of the property to check for
         ///
         /// @return true if property exists, false if not. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasProperty(int idx) = 0;
+        virtual bool HasProperty(int idx) const = 0;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual bool HasEvent(const std::string& eventName)
+        /// @fn virtual bool HasEvent(const std::string& eventName) const
         ///
         /// @brief  Query if the event 'eventName' has been registered
         ///
@@ -374,16 +525,47 @@ namespace FB
         ///
         /// @return true if event registered, false if not. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasEvent(const std::string& eventName);
+        virtual bool HasEvent(const std::string& eventName) const;
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @overload virtual bool HasEvent(const std::wstring& eventName)
+        /// @overload virtual bool HasEvent(const std::wstring& eventName) const
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual bool HasEvent(const std::wstring& eventName);
+        virtual bool HasEvent(const std::wstring& eventName) const
+        {
+            return HasEvent(wstring_to_utf8(eventName));
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @overload virtual JSAPIPtr GetMethodObject(const std::wstring& methodObjName)
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual JSAPIPtr GetMethodObject(const std::wstring& methodObjName)
+        {
+            return GetMethodObject(FB::wstring_to_utf8(methodObjName));
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual variant GetMethodObject(const std::string& methodObjName) = 0
+        ///
+        /// @brief  Gets a method object (JSAPI object that has a default method)
+        ///
+        /// Often it is preferable with the plugins to have the API return a JSAPI object as a
+        /// property and then call the default method on that object.  This looks the same in
+        /// javascript, except that you can save the function object if you want to.  See
+        /// FB::JSFunction for an example of how to make a function object
+        ///
+        /// @param  methodObjName    Name of the methodObj. 
+        /// @return The methodObj value 
+        /// @since 1.4
+        /// @see FB::JSFunction
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual JSAPIPtr GetMethodObject(const std::string& methodObjName) { return FB::JSAPIPtr(); }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual variant GetProperty(const std::wstring& propertyName)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual variant GetProperty(const std::wstring& propertyName);
+        virtual variant GetProperty(const std::wstring& propertyName)
+        {
+            return GetProperty(wstring_to_utf8(propertyName));
+        }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual variant GetProperty(const std::string& propertyName) = 0
         ///
@@ -398,7 +580,10 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual void SetProperty(const std::wstring& propertyName, const variant& value)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void SetProperty(const std::wstring& propertyName, const variant& value);
+        virtual void SetProperty(const std::wstring& propertyName, const variant& value)
+        {
+            SetProperty(wstring_to_utf8(propertyName), value);
+        }
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void SetProperty(const std::string& propertyName, const variant& value) = 0
         ///
@@ -417,7 +602,7 @@ namespace FB
         /// This can be used for providing array-style access on your object.  For example, the following
         /// will result in a call to GetProperty with idx = 12:
         /// @code
-        /// 	  var i = document.getElementById("plugin")[12];
+        ///       var i = document.getElementById("plugin")[12];
         /// @endcode 
         ///
         /// @param  idx Zero-based index of the property to get the value of. 
@@ -434,7 +619,7 @@ namespace FB
         /// This can be used for providing array-style access on your object.  For example, the following
         /// will result in a call to SetProperty with idx = 12:
         /// @code
-        /// 	  document.getElementById("plugin")[12] = "property value";
+        ///       document.getElementById("plugin")[12] = "property value";
         /// @endcode 
         ///
         /// @param  idx     Zero-based index of the property to set the value of. 
@@ -445,7 +630,11 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @overload virtual variant Invoke(const std::wstring& methodName, const std::vector<variant>& args)
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual variant Invoke(const std::wstring& methodName, const std::vector<variant>& args);
+        virtual variant Invoke(const std::wstring& methodName, const std::vector<variant>& args)
+        {
+            return Invoke(wstring_to_utf8(methodName), args);
+        }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual variant Invoke(const std::string& methodName,
         /// const std::vector<variant>& args) = 0
@@ -459,13 +648,103 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual variant Invoke(const std::string& methodName, const std::vector<variant>& args) = 0;
 
+    public:
+        virtual void registerProxy(const JSAPIWeakPtr &ptr) const;
+        virtual void unregisterProxy( const FB::JSAPIPtr& ptr ) const;
+
     protected:
-        EventMultiMap m_eventMap;       // Stores event handlers
-        EventSingleMap m_defEventMap;   // Stores event-as-property event handlers
-        EventIFaceMap m_evtIfaces;      // Stores event interfaces
+        typedef std::deque<SecurityZone> ZoneStack;
+        // Stores event handlers
+        EventMultiMap m_eventMap;       
+        // Stores event-as-property event handlers
+        EventSingleMap m_defEventMap;   
+        // Stores event interfaces
+        EventIFaceMap m_evtIfaces;      
+
+        typedef std::vector<JSAPIWeakPtr> ProxyList;
+        mutable ProxyList m_proxies;
+
+        mutable boost::recursive_mutex m_zoneMutex;
+        ZoneStack m_zoneStack;
                 
         bool m_valid;                   // Tracks if this object has been invalidated
     };
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @class scoped_zonelock
+    ///
+    /// @brief  Provides a helper class for locking
+    ///
+    /// This class will call pushZone on the provided JSAPI object when instantiated and popZone
+    /// when it goes out of scope. 
+    /// @code
+    ///      // In the constructor
+    ///      // Register protected members
+    ///      {
+    ///          FB::scoped_zonelock _l(this, SecurityScope_Protected);
+    ///          registerMethod("start", make_method(this, &MyPluginAPI::start));
+    ///      } // Zone automatically popped off
+    ///      // Register private members
+    ///      {
+    ///          FB::scoped_zonelock _l(this, SecurityScope_Protected);
+    ///          registerMethod("getDirectoryListing", make_method(this, &MyPluginAPI::getDirectoryListing));
+    ///      } // Zone automatically popped off
+    /// @endcode
+    /// 
+    /// @since 1.4a3
+    /// @see FB::JSAPI::pushZone
+    /// @see FB::JSAPI::popZone
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    class scoped_zonelock : boost::noncopyable
+    {
+    public:
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public FB::scoped_zonelock::scoped_zonelock(const JSAPIPtr &api, const SecurityZone& zone)
+        ///
+        /// @brief  Accepts a FB::JSAPIPtr and pushes the specified security zone to be used
+        ///         until this object goes out of scope
+        ///
+        /// @param  api     const JSAPIPtr&     JSAPI object to lock the zone for
+        /// @param  zone    const SecurityZone& Zone to push
+        /// @since 1.4a3
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        scoped_zonelock(const JSAPIPtr &api, const SecurityZone& zone)
+            : m_api(api.get()), ref(api) {
+            lock(zone);
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public   FB::scoped_zonelock::scoped_zonelock(JSAPI* api, const SecurityZone& zone)
+        ///
+        /// @brief  
+        ///
+        /// @param  api     JSAPI*        JSAPI object to lock the zone for
+        /// @param  zone    const SecurityZone& Zone to push
+        /// @since 1.4a3
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        scoped_zonelock(JSAPI* api, const SecurityZone& zone) : m_api(api) {
+            lock(zone);
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public   FB::scoped_zonelock::~scoped_zonelock()
+        ///
+        /// @brief   Unlocks/pops the zone
+        /// @since 1.4a3
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        ~scoped_zonelock() {
+            if (m_api)
+                m_api->popZone();
+        }
+    private:
+        void lock(const SecurityZone& zone) const {
+            if (m_api)
+                m_api->pushZone(zone);
+        }
+        JSAPI* m_api;
+        const FB::JSAPIPtr ref;
+    };
 };
+
+// There are important conversion routines that require JSObject and JSAPI to both be loaded
+#include "JSObject.h"
 #endif
+

@@ -25,6 +25,8 @@ Copyright 2009 Georg Fritzsche, Firebreath development team
 #include <boost/mpl/vector.hpp>
 
 namespace FB { 
+    class variant;
+    typedef std::vector<variant> VariantList;
     namespace detail 
     {
         // helper meta function that removes all pointers etc. from a type
@@ -53,6 +55,60 @@ namespace FB {
         }
     } // namespace detail
 
+    // "soft" conversion wrapper function
+    template<typename To>
+    inline
+    To convertArgumentSoft(const FB::VariantList& args, const size_t index,
+        typename boost::disable_if<boost::mpl::or_<
+            FB::meta::is_optional<To>,
+            boost::mpl::or_<
+                boost::is_same<To, FB::variant>,
+                boost::is_same<To, boost::tribool>
+            >
+        > >::type* p=0)
+    {
+        if (args.size() >= index)
+            return FB::detail::converter<To, FB::variant>::convert(args[index-1], index);
+        else {
+            std::stringstream ss;
+            ss << "Error: Argument " << index
+               << "is not optional.";
+            throw FB::invalid_arguments(ss.str());
+        }
+    }
+    
+    template<typename To>
+    inline
+    To convertArgumentSoft(const FB::VariantList& args, const size_t index,
+        typename boost::enable_if<FB::meta::is_optional<To> >::type* p=0)
+    {
+        if (args.size() >= index)
+            return FB::detail::converter<To, FB::variant>::convert(args[index-1], index);
+        else
+            return To(); // Empty optional argument
+    }
+
+    template<typename To>
+    inline
+    To convertArgumentSoft(const FB::VariantList& args, const size_t index,
+        typename boost::enable_if<boost::is_same<To, boost::tribool> >::type* p=0)
+    {
+        if (args.size() >= index)
+            return FB::detail::converter<To, FB::variant>::convert(args[index-1], index);
+        else
+            return boost::tribool(); // Empty variant argument
+    }
+
+    template<typename To>
+    inline
+    To convertArgumentSoft(const FB::VariantList& args, const size_t index,
+        typename boost::enable_if<boost::is_same<To, FB::variant> >::type* p=0)
+    {
+        if (args.size() >= index)
+            return FB::detail::converter<To, FB::variant>::convert(args[index-1], index);
+        else
+            return FB::variant(); // Empty variant argument
+    }
     // conversion wrapper function
     template<typename To, typename From>
     inline
@@ -64,7 +120,7 @@ namespace FB {
     // conversion wrapper function
     template<typename To, typename From>
     inline
-    To convertArgument(const From& from, const size_t index)
+    To convertArgument(const From& from, const size_t index, boost::disable_if< FB::meta::is_optional<To> >*p = 0)
     {
         return FB::detail::converter<To, From>::convert(from, index);
     }
@@ -154,7 +210,13 @@ namespace FB { namespace detail
         inline
         ArgType convertLastArgument(const FB::VariantList& l, size_t n)
         {
-            return FB::convertArgument<ArgType, FB::variant>(l.back(), n);
+            // If this is the last parameter and 
+            if (l.size() > n) {
+                std::stringstream ss;
+                ss << "Too many arguments, expected " << n << ".";
+                throw FB::invalid_arguments(ss.str());
+            }
+            return FB::convertArgumentSoft<ArgType>(l, n);
         }
 
         // if the last argument is CatchAll, fill it with all remaining parameters
@@ -174,3 +236,4 @@ namespace FB { namespace detail
 } } // namespace FB { namespace detail
 
 #endif // #if !defined(CONVERTER_UTILS_H)
+

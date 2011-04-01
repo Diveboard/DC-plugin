@@ -19,36 +19,40 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 #include "PluginEventSource.h"
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/noncopyable.hpp>
 #include <string>
 
 namespace FB {
 
     class PluginEvent;
+    
+    class PluginEventSink;
+    typedef boost::shared_ptr<PluginEventSink> PluginEventSinkPtr;
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  PluginEventSink
     ///
     /// @brief  Plugin event sink; all objects that can receive PluginEvent s should inherit from this
-    /// 		class.  Most notably, PluginCore extends this class
+    ///         class.  Most notably, PluginCore extends this class
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    class PluginEventSink : public boost::enable_shared_from_this<PluginEventSink>
+    class PluginEventSink : public boost::enable_shared_from_this<PluginEventSink>, boost::noncopyable
     {
     public:
         PluginEventSink() { };
         virtual ~PluginEventSink() { };
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn boost::shared_ptr<PluginEventSink> shared_ptr()
+        /// @fn PluginEventSinkPtr shared_ptr()
         ///
         /// @brief  Get a shared_ptr to the current class
-        /// 		
+        ///         
         /// To get a shared_ptr to a child class of this, such as PluginCore, you can use ptr_cast:
         /// @code
-        /// 	 FB::ptr_cast<FB::PluginCore>(shared_ptr());
+        ///      FB::ptr_cast<FB::PluginCore>(shared_ptr());
         /// @endcode
         ///
         /// @return shared_ptr for "this" pointer
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        boost::shared_ptr<PluginEventSink> shared_ptr() { return shared_from_this(); }
+        PluginEventSinkPtr shared_ptr() { return shared_from_this(); }
 
     public:
 
@@ -56,7 +60,7 @@ namespace FB {
         /// @fn virtual bool HandleEvent(PluginEvent *event, PluginEventSource *source) = 0
         ///
         /// @brief  Called by the browser when a system event needs to be handled, such as a mouse event,
-        /// 		a keyboard event, or a drawing event.
+        ///         a keyboard event, or a drawing event.
         ///
         /// The recommended way to implement HandleEvent is with the PLUGINEVENT_TYPE macros, like so:
         /// 
@@ -81,7 +85,7 @@ namespace FB {
         ///     virtual bool onMouseUp(FB::MouseUpEvent *evt, FB::PluginWindow*);
         ///     virtual bool onMouseMove(FB::MouseMoveEvent *evt, FB::PluginWindow*);
         /// @endcode
-        /// 		
+        ///         
         /// @author Richard Bateman
         ///
         /// @param event PluginEvent to handle
@@ -98,7 +102,7 @@ namespace FB {
 /// PluginEventSource *win)
 ///
 /// @brief  Begins a plugin event map.
-/// 		
+///         
 /// This will create an implementation of the HandleEvent function.  It must be matched with
 /// a END_PLUGIN_EVENT_MAP() call
 ///
@@ -129,6 +133,8 @@ namespace FB {
 #define EVENTTYPE_CASE(eventType, methodName, srcType) else if (evt->validType<eventType>() && src->validType<srcType>()) { \
                                                 return methodName(evt->get<eventType>(), src->get_as<srcType>()); }
 
+#define PLUGIN_EVENT_MAP_CASCADE(super) else return super::HandleEvent(evt, src);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// @def    END_PLUGIN_EVENT_MAP()
 ///
@@ -140,3 +146,4 @@ namespace FB {
 #define END_PLUGIN_EVENT_MAP() return false; }
 
 #endif
+

@@ -1,4 +1,4 @@
-@echo off  
+@echo off
 
 set FB_ROOT="%~dp0"
 set RUN_FROM=%CD%

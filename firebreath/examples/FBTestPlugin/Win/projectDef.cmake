@@ -25,14 +25,8 @@ set (SOURCES
     ${PLATFORM}
     )
 
-add_library(${PROJNAME} SHARED ${SOURCES})
 
-set_target_properties (${PROJNAME} PROPERTIES
-    OUTPUT_NAME np${PLUGIN_NAME}
-    PROJECT_LABEL ${PROJNAME}
-    RUNTIME_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
-    LIBRARY_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
-    )
+add_windows_plugin(${PROJNAME} SOURCES)
 
 # add library dependencies here; leave ${PLUGIN_INTERNAL_DEPS} there unless you know what you're doing!
 target_link_libraries(${PROJNAME}
@@ -50,6 +44,6 @@ add_wix_installer( ${PLUGIN_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/Win/WiX/FBTestPluginInstaller.wxs
     PluginDLLGroup
     ${BIN_DIR}/${PLUGIN_NAME}/${CMAKE_CFG_INTDIR}/
-    ${BIN_DIR}/${PLUGIN_NAME}/${CMAKE_CFG_INTDIR}/np${PLUGIN_NAME}.dll
+    ${BIN_DIR}/${PLUGIN_NAME}/${CMAKE_CFG_INTDIR}/${FBSTRING_PluginFileName}.dll
     ${PROJNAME}
     )

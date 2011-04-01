@@ -43,60 +43,27 @@ void PluginCore::setPlatform(const std::string& os, const std::string& browser)
      Regular Class Stuff
 \***************************/
 
-PluginCore::PluginCore() : m_Window(NULL), m_paramsSet(false)
+PluginCore::PluginCore() : m_paramsSet(false), m_Window(NULL),
+    m_windowLessParam(boost::indeterminate)
 {
     FB::Log::initLogging();
     // This class is only created on the main UI thread,
     // so there is no need for mutexes here
-    if (++PluginCore::ActivePluginCount == 1) {
-        // Only on the first initialization
-        getFactoryInstance()->globalPluginInitialize();
-    }
-
-    initDefaultParams();
-}
-
-PluginCore::PluginCore(const std::set<std::string>& params)
-    : m_Window(NULL), m_supportedParamSet(params), m_paramsSet(false)
-{
-    // This class is only created on the main UI thread,
-    // so there is no need for mutexes here
-    if (++PluginCore::ActivePluginCount == 1) {
-
-        FBLOG_INFO("PluginCore", "Running global plugin initializer");
-        // Only on the first initialization
-        getFactoryInstance()->globalPluginInitialize();
-    }
-    initDefaultParams();
-}
-
-void PluginCore::initDefaultParams()
-{
-    m_supportedParamSet.insert("onload");
-    m_supportedParamSet.insert("onerror");
-    m_supportedParamSet.insert("onlog");
+    ++PluginCore::ActivePluginCount;
 }
 
 PluginCore::~PluginCore()
 {
+    // Tell the host that the plugin is shutting down
+    m_host->shutdown();
     // This class is only destroyed on the main UI thread,
     // so there is no need for mutexes here
-    if (--PluginCore::ActivePluginCount == 0) {
-        FBLOG_INFO("PluginCore", "Running global plugin deinitializer");
-        // Only on the destruction of the final plugin instance
-        getFactoryInstance()->globalPluginDeinitialize();
-    }
-}
-
-StringSet* PluginCore::getSupportedParams()
-{
-    return &m_supportedParamSet;
+    --PluginCore::ActivePluginCount;
 }
 
 void PluginCore::setParams(const FB::VariantMap& inParams)
 {
-    m_params.insert(inParams.begin(), inParams.end());
-    for (FB::VariantMap::iterator it = m_params.begin(); it != m_params.end(); ++it)
+    for (FB::VariantMap::const_iterator it = inParams.begin(); it != inParams.end(); ++it)
     {
         std::string key(it->first);
         try {
@@ -109,48 +76,13 @@ void PluginCore::setParams(const FB::VariantMap& inParams)
                 FBLOG_TRACE("PluginCore", "Found <param> event handler: " << key);
 
                 m_params[key] = tmp;
+            } else {
+                m_params[key] = it->second;
             }
         } catch (const std::exception &ex) {
             FBLOG_WARN("PluginCore", "Exception processing <param> " << key << ": " << ex.what());
+            m_params[it->first] = it->second;
         }
-    }
-}
-
-void PluginCore::SetHost(FB::BrowserHostPtr host)
-{
-    m_host = host;
-}
-
-JSAPIPtr PluginCore::getRootJSAPI()
-{
-    if (!m_api) {
-        m_api = createJSAPI();
-    }
-
-    return m_api;
-}
-
-PluginWindow* PluginCore::GetWindow() const
-{
-    return m_Window;
-}
-
-void PluginCore::SetWindow(PluginWindow *win)
-{
-    FBLOG_TRACE("PluginCore", "Window Set");
-    if (m_Window && m_Window != win) {
-        ClearWindow();
-    }
-    m_Window = win;
-    win->AttachObserver(this);
-}
-
-void PluginCore::ClearWindow()
-{
-    FBLOG_TRACE("PluginCore", "Window Cleared");
-    if (m_Window) {
-        m_Window->DetachObserver(this);
-        m_Window = NULL;
     }
 }
 
@@ -165,10 +97,50 @@ void PluginCore::setReady()
         FB::VariantMap::iterator fnd = m_params.find("onload");
         if (fnd != m_params.end()) {
             FB::JSObjectPtr method = fnd->second.convert_cast<FB::JSObjectPtr>();
-            method->InvokeAsync("", FB::variant_list_of(getRootJSAPI()));
+            if(method) {
+                method->InvokeAsync("", FB::variant_list_of(getRootJSAPI()));
+            }
         }
     } catch(...) {
         // Usually this would be if it isn't a JSObjectPtr or the object can't be called
     }
     onPluginReady();
+}
+
+bool PluginCore::isWindowless()
+{
+    if (m_windowLessParam != boost::indeterminate) {
+        return m_windowLessParam;
+    } else {
+        FB::VariantMap::iterator itr = m_params.find("windowless");
+        if (itr != m_params.end()) {
+            try {
+                m_windowLessParam = itr->second.convert_cast<bool>();
+                return m_windowLessParam;
+            } catch (const FB::bad_variant_cast& ex) {
+                FB_UNUSED_VARIABLE(ex);
+            }
+        }
+    }
+    m_windowLessParam = false;
+    return m_windowLessParam;
+}
+
+void FB::PluginCore::SetWindow( PluginWindow *win )
+{
+    FBLOG_TRACE("PluginCore", "Window Set");
+    if (m_Window && m_Window != win) {
+        ClearWindow();
+    }
+    m_Window = win;
+    win->AttachObserver(this);
+}
+
+void FB::PluginCore::ClearWindow()
+{
+    FBLOG_TRACE("PluginCore", "Window Cleared");
+    if (m_Window) {
+        m_Window->DetachObserver(this);
+        m_Window = NULL;
+    }
 }

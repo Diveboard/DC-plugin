@@ -18,8 +18,8 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 using namespace FB;
 
-BrowserPlugin::BrowserPlugin() :
-    pluginMain(getFactoryInstance()->createPlugin(""))
+BrowserPlugin::BrowserPlugin(const std::string& mimetype) :
+    pluginMain(getFactoryInstance()->createPlugin(mimetype))
 {
 }
 
@@ -32,3 +32,4 @@ void BrowserPlugin::setFSPath(const std::string& path)
     m_filesystemPath = path;
     pluginMain->setFSPath(path);
 }
+

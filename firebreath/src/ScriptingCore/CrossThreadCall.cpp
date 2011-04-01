@@ -28,7 +28,7 @@ void CrossThreadCall::syncCallbackFunctor(void *userData)
         }
         catch(const FB::script_error& e)
         {
-            call->m_result = new FB::script_error(e.what());
+            call->m_result = variant(new FB::script_error(e.what()), true);
         }
         call->m_returned = true;
         call->m_cond.notify_one();
@@ -41,9 +41,12 @@ void CrossThreadCall::asyncCallbackFunctor(void *userData)
 
     try {        
         call->funct->call();
-    } catch (const FB::script_error&) {
+    } catch (const FB::script_error& ex) {
         // we can't sensibly handle it here
-    } catch (const FB::bad_variant_cast&) {
+        FB_UNUSED_VARIABLE(ex);
+    } catch (const FB::bad_variant_cast& ex) {
         // we can't sensibly handle it here
+        FB_UNUSED_VARIABLE(ex);
     }
 }
+

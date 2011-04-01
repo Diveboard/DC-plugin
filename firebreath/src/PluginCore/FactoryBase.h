@@ -19,38 +19,46 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <boost/utility.hpp>
+#include "APITypes.h"
+#include "FBPointers.h"
+#include "logging.h"
 
 #include "PluginWindowForwardDecl.h"
 
 namespace FB
 {
-    class FactoryBase;
-    class PluginCore;
+    FB_FORWARD_PTR(FactoryBase);
+    FB_FORWARD_PTR(PluginCore);
+    FB_FORWARD_PTR(BrowserHost);
+    FB_FORWARD_PTR(JSAPI);
+    /// @brief  Defines an alias representing a boost::shared_ptr<FactoryBase>
     typedef boost::shared_ptr<FactoryBase> FactoryBasePtr;
+
+    /// @brief  Defines an alias representing a boost::shared_ptr<PluginCore>
     typedef boost::shared_ptr<PluginCore> PluginCorePtr;
     
     namespace Npapi { 
-        class NpapiPlugin; 
-        class NpapiBrowserHost;
-        typedef boost::shared_ptr<NpapiPlugin> NpapiPluginPtr;
-        typedef boost::shared_ptr<NpapiBrowserHost> NpapiBrowserHostPtr;
+        FB_FORWARD_PTR(NpapiPlugin);
+        FB_FORWARD_PTR(NpapiBrowserHost);
     }
 }
     
 /// @brief Get an instance of the factory class. This function *must* be defined in your plugin project.
 FB::FactoryBasePtr getFactoryInstance();
-    
+struct IDispatchEx;
+typedef long HRESULT;
+
 namespace FB
 {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  FactoryBase
     ///
     /// @brief  This is the base factory for a plugin.  Every plugin *must* implement this class
-    /// 		and override at least the createPlugin() method.  To futher customize your plugin,
-    /// 		you can override other methods to replace the PluginWindow or the NpapiPlugin class.
-    /// 		
+    ///         and override at least the createPlugin() method.  To futher customize your plugin,
+    ///         you can override other methods to replace the PluginWindow or the NpapiPlugin class.
+    ///         
     /// @code
-    /// 	 // Example implementation:
+    ///      // Example implementation:
     ///      class PluginFactory : public FB::FactoryBase
     ///      {
     ///      public:
@@ -89,10 +97,10 @@ namespace FB
         /// @fn virtual FB::PluginCorePtr FactoryBase::createPlugin(const std::string& mimetype) = 0
         ///
         /// @brief  Creates a FB::PluginCore derived user plugin object.  This must be implemented
-        /// 		for all plugin projects.
+        ///         for all plugin projects.
         ///
         /// @code
-        /// 	 // Example implementation
+        ///      // Example implementation
         ///      FB::PluginCorePtr createPlugin(const std::string& mimetype)
         ///      {
         ///          return boost::make_shared<MyPluginObject>();
@@ -100,83 +108,105 @@ namespace FB
         /// @endcode
         /// 
         /// @param mimetype As of 1.3 this is not wired in, in future versions this will be the mimetype
-        /// 				that was requested by the object tag that this plugin is being loaded for.  This
-        /// 				will allow you to optionally provide multiple plugins in one file.
+        ///                 that was requested by the object tag that this plugin is being loaded for.  This
+        ///                 will allow you to optionally provide multiple plugins in one file.
         /// 
         /// @return FB::PluginCorePtr pointer to the FB::PluginCore class
         /////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual FB::PluginCorePtr createPlugin(const std::string& mimetype) = 0;
+        virtual FB::PluginCorePtr           createPlugin(const std::string& mimetype) = 0;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void FactoryBase::globalPluginInitialize()
         /// @brief  Global plugin initialization
         /// 
-        /// This function will be called when the active plugin count goes from 0 to 1.  There is no 
-        /// guarantee that it will only be called once in the lifetime of a plugin module, however it will
-        /// never be called again until after globalPluginDeinitialize() is called.
+        /// As of FireBreath 1.4 this will be called exactly once right after the module is loaded
+        /// and globalPluginDeinitialize will be called exactly once before the module is unloaded
+        /// on all browsers.
         /// 
         /// @code
-        ///      void globalPluginInitialize()
-        ///      {
-        ///          MyPluginObject::StaticInitialize();
-        ///      }
+        /// void globalPluginInitialize()
+        /// {
+        ///     MyPluginObject::StaticInitialize();
+        /// }
         /// @endcode
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void globalPluginInitialize();
+        virtual void                        globalPluginInitialize();
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void FactoryBase::globalPluginDeinitialize()
         /// @brief  Global plugin deinitialization
         ///
-        /// This function will be called when the last plugin is destroyed, taking the active plugin count
-        /// from 1 to 0.  There is no guarantee that it will only be called once in the lifetime of a plugin
-        /// module because another plugin could be created after this is destroyed and before the module
-        /// is unloaded.  However it will not be called again until after globalPluginInitialize() is called.
+        /// As of FireBreath 1.4 this will be called exactly once right before the module is unloaded
+        /// and globalPluginInitialize will be called exactly once right after the module is loaded
+        /// on all browsers.
         /// 
         /// @code
-        ///      void globalPluginDeinitialize()
-        ///      {
-        ///          MyPluginObject::StaticDeinitialize();
-        ///      }
+        /// void globalPluginDeinitialize()
+        /// {
+        ///     MyPluginObject::StaticDeinitialize();
+        /// }
         /// @endcode
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void globalPluginDeinitialize();
+        virtual void                        globalPluginDeinitialize();
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn std::string FactoryBase::getPluginName()
         ///
         /// @brief  Returns the name of the plugin.  To change the name of your plugin edit
-        /// 		PluginConfig.cmake
+        ///         PluginConfig.cmake
         ///
         /// @return The plugin name. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        std::string getPluginName();
+        std::string                         getPluginName();
+        /// @overload
+        std::string                         getPluginName(const std::string& mimetype);
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn std::string FactoryBase::getPluginDescription()
         ///
         /// @brief  Returns the description of the plugin.  To change the description of your plugin edit
-        /// 		PluginConfig.cmake
+        ///         PluginConfig.cmake
         ///
         /// @return The plugin description 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        std::string getPluginDescription();
+        std::string                         getPluginDescription();
+        /// @overload
+        std::string                         getPluginDescription(const std::string& mimetype);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn FB::Npapi::NpapiPluginPtr FactoryBase::createNpapiPlugin(const FB::Npapi::NpapiBrowserHostPtr& host)
+        /// @fn virtual FB::Npapi::NpapiPluginPtr createNpapiPlugin(const FB::Npapi::NpapiBrowserHostPtr& host, const std::string& mimetype)
         ///
         /// @brief  Creates a npapi plugin.  The default implementation creates a NpapiPluginWin, NpapiPluginX11, or
-        /// 		NpapiPluginMac depending on the platform.  Only in very very rare cases will you need to override
-        /// 		this method.
+        ///         NpapiPluginMac depending on the platform.  Only in very very rare cases will you need to override
+        ///         this method.
         ///
         /// @param  host    The BrowserHost object for the browser containing this plugin
         ///
         /// @return An NpapiPluginPtr containing an NpapiPlugin derived plugin handler
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual FB::Npapi::NpapiPluginPtr createNpapiPlugin(const FB::Npapi::NpapiBrowserHostPtr& host);
+        virtual FB::Npapi::NpapiPluginPtr   createNpapiPlugin(const FB::Npapi::NpapiBrowserHostPtr& host, const std::string& mimetype);
         
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual void getLoggingMethods(FB::Log::LogMethodList& outMethods)
+        ///
+        /// @brief  Called by the logger to discover which log methods should be used
+        ///
+        /// @param  outMethods    a LogMethodList instance to hold the result
+        /// @since 1.4a3
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void getLoggingMethods(FB::Log::LogMethodList& outMethods);
+        
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual FB::Log::LogLevel getLogLevel()
+        ///
+        /// @brief  Called by the logger to discover what loglevel to use
+        ///
+        /// @since 1.4a3
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual FB::Log::LogLevel getLogLevel();
+
 #ifdef FB_WIN
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowWin* FactoryBase::createPluginWindowWin(const WindowContextWin&)
+        /// @fn virtual PluginWindowWin* FactoryBase::createPluginWindowWin(const WindowContextWin& ctx)
         ///
         /// @brief  Creates a PluginWindowWin derived plugin window object
         ///
@@ -184,12 +214,26 @@ namespace FB
         ///
         /// @return A PluginWindowWin* to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowWin*           createPluginWindowWin(const WindowContextWin&);
+        virtual PluginWindowWin*            createPluginWindowWin(const WindowContextWin& ctx);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual PluginWindowlessWin* FactoryBase::createPluginWindowless(const WindowContextWindowless& ctx)
+        ///
+        /// @brief  Creates a PluginWindowlessWin derived plugin window object
+        ///
+        /// @param  Platform specific data structure for window context information (including the HDC usually) 
+        ///
+        /// @return A PluginWindowlessWin* to the object that should handle the plugin window
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual PluginWindowlessWin*        createPluginWindowless(const WindowContextWindowless& ctx);
+
+        virtual IDispatchEx*                createCOMJSObject(const FB::BrowserHostPtr& host, const FB::JSAPIWeakPtr& api, bool autoRelease = false);
+        virtual HRESULT                     UpdateWindowsRegistry( bool install );
 #endif
       
 #ifdef FB_MACOSX
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw&);
+        /// @fn virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw& ctx);
         ///
         /// @brief  Creates a PluginWindow derived plugin window object for Carbon / QuickDraw
         ///
@@ -197,9 +241,9 @@ namespace FB
         ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw&);
+        virtual PluginWindowMacCarbonQD* createPluginWindowCarbonQD(const WindowContextQuickDraw& ctx);
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowMacCarbonCG* createPluginWindowCarbonQD(const WindowContextCoreGraphics&);
+        /// @fn virtual PluginWindowMacCarbonCG* createPluginWindowCarbonQD(const WindowContextCoreGraphics& ctx);
         ///
         /// @brief  Creates a PluginWindow derived plugin window object for Carbon / CoreGraphics
         ///
@@ -207,7 +251,7 @@ namespace FB
         ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowMacCarbonCG* createPluginWindowCarbonCG(const WindowContextCoreGraphics&);
+        virtual PluginWindowMacCarbonCG* createPluginWindowCarbonCG(const WindowContextCoreGraphics& ctx);
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual PluginWindowMacCocoaCG* createPluginWindowCocoaCG();
         ///
@@ -229,8 +273,6 @@ namespace FB
         ///
         /// @brief  Creates a PluginWindow derived plugin window object for Carbon / QuickDraw
         ///
-        /// @param  Platform specific data structure for window context information
-        ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual PluginWindowMacCocoaICA* createPluginWindowCocoaICA();
@@ -238,7 +280,7 @@ namespace FB
         
 #ifdef FB_X11
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// @fn virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11&)
+        /// @fn virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11& ctx)
         ///
         /// @brief  Creates a PluginWindowX11 derived plugin window object for X11
         ///
@@ -246,9 +288,10 @@ namespace FB
         ///
         /// @return A pointer to the object that should handle the plugin window
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11&); 
+        virtual PluginWindowX11* createPluginWindowX11(const WindowContextX11& ctx); 
 #endif
     };
 }
 
 #endif
+

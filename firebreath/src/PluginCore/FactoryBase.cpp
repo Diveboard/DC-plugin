@@ -15,6 +15,9 @@
 #include "FactoryBase.h"
 #include "ConstructDefaultPluginWindows.h"
 #include "NpapiPluginFactory.h"
+#ifdef FB_WIN
+#include "ActiveXFactoryDefinitions.h"
+#endif
 #include "PluginInfo.h"
 
 FB::FactoryBase::FactoryBase()
@@ -39,24 +42,62 @@ void FB::FactoryBase::globalPluginDeinitialize()
 
 std::string FB::FactoryBase::getPluginName()
 {
-    return FB::getPluginName();
+    return FB::getPluginName("");
+}
+
+std::string FB::FactoryBase::getPluginName( const std::string& mimetype )
+{
+    return FB::getPluginName(mimetype);
 }
 
 std::string FB::FactoryBase::getPluginDescription()
 {
-    return FB::getPluginDescription();
+    return FB::getPluginDescription("");
 }
 
-FB::Npapi::NpapiPluginPtr FB::FactoryBase::createNpapiPlugin(const FB::Npapi::NpapiBrowserHostPtr& host)
+std::string FB::FactoryBase::getPluginDescription( const std::string& mimetype )
 {
-    return FB::Npapi::createNpapiPlugin(host);
+    return FB::getPluginDescription(mimetype);
 }
+
+FB::Npapi::NpapiPluginPtr FB::FactoryBase::createNpapiPlugin(const FB::Npapi::NpapiBrowserHostPtr& host, const std::string& mimetype)
+{
+    return FB::Npapi::createNpapiPlugin(host, mimetype);
+}
+
+void FB::FactoryBase::getLoggingMethods( FB::Log::LogMethodList& outMethods )
+{
+#ifndef NDEBUG
+    outMethods.push_back(std::make_pair(FB::Log::LogMethod_Console, std::string()));
+#endif
+}
+
+FB::Log::LogLevel FB::FactoryBase::getLogLevel()
+{
+    return FB::Log::LogLevel_Info;
+}
+
 
 #ifdef FB_WIN
 FB::PluginWindowWin* FB::FactoryBase::createPluginWindowWin(const WindowContextWin& ctx)
 {
     return FB::createPluginWindowWin(ctx);
 }
+
+FB::PluginWindowlessWin* FB::FactoryBase::createPluginWindowless(const WindowContextWindowless& ctx)
+{
+    return FB::createPluginWindowless(ctx);
+}
+IDispatchEx* FB::FactoryBase::createCOMJSObject(const FB::BrowserHostPtr& host, const FB::JSAPIWeakPtr& api, bool autoRelease/* = false*/)
+{
+    return _getCOMJSWrapper(host, api, autoRelease);
+}
+
+HRESULT FB::FactoryBase::UpdateWindowsRegistry( bool install )
+{
+    return _updateRegistry(install);
+}
+
 #endif
 
 #ifdef FB_MACOSX
@@ -91,5 +132,6 @@ FB::PluginWindowX11* FB::FactoryBase::createPluginWindowX11(const FB::WindowCont
 {
     return FB::createPluginWindowX11(ctx);
 }
+
 #endif
 

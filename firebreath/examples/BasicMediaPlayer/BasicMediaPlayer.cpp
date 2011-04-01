@@ -17,7 +17,6 @@ Copyright 2009 Georg Fritzsche,
 #include "BasicMediaPlayer.h"
 #include "MediaPlayer.h"
 #include "DOM/Window.h"
-#include "Util/JSArray.h"
 #include "variant_list.h"
 
 
@@ -251,3 +250,4 @@ void BasicMediaPlayer::fireCurrentItemChanged()
         ("oncurrentItemChanged",
          FB::variant_list_of(m_currentIndex));
 }
+

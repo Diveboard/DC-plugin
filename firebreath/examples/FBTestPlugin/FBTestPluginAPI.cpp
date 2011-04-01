@@ -19,12 +19,14 @@ Copyright 2009 PacketPass Inc, Georg Fritzsche,
 #include "variant_list.h"
 #include "FBTestPlugin.h"
 #include "SimpleMathAPI.h"
+#include "ThreadRunnerAPI.h"
 #include "SimpleStreams.h"
+#include <boost/make_shared.hpp>
 
 #include "FBTestPluginAPI.h"
 
 FBTestPluginAPI::FBTestPluginAPI(boost::shared_ptr<FBTestPlugin> plugin, FB::BrowserHostPtr host) : m_host(host), m_pluginWeak(plugin)
-{
+{    
     registerMethod("add",  make_method(this, &FBTestPluginAPI::add));
     registerMethod(L"echo",  make_method(this, &FBTestPluginAPI::echo));
     registerMethod(L"eval",  make_method(this, &FBTestPluginAPI::eval));
@@ -43,9 +45,15 @@ FBTestPluginAPI::FBTestPluginAPI(boost::shared_ptr<FBTestPlugin> plugin, FB::Bro
     registerMethod("getTagAttribute", make_method(this, &FBTestPluginAPI::getTagAttribute));
     registerMethod("getPageLocation", make_method(this, &FBTestPluginAPI::getPageLocation));
     registerMethod("createThreadRunner", make_method(this, &FBTestPluginAPI::createThreadRunner));
+    registerMethod("optionalTest", make_method(this, &FBTestPluginAPI::optionalTest));
+    registerMethod("getURL", make_method(this, &FBTestPluginAPI::getURL));
      
     registerMethod(L"скажи",  make_method(this, &FBTestPluginAPI::say));
+    
+    registerMethod("addWithSimpleMath", make_method(this, &FBTestPluginAPI::addWithSimpleMath));
+    registerMethod("createSimpleMath", make_method(this, &FBTestPluginAPI::createSimpleMath));
 
+    registerMethod("countArrayLength",  make_method(this, &FBTestPluginAPI::countArrayLength));
     // Read-write property
     registerProperty("testString",
                      make_property(this,
@@ -64,12 +72,20 @@ FBTestPluginAPI::FBTestPluginAPI(boost::shared_ptr<FBTestPlugin> plugin, FB::Bro
 
     registerEvent("onfired");
 
-    m_simpleMath = FB::JSAPIPtr(new SimpleMathAPI(m_host));
+    m_simpleMath = boost::make_shared<SimpleMathAPI>(m_host);
 }
 
 FBTestPluginAPI::~FBTestPluginAPI()
 {
     //std::map<int,int>::capacity()
+}
+
+boost::shared_ptr<FBTestPlugin> FBTestPluginAPI::getPlugin()
+{
+    boost::shared_ptr<FBTestPlugin> plugin = m_pluginWeak.lock();
+    if (!plugin)
+        throw FB::script_error("The plugin object has been destroyed");
+    return plugin;
 }
 
 std::wstring FBTestPluginAPI::say(const std::wstring& val)
@@ -240,7 +256,7 @@ FB::VariantMap FBTestPluginAPI::getUserData()
     return map;
 }
 
-FB::JSAPIPtr FBTestPluginAPI::get_simpleMath()
+boost::weak_ptr<SimpleMathAPI> FBTestPluginAPI::get_simpleMath()
 {
     return m_simpleMath;
 }
@@ -270,3 +286,71 @@ std::string FBTestPluginAPI::get_pluginPath()
 {
     return getPlugin()->getPluginPath();
 }
+
+long FBTestPluginAPI::countArrayLength(const FB::JSObjectPtr &jso) 
+{
+    if (!jso)
+        throw FB::invalid_arguments();
+    if (!jso->HasProperty("getArray"))
+        throw FB::invalid_arguments();
+    FB::VariantList array = jso->GetProperty("getArray").cast<FB::VariantList>();
+    long len = array.size();// array->GetProperty("length").convert_cast<long>();
+    return len;
+}
+long FBTestPluginAPI::addWithSimpleMath(const boost::shared_ptr<SimpleMathAPI>& math, long a, long b) 
+{
+    return math->add(a, b);
+}
+
+ThreadRunnerAPIPtr FBTestPluginAPI::createThreadRunner()
+{
+    return boost::make_shared<ThreadRunnerAPI>(m_host, m_pluginWeak);
+}
+
+void FBTestPluginAPI::getURL(const std::string& url, const FB::JSObjectPtr& callback)
+{
+    FB::SimpleStreamHelper::AsyncGet(m_host, FB::URI::fromString(url),
+        boost::bind(&FBTestPluginAPI::getURLCallback, this, callback, _1, _2, _3, _4));
+}
+
+void FBTestPluginAPI::getURLCallback(const FB::JSObjectPtr& callback, bool success,
+    const FB::HeaderMap& headers, const boost::shared_array<uint8_t>& data, const size_t size) {
+    FB::VariantMap outHeaders;
+    for (FB::HeaderMap::const_iterator it = headers.begin(); it != headers.end(); ++it) {
+        if (headers.count(it->first) > 1) {
+            if (outHeaders.find(it->first) != outHeaders.end()) {
+                outHeaders[it->first].cast<FB::VariantList>().push_back(it->second);
+            } else {
+                outHeaders[it->first] = FB::VariantList(FB::variant_list_of(it->second));
+            }
+        } else {
+            outHeaders[it->first] = it->second;
+        }
+    }
+    if (success) {
+        std::string dstr(reinterpret_cast<const char*>(data.get()), size);
+        callback->InvokeAsync("", FB::variant_list_of
+            (true)
+            (outHeaders)
+            (dstr)
+            );
+    } else {
+        callback->InvokeAsync("", FB::variant_list_of(false));
+    }
+}
+
+const boost::optional<std::string> FBTestPluginAPI::optionalTest( const std::string& test1, const boost::optional<std::string>& str )
+{
+    if (str)
+        m_host->htmlLog(*str);
+    else
+        m_host->htmlLog("No string passed in!");
+    return str;
+}
+
+boost::shared_ptr<SimpleMathAPI> FBTestPluginAPI::createSimpleMath()
+{
+    // Create a new simplemath object each time
+    return boost::make_shared<SimpleMathAPI>(m_host);
+}
+

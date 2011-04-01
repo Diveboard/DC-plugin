@@ -28,8 +28,9 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GTK_INCLUDE_DIRS}
     ${FIREBREATH_CONFIG_DIR}
-    ${PLUGINCOMMON_SOURCE_DIR}
+    ${PLUGINCORE_SOURCE_DIR}
     ${Boost_INCLUDE_DIRS}
+    ${CONFIG_DIR}
     )
 
 file (GLOB DOMTYPES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -47,24 +48,29 @@ SOURCE_GROUP(Util FILES ${UTILTYPES})
 
 file (GLOB TYPES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     APITypes.*
-    variant.*
-    variant_list.*
-    variant_map.*
+    variant*
     TypeIDMap.*
     utf8*
+    URI*
     SafeQueue*
+    JSExceptions.h
+    FBPointers.h
+    Shareable*
 )
 
 file (GLOB JSAPI_OBJECTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     JSAPI*
     BrowserHost.*
     JSObject.*
+    JSArray.*
     AsyncBrowser*
     Cross*
     AsyncFunction*
     SyncBrowser*
     *Converter.*
     JSCallback*
+    JSFunction*
+    JSEvent.*
     )
 
 file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}

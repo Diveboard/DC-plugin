@@ -14,13 +14,17 @@ Copyright 2009 PacketPass Inc, Georg Fritzsche,
 \**********************************************************/
 
 #include <string>
+#include <boost/shared_ptr.hpp>
 #include <sstream>
 #include "JSAPIAuto.h"
 #include "BrowserHost.h"
 #include <boost/weak_ptr.hpp>
-#include "ThreadRunnerAPI.h"
+#include <boost/optional.hpp>
+#include "SimpleStreamHelper.h"
 
-class FBTestPlugin;
+FB_FORWARD_PTR(ThreadRunnerAPI);
+FB_FORWARD_PTR(SimpleMathAPI);
+FB_FORWARD_PTR(FBTestPlugin);
 
 class FBTestPluginAPI : public FB::JSAPIAuto
 {
@@ -28,9 +32,9 @@ public:
     FBTestPluginAPI(boost::shared_ptr<FBTestPlugin> plugin, FB::BrowserHostPtr host);
     virtual ~FBTestPluginAPI();
 
-    boost::shared_ptr<FBTestPlugin> getPlugin() { return m_pluginWeak.lock(); }
+    FBTestPluginPtr getPlugin();
     
-    FB::JSAPIPtr createThreadRunner() { return FB::JSAPIPtr(new ThreadRunnerAPI(m_host)); }
+    ThreadRunnerAPIPtr createThreadRunner();
 
     std::wstring say(const std::wstring& val);
     // Read/Write property testString
@@ -40,13 +44,17 @@ public:
     // Read-only property someInt
     long get_someInt();
 
-    FB::JSAPIPtr get_simpleMath();
+    boost::weak_ptr<SimpleMathAPI> get_simpleMath();
+
+    boost::shared_ptr<SimpleMathAPI> createSimpleMath();
+  
     FB::variant echo(const FB::variant& a);
 
     std::string asString(const FB::variant& a);
     bool asBool(const FB::variant& a);
     long asInt(const FB::variant& a);
     double asDouble(const FB::variant& a);
+    const boost::optional<std::string> optionalTest(const std::string& test1, const boost::optional<std::string>& str);
 
     std::string listArray(const std::vector<std::string>&);
     FB::VariantList reverseArray(const std::vector<std::string>& arr);
@@ -54,6 +62,7 @@ public:
     FB::VariantList getObjectValues(const FB::JSObjectPtr& arr);
     FB::VariantMap getUserData();
     FB::VariantList getUserArray();
+    long countArrayLength(const FB::JSObjectPtr &jso); 
 
     // Method add
     long add(long a, long b);
@@ -68,12 +77,18 @@ public:
     std::string getPageLocation();
     
     std::string get_pluginPath();
+    
     void eval(std::string str);
+    long addWithSimpleMath(const boost::shared_ptr<SimpleMathAPI>& jso, long a, long b);
+    void getURL(const std::string& url, const FB::JSObjectPtr& callback);
+    void getURLCallback(const FB::JSObjectPtr& callback, bool success, const FB::HeaderMap& headers,
+        const boost::shared_array<uint8_t>& data, const size_t size);
 
 private:
     FB::BrowserHostPtr m_host;
-    FB::JSAPIPtr m_simpleMath;
+    boost::shared_ptr<SimpleMathAPI> m_simpleMath;
     boost::weak_ptr<FBTestPlugin> m_pluginWeak;
 
     std::string m_testString;
 };
+

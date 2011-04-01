@@ -16,8 +16,6 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
 if (BOOST_FILESYSTEM_V3)
     include_directories (
         ${Boost_INCLUDE_DIRS}
@@ -41,7 +39,10 @@ set(SOURCES
 )
 
 add_library (boost_filesystem STATIC ${SOURCES})
+set_target_properties(boost_filesystem PROPERTIES FOLDER "Libraries")
 
-add_boost_library(system)
-export_project_dependencies()
+if (FIREBREATH)
+    add_boost_library(system)
+    export_project_dependencies()
+endif()
 

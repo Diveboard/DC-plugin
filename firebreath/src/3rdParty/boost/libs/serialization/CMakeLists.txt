@@ -16,8 +16,6 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
 add_definitions(-DBOOST_THREAD_BUILD_LIB=1)
 
 include_directories (
@@ -33,4 +31,5 @@ set(SOURCES
 )
 
 add_library (boost_serialization STATIC ${SOURCES})
+set_target_properties(boost_serialization PROPERTIES FOLDER "Libraries")
 

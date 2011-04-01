@@ -6,8 +6,8 @@
 
 // Microsoft Visual C++ generated resource script.
 //
-#include "resource.h"
-#include "config.h"
+#include "global/resource.h"
+#include "global/config.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -60,7 +60,7 @@ BEGIN
             VALUE "ProductVersion", FBSTRING_PLUGIN_VERSION
             VALUE "FileExtents", FBSTRING_FileExtents
             VALUE "FileOpenName", FBSTRING_PluginName
-            VALUE "MIMEType", FBSTRING_MIMEType
+            VALUE "MIMEType", FBSTRING_MIMETypeList
         END
     END
     BLOCK "VarFileInfo"

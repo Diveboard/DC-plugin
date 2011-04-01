@@ -18,9 +18,11 @@ set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
 Project (FireBreath)
 
-set(CMAKE_DIR ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(${CMAKE_DIR}/common.cmake)
+
+#check to make sure we're either using WITH_SYSTEM_BOOST or have the firebreath-boost lib installed
 check_boost()
 
 if (APPLE)
@@ -37,11 +39,19 @@ endif()
 
 find_package(Threads REQUIRED)
 add_boost_library(thread)
+add_boost_library(system)
+if (WITH_SYSTEM_BOOST)
+    add_boost_library(date_time)
+endif()
 
 # Common core projects -- projects that don't have any plugin specific code,
 # but are required before any plugins are loaded
 add_subdirectory(${SCRIPTINGCORE_SOURCE_DIR})
 add_subdirectory(${PLUGINCORE_SOURCE_DIR})
+add_subdirectory(${NPAPICORE_SOURCE_DIR})
+if (WIN32)
+    add_subdirectory(${ACTIVEXCORE_SOURCE_DIR})
+endif()
 
 # search the project src dir for plugin project directories
 file (GLOB PLUGIN_PROJECTS 
@@ -72,6 +82,10 @@ endforeach()
 add_subdirectory(${UNITTEST_FW_SOURCE_DIR})
 add_subdirectory(${NPAPIHOST_SOURCE_DIR})
 add_subdirectory(${SCRIPTINGCORETEST_SOURCE_DIR})
+if (WIN32)
+    add_subdirectory(${ACTIVEXCORETEST_SOURCE_DIR})
+endif()
+#add_subdirectory(${NPAPICORETEST_SOURCE_DIR}) # - not functional, needs to be re-done
 
 if (NOT FOUND_PROJECTS)
     MESSAGE("No projects found in ${PROJECTS_SOURCE_DIR}/.")

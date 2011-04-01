@@ -19,7 +19,7 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 #ifndef _WINDOWS
 #define HWND void *
 #else
-#include "Win/win_common.h"
+#include "win_common.h"
 #endif
 
 #include "PluginEvent.h"
@@ -30,8 +30,8 @@ namespace FB {
     /// @class  WindowsEvent
     ///
     /// @brief  Generic windows event.  All windows events going through the winproc get first fired
-    /// 		as a WindowEvent and then fired as the specific type, allowing you to handle them
-    /// 		either way
+    ///         as a WindowEvent and then fired as the specific type, allowing you to handle them
+    ///         either way
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     class WindowsEvent : public PluginEvent
     {
@@ -50,3 +50,4 @@ namespace FB {
 };
 
 #endif
+

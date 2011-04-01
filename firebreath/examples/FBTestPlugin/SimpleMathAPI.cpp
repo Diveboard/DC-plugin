@@ -16,16 +16,18 @@ Copyright 2009 PacketPass Inc, Georg Fritzsche,
 #include "JSObject.h"
 #include <boost/assign.hpp>
 #include "DOM/Document.h"
+#include "variant_list.h"
 using boost::assign::list_of;
 
 #include "SimpleMathAPI.h"
 
-SimpleMathAPI::SimpleMathAPI(FB::BrowserHostPtr host) : m_host(host)
+SimpleMathAPI::SimpleMathAPI(const FB::BrowserHostPtr& host) : m_host(host)
 {
     registerMethod("add",  make_method(this, &SimpleMathAPI::add));
     registerMethod("sub",  make_method(this, &SimpleMathAPI::sub));
     registerMethod("mult",  make_method(this, &SimpleMathAPI::mult));
     registerMethod("div",  make_method(this, &SimpleMathAPI::div));
+    registerProperty("getArray",  make_property(this, &SimpleMathAPI::getArray));
 }
 
 SimpleMathAPI::~SimpleMathAPI()
@@ -33,6 +35,15 @@ SimpleMathAPI::~SimpleMathAPI()
 }
 
 // add Method
+FB::VariantList SimpleMathAPI::getArray() 
+{
+    std::vector<std::string> ret;
+    ret.push_back("aa");
+    ret.push_back("bb");
+    ret.push_back("cc");
+    ret.push_back("dd");
+    return FB::make_variant_list(ret);
+}
 long SimpleMathAPI::add(long a, long b)
 {
     return a+b;
@@ -49,3 +60,4 @@ long SimpleMathAPI::div(long a, long b)
 {
     return a/b;
 }
+

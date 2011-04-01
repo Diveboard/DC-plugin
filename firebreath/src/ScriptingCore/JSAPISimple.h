@@ -19,12 +19,12 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "JSAPI.h"
 
 namespace FB {
-
+    FB_FORWARD_PTR(JSAPISimple);
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  JSAPISimple
     ///
     /// @brief  Simple JSAPI implementation for those who for whatever reason don't want to use JSAPIAuto
-    /// 		
+    ///         
     /// @deprecated 1.1.0
     /// @see FB::JSAPIAuto
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,8 +36,8 @@ namespace FB {
         virtual ~JSAPISimple(void);
 
     public:
-        void getMemberNames(std::vector<std::string> &nameVector);
-        size_t getMemberCount();
+        void getMemberNames(std::vector<std::string> &nameVector) const;
+        size_t getMemberCount() const;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void registerMethod(const std::string& name, CallMethodPtr func)
@@ -49,10 +49,10 @@ namespace FB {
         /// @code
         ///    registerMethod( "toString", (CallMethodPtr)&JSAPISimple::callToString );
         /// @code
-        /// 	 
+        ///      
         /// This matches the following definition:
         /// @code
-        /// 	 variant callToString(const std::vector<variant>& args);
+        ///      variant callToString(const std::vector<variant>& args);
         /// @endcode
         /// 
         /// @param  name    The name that the method should be exposed to javascript as
@@ -76,11 +76,11 @@ namespace FB {
         ///     // -or- read-write
         ///     registerProperty( "valid", (GetPropPtr)&MySimpleAPI::getValid, (SetPropPtr)&MySimpleAPI::setValid);
         /// @code
-        /// 	 
+        ///      
         /// This matches the following definition:
         /// @code
-        /// 	 variant getValid();
-        /// 	 void setValid(variant value);
+        ///      variant getValid();
+        ///      void setValid(variant value);
         /// @endcode
         ///
         /// @param  name    The name. 
@@ -90,9 +90,9 @@ namespace FB {
         virtual void registerProperty(const std::string& name, GetPropPtr getFunc, SetPropPtr setFunc);
 
         // Methods to query existance of members on the API
-        virtual bool HasMethod(const std::string& methodName);
-        virtual bool HasProperty(const std::string& propertyName);
-        virtual bool HasProperty(int idx);
+        virtual bool HasMethod(const std::string& methodName) const;
+        virtual bool HasProperty(const std::string& propertyName) const;
+        virtual bool HasProperty(int idx) const;
 
         // Methods to manage properties on the API
         virtual variant GetProperty(const std::string& propertyName);
@@ -111,7 +111,7 @@ namespace FB {
         /// @brief  Example function for testing fireEvent
         ///
         /// @param  args    arguments from javascript.  The first should be the name of the event
-        /// 				to fire, the rest will be passed into the event 
+        ///                 to fire, the rest will be passed into the event 
         ///
         /// @return nothing
         ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,7 +121,7 @@ namespace FB {
         /// @fn virtual variant callToString(const std::vector<variant>& args)
         ///
         /// @brief  Called when a string representation of the object requested.  Always returns
-        /// 		"JSAPI Javascript Object";  
+        ///         "JSAPI Javascript Object";  
         ///
         /// @param  args   All arguments are ignored
         ///
@@ -134,8 +134,7 @@ namespace FB {
         ///
         /// @brief  Returns true to indicate that the JSAPI interface is working
         ///
-        /// @return tru
-        /// 		e 
+        /// @return true 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual variant getValid();
 
@@ -147,3 +146,4 @@ namespace FB {
 };
 
 #endif
+

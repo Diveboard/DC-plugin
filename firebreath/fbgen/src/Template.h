@@ -1,6 +1,6 @@
 /**********************************************************\
 
-  Auto-generated @{PLUGIN_ident}.cpp
+  Auto-generated @{PLUGIN_ident}.h
 
   This file contains the auto-generated main plugin object
   implementation for the @{PLUGIN_name} project
@@ -15,6 +15,8 @@
 
 #include "PluginCore.h"
 
+
+FB_FORWARD_PTR(@{PLUGIN_ident})
 class @{PLUGIN_ident} : public FB::PluginCore
 {
 public:
@@ -28,7 +30,11 @@ public:
 public:
     void onPluginReady();
     virtual FB::JSAPIPtr createJSAPI();
-    virtual bool IsWindowless() { return false; }
+    // If you want your plugin to always be windowless, set this to true
+    // If you want your plugin to be optionally windowless based on the
+    // value of the "windowless" param tag, remove this method or return
+    // FB::PluginCore::isWindowless()
+    virtual bool isWindowless() { return false; }
 
     BEGIN_PLUGIN_EVENT_MAP()
         EVENTTYPE_CASE(FB::MouseDownEvent, onMouseDown, FB::PluginWindow)
@@ -47,8 +53,6 @@ public:
     virtual bool onWindowDetached(FB::DetachedEvent *evt, FB::PluginWindow *);
     /** END EVENTDEF -- DON'T CHANGE THIS LINE **/
 };
-typedef boost::shared_ptr<@{PLUGIN_ident}> @{PLUGIN_ident}Ptr;
-typedef boost::weak_ptr<@{PLUGIN_ident}> @{PLUGIN_ident}WeakPtr;
 
 
 #endif

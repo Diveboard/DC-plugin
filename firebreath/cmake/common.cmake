@@ -14,8 +14,10 @@
 
 get_filename_component (FB_ROOT_DIR "${CMAKE_DIR}/.." ABSOLUTE)
 get_filename_component (SOURCE_DIR "${CMAKE_DIR}/../src" ABSOLUTE)
+get_filename_component (TEST_DIR "${CMAKE_DIR}/../tests" ABSOLUTE)
 
 set (BIN_DIR "${CMAKE_BINARY_DIR}/bin")
+set (FB_BIN_DIR "${CMAKE_BINARY_DIR}/bin")
 set (FIREBREATH YES INTERNAL)
 
 if (WIN32)
@@ -30,6 +32,9 @@ elseif(UNIX)
     include(${CMAKE_DIR}/X11.cmake)
 endif()
 
+# include file with the crazy configure_template function
+include(${CMAKE_DIR}/configure_template.cmake)
+
 # include file with build options
 include(${CMAKE_DIR}/options.cmake)
 
@@ -39,27 +44,29 @@ include(${CMAKE_DIR}/paths.cmake)
 # include the build configuration
 include(${CMAKE_DIR}/buildconfig.cmake)
 
-if (EXISTS ${CMAKE_CURRENT_BINARY_DIR}/projectConfig.cmake)
-    include(${CMAKE_CURRENT_BINARY_DIR}/projectConfig.cmake)
-endif()
-
 if (NOT GEN_DIR)
     get_filename_component (GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/../gen" ABSOLUTE)
 endif()
 
-function (browserplugin_project PLUGIN_NAME)
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/PluginConfig.cmake)
+    include(${CMAKE_DIR}/PluginConfigDefaults.cmake)
+    include (${CMAKE_CURRENT_SOURCE_DIR}/PluginConfig.cmake)
+endif()
+
+macro (browserplugin_project PLUGIN_NAME)
 
     Project (${PLUGIN_NAME})
     message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
 
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_NAME}/projectDef.cmake)
+        set(CMAKE_CURRENT_PLUGIN_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+        include(${CMAKE_CURRENT_BINARY_DIR}/projectConfig.cmake)
         include(${FB_ROOT_DIR}/pluginProjects.cmake)
     endif()
 
-endfunction(browserplugin_project)
+endmacro(browserplugin_project)
 
-
-function (include_platform)
+macro (include_platform)
 
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_NAME}/projectDef.cmake)
         include(${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_NAME}/projectDef.cmake)
@@ -67,7 +74,7 @@ function (include_platform)
         message ("Could not find a ${PLATFORM_NAME} directory for the current project")
     endif()
 
-endfunction(include_platform)
+endmacro(include_platform)
 
 macro (link_boost_library PROJECT BOOST_LIB)
     add_boost_library(${BOOST_LIB})
@@ -86,23 +93,40 @@ macro (add_boost_library BOOST_LIB)
     
         list(APPEND Boost_LIBRARIES boost_${BOOST_LIB})
         list(REMOVE_DUPLICATES Boost_LIBRARIES)
-
-        get_target_property(boost_target_exists boost_${BOOST_LIB} TYPE)
-        if (NOT boost_target_exists)
+        if (NOT TARGET boost_${BOOST_LIB})
             add_subdirectory(${BOOST_SOURCE_DIR}/libs/${BOOST_LIB} ${CMAKE_BINARY_DIR}/boost/libs/${BOOST_LIB})
         endif()
     endif()
 
 endmacro (add_boost_library)
 
+macro (add_firebreath_library_dir dir)
+    list(APPEND FBLIB_DIRS ${dir})
+    list(REMOVE_DUPLICATES FBLIB_DIRS)
+endmacro()
+
 macro (add_firebreath_library project_name)
 
-    list(APPEND FBLIB_INCLUDE_DIRS, ${FBLIBS_DIR}/${project_name})
-
-    get_target_property(library_target_exists ${project_name} TYPE)
-    if (NOT library_target_exists)
-        add_subdirectory(${FBLIBS_DIR}/${project_name} ${CMAKE_BINARY_DIR}/fblibs/${project_name})
-    endif()
+    set (_FOUND_LIB 0)
+    foreach(_LIB_DIR ${FBLIB_DIRS})
+        if (NOT _FOUND_LIB AND EXISTS ${_LIB_DIR}/${project_name}/CMakeLists.txt)
+            get_target_property(library_target_exists log4cplus TYPE)
+            if (library_target_exists)
+                set (_CUR_BINDIR ${CMAKE_CURRENT_BINARY_DIR}/fblibs/${PLUGIN_NAME}/${project_name})
+            else()
+                set (_CUR_BINDIR ${CMAKE_CURRENT_BINARY_DIR}/fblibs/${project_name})
+            endif()
+            set(FBLIB_DEFINITIONS)
+            add_subdirectory(${_LIB_DIR}/${project_name} ${_CUR_BINDIR})
+            if (FBLIB_DEFINITIONS)
+                add_definitions(${FBLIB_DEFINITIONS})
+            endif()
+            set (_FOUND_LIB 1)
+        endif()
+    endforeach()
+    set (_LIB_KEY ${PLUGIN_NAME}_${project_name})
+    set (${_LIB_KEY} YES)
+    set (${_LIB_KEY} YES PARENT_SCOPE)
 
 endmacro(add_firebreath_library)
 
@@ -116,6 +140,11 @@ macro (append_firebreath_include_dir dir)
     list(REMOVE_DUPLICATES FBLIB_INCLUDE_DIRS)
 endmacro(append_firebreath_include_dir)
 
+macro (add_firebreath_definition DEFS)
+    list(APPEND FBLIB_DEFINITIONS ${DEFS})
+    add_definitions(${DEFS})
+endmacro()
+
 macro (export_project_dependencies)
     if (FBLIB_LIBRARIES)
         list(REMOVE_DUPLICATES FBLIB_LIBRARIES)
@@ -125,6 +154,7 @@ macro (export_project_dependencies)
     endif()
     set (FBLIB_LIBRARIES ${FBLIB_LIBRARIES} PARENT_SCOPE)
     set (FBLIB_INCLUDE_DIRS ${FBLIB_INCLUDE_DIRS} PARENT_SCOPE)
+    set (FBLIB_DEFINITIONS ${FBLIB_DEFINITIONS} PARENT_SCOPE)
     set (Boost_LIBRARIES ${Boost_LIBRARIES} PARENT_SCOPE)
     set (Boost_INCLUDE_DIRS ${Boost_INCLUDE_DIRS} PARENT_SCOPE)
 endmacro (export_project_dependencies)
@@ -152,6 +182,10 @@ function (check_boost)
                 find_program(CURL curl)
                 find_program(WGET wget PATHS "${CMAKE_DIR}/")
                 if (NOT ${WGET} MATCHES "WGET-NOTFOUND")
+                    if (ENV{HTTP_PROXY} AND NOT ENV{HTTPS_PROXY})
+                        message("!!!! WARNING: HTTP_PROXY env var set, but we need HTTPS_PROXY. Attempting to use HTTP_PROXY FOR HTTPS_PROXY")
+                        set(ENV{HTTPS_PROXY} $ENV{HTTP_PROXY})
+                    endif()
                     execute_process(
                         COMMAND ${WGET}
                         --no-check-certificate

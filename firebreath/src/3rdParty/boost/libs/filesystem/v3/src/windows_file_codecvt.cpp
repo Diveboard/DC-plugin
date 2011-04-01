@@ -25,6 +25,7 @@
 #endif
 
 #include <boost/filesystem/v3/config.hpp>
+#include <cwchar>  // for mbstate_t
 
 #ifdef BOOST_WINDOWS_API
 
@@ -76,3 +77,4 @@
   # endif  // BOOST_WINDOWS_API
 
 #endif  // no wide character support
+

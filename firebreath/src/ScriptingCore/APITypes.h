@@ -22,15 +22,15 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include <set>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-
-// get rid of "unused variable" warnings
-#define FB_UNUSED_VARIABLE(x) ((void)(x))
+#include <boost/variant/variant_fwd.hpp>
+#include "fb_stdint.h"
+#include "FBPointers.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /// @namespace  FB
 ///
 /// @brief  Primary location of FireBreath classes and utility functions.
-/// 		
+///         
 /// The five most important classes to understand when implementing a FireBreath plugin are:
 ///   - FB::PluginCore
 ///   - FB::JSAPI / FB::JSAPIAuto
@@ -40,10 +40,16 @@ Copyright 2009 Richard Bateman, Firebreath development team
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace FB
 {
-    class BrowserHost;
-    class JSAPI;
-    class JSObject;
+    FB_FORWARD_PTR(BrowserHost);
+    FB_FORWARD_PTR(JSAPI);
+    FB_FORWARD_PTR(JSObject);
     class variant;
+    namespace variant_detail {
+        // Note that null translates to returning NULL
+        struct null;
+        // Note that empty translates into return VOID (undefined)
+        struct empty;
+    }
     
     // Variant list
 
@@ -51,6 +57,9 @@ namespace FB
     /// @typedef    FB::VariantList
     ///
     /// @brief  Defines an alias representing list of variants.
+    /// @see FB::variant_list_of()
+    /// @see FB::make_variant_list()
+    /// @see FB::convert_variant_list()
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     typedef std::vector<variant> VariantList;
 
@@ -58,6 +67,7 @@ namespace FB
     /// @typedef    FB::VariantMap
     ///
     /// @brief  Defines an alias representing a string -> variant map.
+    /// @see FB::variant_map_of()
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     typedef std::map<std::string, variant> VariantMap;
 
@@ -71,6 +81,12 @@ namespace FB
     // FB pointer types
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @typedef    FB::JSAPIWeakPtr
+    ///
+    /// @brief  Defines an alias for a JSAPI weak_ptr (you should never use a JSAPI* directly)
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    typedef boost::weak_ptr<FB::JSAPI> JSAPIWeakPtr; 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @typedef    FB::JSAPIPtr
     ///
     /// @brief  Defines an alias for a JSAPI shared_ptr (you should never use a JSAPI* directly)
@@ -78,10 +94,17 @@ namespace FB
     typedef boost::shared_ptr<FB::JSAPI> JSAPIPtr; 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @typedef    FB::JSObjectWeakPtr
+    ///
+    /// @brief  Defines an alias representing a JSObject weak_ptr (you should never use a 
+    ///         JSObject* directly)
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    typedef boost::weak_ptr<FB::JSObject> JSObjectWeakPtr;
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @typedef    FB::JSObjectPtr
     ///
     /// @brief  Defines an alias representing a JSObject shared_ptr (you should never use a 
-    /// 		JSObject* directly)
+    ///         JSObject* directly)
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     typedef boost::shared_ptr<FB::JSObject> JSObjectPtr;
 
@@ -89,7 +112,7 @@ namespace FB
     /// @typedef    FB::BrowserHostPtr
     ///
     /// @brief  Defines an alias representing a BrowserHost shared_ptr (you should never use a 
-    /// 		BrowserHost* directly)
+    ///         BrowserHost* directly)
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     typedef boost::shared_ptr<FB::BrowserHost> BrowserHostPtr;
     
@@ -156,14 +179,56 @@ namespace FB
     /// @struct CatchAll
     ///
     /// @brief  When used as a parameter on a JSAPIAuto function this matches 0 or more variants
-    /// 		-- in other words, all other parameters from this point on regardless of type.
+    ///         -- in other words, all other parameters from this point on regardless of type.
+    /// 
+    /// This helper struct allows your scriptable methods to receive 0 or more parameters in addition
+    /// to some fixed ones. E.g. given the following scriptable method:
+    /// @code
+    /// long howManyParams(long a, const std::string& b, const FB::CatchAll& more) {
+    ///     const FB::VariantList& values = more.value;
+    ///     long paramCount = 2 + values.size();
+    ///     return paramCount;
+    /// }
+    /// @endcode
+    /// The following calls would result in:
+    /// @code
+    /// > obj.howManyParams(42, "moo");
+    /// => returns 2
+    /// > obj.howManyParams(42, "moo", 1.0, "meh");
+    /// => returns 4
+    /// @endcode
     ///
-    /// @author Richard Bateman
+    /// @author Georg Fritzsche
     /// @date   10/15/2010
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     struct CatchAll {
         typedef FB::VariantList value_type;
         FB::VariantList value;
+    };
+
+    // Special Variant types
+    typedef FB::variant_detail::empty FBVoid;
+    typedef FB::variant_detail::null FBNull;
+    struct FBDateString {
+    public:
+        FBDateString() { }
+        FBDateString(const FBDateString& rhs) : date(rhs.date) { }
+        FBDateString(const std::string &dstr) : date(dstr) { }
+
+        FBDateString& operator=(const std::string& dstr) { date = dstr; return *this; }
+        std::string getValue() { return date; }
+        void setValue(std::string value) { date = value; }
+        bool operator<(const std::string& rh) const
+        {
+            return date < rh;
+        }
+        bool operator<(const FBDateString& rh) const
+        {
+            return date < rh.date;
+        }
+        
+    protected:
+        std::string date;
     };
 
     // JSAPI methods
@@ -202,11 +267,34 @@ namespace FB
     typedef std::map<std::string, PropertyInfo> PropertyMap;
 
     // new style JSAPI methods
+    /// @brief  Used to set a SecurityZone for a method or property -- used by JSAPIAuto
+    typedef int SecurityZone;
 
-    /// @brief  Defines an alias representing a method functor used by FB::JSAPIAuto
+    /// @brief  Default SecurityZone values; you can use these or provide your own
+    enum SecurityLevel {
+        SecurityScope_Public = 0,
+        SecurityScope_Protected = 2,
+        SecurityScope_Private = 4,
+        SecurityScope_Local = 6
+    };
+
+    /// @brief  Defines an alias representing a method functor used by FB::JSAPIAuto, created by FB::make_method().
     typedef boost::function<variant (const std::vector<variant>&)> CallMethodFunctor;
+    struct MethodFunctors
+    {
+        CallMethodFunctor call;
+        SecurityZone zone;
+        MethodFunctors() : call() {}
+        MethodFunctors(const CallMethodFunctor& call) : call(call) {}
+        MethodFunctors(const SecurityZone& zone, const CallMethodFunctor& call) : call(call) {}
+        MethodFunctors(const MethodFunctors& m) : call(m.call) {}
+        MethodFunctors& operator=(const MethodFunctors& rhs) {
+            call = rhs.call;
+            return *this;
+        }
+    };
     /// @brief  Defines an alias representing a map of method functors used by FB::JSAPIAuto
-    typedef std::map<std::string, CallMethodFunctor> MethodFunctorMap;
+    typedef std::map<std::string, MethodFunctors> MethodFunctorMap;
 
     // new style JSAPI properties
 
@@ -214,7 +302,7 @@ namespace FB
     typedef boost::function<FB::variant ()> GetPropFunctor;
     /// @brief  Defines an alias representing a property setter functor used by FB::JSAPIAuto
     typedef boost::function<void (const FB::variant&)> SetPropFunctor;
-    /// @brief  used by FB::JSAPIAuto to store property implementation details
+    /// @brief  used by FB::JSAPIAuto to store property implementation details, created by FB::make_property().
     struct PropertyFunctors
     {
         GetPropFunctor get;
@@ -247,6 +335,19 @@ namespace FB
     {
         return boost::dynamic_pointer_cast<T>(r);
     }
+
+    namespace boost_variant {
+        typedef boost::variant<long, int, double, std::string, FB::JSAPIPtr, FB::JSObjectPtr, FB::FBNull, FB::FBVoid> generic;
+        typedef boost::variant<long, int, double, float, std::string, FB::FBNull, FB::FBVoid> primitives;
+        typedef boost::variant<std::string, FB::StringSet> strings;
+    }
+
+    struct Rect {
+        int32_t top;
+        int32_t left;
+        int32_t bottom;
+        int32_t right;
+    };
 }
 
 // This needs to be included after all our classes are defined because it relies on types defined in this file
@@ -254,3 +355,4 @@ namespace FB
 #include "variant.h"
 
 #endif
+

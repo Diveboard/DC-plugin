@@ -36,15 +36,23 @@ set(FBSTRING_CompanyName "@{COMPANY_name}")
 set(FBSTRING_FileDescription "@{PLUGIN_desc}")
 set(FBSTRING_PLUGIN_VERSION "1.0.0")
 set(FBSTRING_LegalCopyright "Copyright @{YEAR} @{COMPANY_name}")
-set(FBSTRING_PluginFileName "np${PLUGIN_NAME}.dll")
+set(FBSTRING_PluginFileName "np${PLUGIN_NAME}")
 set(FBSTRING_ProductName "@{PLUGIN_name}")
 set(FBSTRING_FileExtents "")
 set(FBSTRING_PluginName "@{PLUGIN_name}")
 set(FBSTRING_MIMEType "@{PLUGIN_mimetype}")
 
-# Mac plugin settings
+# Uncomment this next line if you're not planning on your plugin doing
+# any drawing:
+
+# set (FB_GUI_DISABLED 1)
+
+# Mac plugin settings. If your plugin does not draw, set these all to 0
 set(FBMAC_USE_QUICKDRAW 0)
 set(FBMAC_USE_CARBON 1)
 set(FBMAC_USE_COCOA 1)
 set(FBMAC_USE_COREGRAPHICS 1)
 set(FBMAC_USE_COREANIMATION 0)
+
+# If you want to register per-machine on Windows, uncomment this line
+#set (FB_ATLREG_MACHINEWIDE 1)

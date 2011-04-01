@@ -16,8 +16,6 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
 add_definitions(-DBOOST_THREAD_BUILD_LIB=1)
 
 if (WIN32)
@@ -56,4 +54,5 @@ else()
 endif()
 
 add_library (boost_thread STATIC ${SOURCES})
+set_target_properties(boost_thread PROPERTIES FOLDER "Libraries")
 
