@@ -28,7 +28,7 @@ public:
 public:
     void onPluginReady();
     virtual FB::JSAPIPtr createJSAPI();
-    virtual bool IsWindowless() { return false; }
+    virtual bool IsWindowless() { return true; }
 
     BEGIN_PLUGIN_EVENT_MAP()
         EVENTTYPE_CASE(FB::MouseDownEvent, onMouseDown, FB::PluginWindow)
