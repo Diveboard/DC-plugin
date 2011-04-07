@@ -282,7 +282,7 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 
 void ComputerMares::format_dives(std::vector<DiveData> dives, std::string &xml)
 {
-	xml += "<profile udcf='1'><REPGROUP>";
+	xml += "<profile udcf='1'><device><vendor>Mares</vendor><model>M2</model><REPGROUP>";
 	for (unsigned int i=0; i<dives.size();i++)
 	{
 		xml += "<DIVE>";

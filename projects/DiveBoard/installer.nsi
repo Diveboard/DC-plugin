@@ -124,7 +124,7 @@ Section "FTDI" Driver1
         SetOutPath $TEMP\DB_FTDI
 	File /r "..\..\drivers\ftdi_win"
 	ExecWait 'rundll32 syssetup,SetupInfObjectInstallAction DefaultInstall 128 "$TEMP\DB_FTDI\ftdi_win\ftdibus.inf"' $0
-	MessageBox MB_OK "FTDI Driver installed. Installer returned $0.\n $TEMP" IDOK 0
+	# MessageBox MB_OK "FTDI Driver installed. Installer returned $0.\n $TEMP" IDOK 0
 
 	Delete "$TEMP\DB_FTDI"
 SectionEnd
@@ -134,7 +134,7 @@ Section "SiliconLabs CP210x" Driver2
 	File /r "..\..\drivers\Silabs_windows"
 	ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210x_VCP_Win2K.exe"' $0
 
-	MessageBox MB_OK "SiliconLabs CP210x Driver installed. Installer returned $0.\n $TEMP" IDOK 0
+	# MessageBox MB_OK "SiliconLabs CP210x Driver installed. Installer returned $0.\n $TEMP" IDOK 0
 
 	Delete "$TEMP\DB_SILABS"
 SectionEnd
@@ -144,7 +144,7 @@ Section "Prolific" Driver3
 	File /r "..\..\drivers\prolific_win"
 	ExecWait '"$TEMP\DB_PROLIFIC\prolific_win\PL2303_Prolific_DriverInstaller_v130.exe"' $0
 
-	MessageBox MB_OK "Prolific Driver installed. Installer returned $0 \n $TEMP" IDOK 0
+	# MessageBox MB_OK "Prolific Driver installed. Installer returned $0 \n $TEMP" IDOK 0
 
 	Delete "$TEMP\DB_PROLIFIC"
 SectionEnd

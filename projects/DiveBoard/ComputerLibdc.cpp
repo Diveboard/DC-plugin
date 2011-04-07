@@ -36,7 +36,7 @@ LIBTYPE openDLLLibrary()
 	dll += DLL_PATH;
 	
 	LOGINFO("Searching DLL at %s", dll.c_str());
-	HINSTANCE libdc = LoadLibrary(TEXT("J:\\Dev\\DB_plugin\\libdivecomputer\\Debug\\libdivecomputer.dll"));
+	HINSTANCE libdc = LoadLibrary(dll.c_str());
 	if (!libdc)
 	{
     LPVOID lpMsgBuf;
@@ -363,6 +363,7 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 		//sample_data_t *sampledata = (sample_data_t *) userdata;
 		unsigned int nsamples = 0;
 		struct sample_cb_data *data = (struct sample_cb_data *) userdata;
+		std::string vendor;
 
 		LOGDEBUG("Parsing element of type '%d'", type);
 
@@ -400,10 +401,11 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 			data->sampleXML += str(boost::format("<bearing>%u</bearing>") % value.bearing);
 			break;
 		case SAMPLE_TYPE_VENDOR:
-			data->sampleXML += str(boost::format("<vendor type=\"%u\" size=\"%u\">") % value.vendor.type % value.vendor.size);
+			vendor += str(boost::format("vendor type=\"%u\" size=\"%u\"") % value.vendor.type % value.vendor.size);
 			for (unsigned int i = 0; i < value.vendor.size; ++i)
-				data->sampleXML += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
-			data->sampleXML += "</vendor>";
+				vendor += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
+			
+			LOGINFO(vendor);
 			break;
 		default:
 			LOGWARNING("Received an element of unknown type '%d'", type);
@@ -630,7 +632,7 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 
 		device_data_t *devdata = evdata->devdata;
 
-		LOGDEBUG("Received event of tyep '%d'", event);
+		LOGDEBUG("Received event of type '%d'", event);
 
 		switch (event) {
 		case DEVICE_EVENT_WAITING:
@@ -674,6 +676,8 @@ static void event_cb (device_t *device, device_event_t event, const void *data, 
 			LOGWARNING("unsupported kind of event received '%d'", event);
 			break;
 		}
+
+	LOGDEBUG("End of event handling");
 
 	} catch(std::exception &e) {
 		LOGWARNING("Caught Exception : %s",e.what());
@@ -930,7 +934,9 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	divedata.status = &status;
 	divedata.computer = this;
 
-	diveXML.append("<profile udcf='1'><REPGROUP>");
+	diveXML.append("<profile udcf='1'><device><model>");
+	diveXML.append(lookup_name(backend));
+	diveXML.append("</model></device><REPGROUP>");
 
 	// Download the dives.
 	LOGINFO("Downloading the dives.");

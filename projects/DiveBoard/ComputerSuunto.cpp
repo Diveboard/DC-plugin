@@ -397,7 +397,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 
 	status.state = COMPUTER_RUNNING;
 
-	xml += "<profile udcf='1'><REPGROUP>";
+	xml += "<profile udcf='1'><device><vendor>Suunto</vendor><model>Vyper</model></device><REPGROUP>";
 
 	while (true)
 	{

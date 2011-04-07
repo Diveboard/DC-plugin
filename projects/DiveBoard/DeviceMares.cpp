@@ -29,6 +29,7 @@
 
 DeviceMares::DeviceMares(std::string name)
 {
+	LOGDEBUG("Creating DeviceMares on %s", name.c_str());
 	filename = name;
 	hCom = NULL;
 	open();
@@ -48,10 +49,10 @@ int DeviceMares::open()
 	bool fSuccess;
 	DCB dcb;
 	
-	LOGINFO("Opening %s", filename);
+	LOGINFO("Opening %s", filename.c_str());
 	
 	//todo fix unicode
-	hCom = CreateFile((LPCWSTR)filename.c_str(), 
+	hCom = CreateFile(s2ws(filename).c_str(), 
 					  GENERIC_READ | GENERIC_WRITE, 
 					  0, 
 					  NULL, 

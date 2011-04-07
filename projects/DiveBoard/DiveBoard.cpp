@@ -96,7 +96,7 @@ bool DiveBoard::onMouseMove(FB::MouseMoveEvent *evt, FB::PluginWindow *)
     //printf("Mouse move at: %d, %d\n", evt->m_x, evt->m_y);
     return false;
 }
-bool DiveBoard::onWindowAttached(FB::AttachedEvent *evt, FB::PluginWindow *)
+bool DiveBoard::onWindowAttached(FB::AttachedEvent *evt, FB::PluginWindow *w)
 {
     // The window is attached; act appropriately
     return false;

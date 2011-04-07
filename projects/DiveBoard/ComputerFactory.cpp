@@ -46,8 +46,8 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["LDC vtpro"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC veo250"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC atom2"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["Mares M2"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC nemo"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["Mares M2"].push_back("Silicon Labs CP210x USB to UART Bridge");
+	recognisedPorts["LDC nemo"].push_back("Silicon Labs CP210x USB to UART Bridge");
 	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
