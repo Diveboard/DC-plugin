@@ -9,7 +9,7 @@ DeleteWarning
 NeedsAuthorization YES
 Required NO
 Relocatable NO
-RequiresReboot YES
+RequiresReboot NO
 UseUserMask NO
 OverwritePermissions NO
 InstallFat NO

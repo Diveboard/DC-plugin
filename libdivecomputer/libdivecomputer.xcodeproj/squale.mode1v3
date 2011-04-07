@@ -229,6 +229,8 @@
 			<key>Layout</key>
 			<array>
 				<dict>
+					<key>BecomeActive</key>
+					<true/>
 					<key>ContentConfiguration</key>
 					<dict>
 						<key>PBXBottomSmartGroupGIDs</key>
@@ -267,8 +269,6 @@
 								<string>F849AF7812D53D5300A7FA84</string>
 								<string>08FB7795FE84155DC02AAC07</string>
 								<string>1C37FBAC04509CD000000102</string>
-								<string>F8893AB7130DFF8E00816D99</string>
-								<string>F8893AB8130DFF8E00816D99</string>
 								<string>1C37FABC05509CD000000102</string>
 							</array>
 							<key>PBXSmartGroupTreeModuleOutlineStateSelectionKey</key>
@@ -280,7 +280,7 @@
 								</array>
 							</array>
 							<key>PBXSmartGroupTreeModuleOutlineStateVisibleRectKey</key>
-							<string>{{0, 593}, {186, 664}}</string>
+							<string>{{0, 189}, {186, 664}}</string>
 						</dict>
 						<key>PBXTopSmartGroupGIDs</key>
 						<array/>
@@ -327,13 +327,13 @@
 										<key>_historyCapacity</key>
 										<integer>0</integer>
 										<key>bookmark</key>
-										<string>F8893AE3131007B600816D99</string>
+										<string>F8AA69171349260300A11DDE</string>
 										<key>history</key>
 										<array>
 											<string>F8893ADF131007B600816D99</string>
 											<string>F8893AE0131007B600816D99</string>
 											<string>F8893AE1131007B600816D99</string>
-											<string>F8893AE2131007B600816D99</string>
+											<string>F8AA69001348BC2C00A11DDE</string>
 										</array>
 									</dict>
 									<key>SplitCount</key>
@@ -345,14 +345,14 @@
 							<key>GeometryConfiguration</key>
 							<dict>
 								<key>Frame</key>
-								<string>{{0, 0}, {1019, 479}}</string>
+								<string>{{0, 0}, {1019, 460}}</string>
 								<key>RubberWindowFrame</key>
 								<string>53 55 1227 723 0 0 1280 778 </string>
 							</dict>
 							<key>Module</key>
 							<string>PBXNavigatorGroup</string>
 							<key>Proportion</key>
-							<string>479pt</string>
+							<string>460pt</string>
 						</dict>
 						<dict>
 							<key>ContentConfiguration</key>
@@ -365,14 +365,14 @@
 							<key>GeometryConfiguration</key>
 							<dict>
 								<key>Frame</key>
-								<string>{{0, 484}, {1019, 198}}</string>
+								<string>{{0, 465}, {1019, 217}}</string>
 								<key>RubberWindowFrame</key>
 								<string>53 55 1227 723 0 0 1280 778 </string>
 							</dict>
 							<key>Module</key>
 							<string>XCDetailModule</string>
 							<key>Proportion</key>
-							<string>198pt</string>
+							<string>217pt</string>
 						</dict>
 					</array>
 					<key>Proportion</key>
@@ -391,9 +391,9 @@
 			</array>
 			<key>TableOfContents</key>
 			<array>
-				<string>F8893ABA130DFF8E00816D99</string>
+				<string>F8AA69021348BC2C00A11DDE</string>
 				<string>1CE0B1FE06471DED0097A5F4</string>
-				<string>F8893ABB130DFF8E00816D99</string>
+				<string>F8AA69031348BC2C00A11DDE</string>
 				<string>1CE0B20306471E060097A5F4</string>
 				<string>1CE0B20506471E060097A5F4</string>
 			</array>
@@ -532,7 +532,7 @@
 	<key>WindowOrderList</key>
 	<array>
 		<string>F849AF0F12D53D3100A7FA84</string>
-		<string>/Users/squale/Documents/dev/DB_plugins/libdivecomputer/libdivecomputer.xcodeproj</string>
+		<string>/Users/squale/Documents/dev/diveboard-db/libdivecomputer/libdivecomputer.xcodeproj</string>
 	</array>
 	<key>WindowString</key>
 	<string>53 55 1227 723 0 0 1280 778 </string>
@@ -612,7 +612,7 @@
 			<key>TableOfContents</key>
 			<array>
 				<string>F849AF0F12D53D3100A7FA84</string>
-				<string>F8893ABC130DFF8E00816D99</string>
+				<string>F8AA69041348BC2C00A11DDE</string>
 				<string>1CD0528F0623707200166675</string>
 				<string>XCMainBuildResultsModuleGUID</string>
 			</array>

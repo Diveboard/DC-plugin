@@ -30,24 +30,24 @@ cp "$LIBDIVE" "$BUILDDIR"
 ####
 
 # Initialize the final package
-rm -fr $OUTDIR/bigpack.mpkg
-cp -a $DIR/drivers/mac/bigpack.mpkg $OUTDIR/
-rm -fr "$OUTDIR/bigpack.mpkg/Contents/Packages/$PKGNAME"
+rm -fr $OUTDIR/Diveboard.mpkg
+cp -a $DIR/drivers/mac/Diveboard.mpkg $OUTDIR/
+rm -fr "$OUTDIR/Diveboard.mpkg/Contents/Packages/$PKGNAME"
 
 # Place the Diveboard package into the big package
-cp -a "$TMPDIR/$PKGNAME" "$OUTDIR/bigpack.mpkg/Contents/Packages/$PKGNAME"
+cp -a "$TMPDIR/$PKGNAME" "$OUTDIR/Diveboard.mpkg/Contents/Packages/$PKGNAME"
 
 ####
 #### xar-ing the archive or creating a DMG file
 ####
 
 # getting the space used 
-SIZE=$(($(du -ks build/packages/bigpack.mpkg/ | sed 's/[^0-9].*//') + 500 ))
+SIZE=$(($(du -ks build/packages/Diveboard.mpkg/ | sed 's/[^0-9].*//') + 500 ))
 
 # Creating a dmg image
 DMGFILE=/tmp/pack.temp.dmg
 DMGFINALFILE=$OUTDIR/diveboard.dmg
-hdiutil create -srcfolder "$OUTDIR/bigpack.mpkg" -volname "Diveboard Plugin" -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW -size ${SIZE}k "$DMGFILE"
+hdiutil create -srcfolder "$OUTDIR/Diveboard.mpkg" -volname "Diveboard Plugin" -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW -size ${SIZE}k "$DMGFILE"
 
 # Mounting the image
 device=$(hdiutil attach -readwrite -noverify -noautoopen "$DMGFILE" | egrep '^/dev/' | sed 1q | awk '{print $1}')

@@ -29,7 +29,7 @@
 	<key>IFPkgFlagRelocatable</key>
 	<false/>
 	<key>IFPkgFlagRestartAction</key>
-	<string>RequiredRestart</string>
+	<string>RecommendedRestart</string>
 	<key>IFPkgFlagRootVolumeOnly</key>
 	<true/>
 	<key>IFPkgFlagUpdateInstalledLanguages</key>
