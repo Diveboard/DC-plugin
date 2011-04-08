@@ -33,6 +33,7 @@ int DeviceMaresEmu::open(){ return(0);}
 void DeviceMaresEmu::close(){}
 int DeviceMaresEmu::write_serial(unsigned char *buff,int len)
 {
+	//usleep(100000);
 	if (buff[1] == '5' && buff[2] == '1')
 	{
 		memcpy(command, buff, len);
@@ -85,7 +86,7 @@ int DeviceMaresEmu::read_serial(unsigned char * buff, unsigned int len, int time
 		answers.erase(answers.begin());
 	}
 	
-	//Sleep(10);
+	//usleep(100000);
 	return(i?i:-1);
 }
 
