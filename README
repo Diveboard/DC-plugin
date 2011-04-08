@@ -9,6 +9,9 @@
 	FireBreath.xcode
 	FireBreath.sln
 
+Note for Mac build: in case of error with lipo, it might be because of parallel build. To disactivate that feature in xcode, go to "Project/Edit Project settings" and uncheck "Build independant targets in parallel"
+
+
 
 2/ Build the library libdivecomputer :
 
