@@ -9,6 +9,8 @@
 Name "DiveBoard"
 Caption "DiveBoard browser plugin"
 OutFile "..\..\build\bin\DiveBoard\Debug\DiveBoard-debug.exe"
+Icon "logo.ico"
+UninstallIcon "logo.ico"
 
 
 InstallDir "$COMMONFILES\DiveBoard"
@@ -108,12 +110,12 @@ CreateDirectory "$INSTDIR"
 !insertmacro InstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_LibDiveComputer} $INSTDIR\libdivecomputer.dll $INSTDIR
 !insertmacro InstallLib REGDLL    NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_DiveBoardPlugin} $INSTDIR\npDiveBoard.dll $INSTDIR
 WriteUninstaller $INSTDIR\uninstall.exe
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "DisplayName" "TestLibrary"
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "DisplayVersion" "1.0"
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "UninstallString" "$INSTDIR\uninstall.exe"
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "InstallLocation" "$INSTDIR"
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "NoModify" "1"
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" "NoRepair" "1"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayName" "DiveBoard"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayVersion" "1.0"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "UninstallString" "$INSTDIR\uninstall.exe"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "InstallLocation" "$INSTDIR"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "NoModify" "1"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "NoRepair" "1"
 
 SectionEnd
 
@@ -179,7 +181,7 @@ IfFileExists "$INSTDIR\npDiveBoard.dll" 0 NoErrorMsgD2
 NoErrorMsgD2:
 
 
-DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LibTest" 
+DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" 
 Delete "$INSTDIR\uninstall.exe"
 RMDir "$INSTDIR"
 
