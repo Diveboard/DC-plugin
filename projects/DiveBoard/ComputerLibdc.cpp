@@ -15,7 +15,7 @@
 
 #ifdef WIN32
 
-#define DLL_PATH (L"DiveBoard\\libdivecomputer.dll")
+#define DLL_PATH (L"\\DiveBoard\\libdivecomputer.dll")
 //return reinterpret_cast<HINSTANCE>(&__ImageBase);
 //#define DLL_PATH _T("libdivecomputer.dll")
 #endif
@@ -28,14 +28,17 @@ LIBTYPE openDLLLibrary()
 #ifdef WIN32
 	//Load the LibDiveComputer library
 	wchar_t path[1024]; 
-	DWORD l = GetEnvironmentVariable(L"ProgramFiles", path, sizeof(path));
+	DWORD l = GetEnvironmentVariable(L"CommonProgramFiles", path, sizeof(path));
 	if (l>sizeof(path))
 		DBthrowError("path buffer is too small !!!");
 	std::wstring dll = path;
-	dll += L"\\Common Files\\";
 	dll += DLL_PATH;
-	
-	LOGINFO("Searching DLL at %s", dll.c_str());
+
+	//Transform the string to log
+	std::string dll_s;
+	dll_s.assign(dll.begin(), dll.end());
+	LOGINFO("Searching DLL at %s", dll_s.c_str());
+
 	HINSTANCE libdc = LoadLibrary(dll.c_str());
 	if (!libdc)
 	{
@@ -53,7 +56,7 @@ LIBTYPE openDLLLibrary()
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 		
-		std::string msg = str(boost::format("Error loading DLL : %d - %s") % dw % (char*)lpMsgBuf);
+		std::string msg = str(boost::format("Error loading DLL at %s : %d - %s") % dll_s % dw % (char*)lpMsgBuf);
 
 		LocalFree(lpMsgBuf);
 
