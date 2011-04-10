@@ -50,7 +50,7 @@
 DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
 #ifdef __MACH__
-		alwaysAsync=false;
+		alwaysAsync=true;
 #else
 		alwaysAsync=true;
 #endif

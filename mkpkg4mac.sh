@@ -85,3 +85,8 @@ hdiutil convert "$DMGFILE" -format UDZO -imagekey zlib-level=9 -o "${DMGFINALFIL
 rm -f "$DMGFILE"
 
 
+if [ -d "$DIR/../diveboard-web" ] 
+then
+  zip -j "$DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip" $DMGFINALFILE
+  echo "Zip file has been updated in $DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip"
+fi
