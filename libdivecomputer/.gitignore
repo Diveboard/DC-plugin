@@ -6,3 +6,5 @@ libdivecomputer.pc
 libtool
 stamp-h1
 Debug
+Release
+ipch
