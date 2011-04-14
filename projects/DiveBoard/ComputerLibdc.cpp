@@ -16,11 +16,57 @@
 #ifdef WIN32
 
 #define DLL_PATH (L"\\DiveBoard\\libdivecomputer.dll")
+#define DLL_NAME (L"\\libdivecomputer.dll")
 //return reinterpret_cast<HINSTANCE>(&__ImageBase);
 //#define DLL_PATH _T("libdivecomputer.dll")
 #endif
 
 #define MAX_TEMP 99999
+
+
+
+HRESULT RegGetString(HKEY hKey, LPCTSTR szValueName, LPTSTR * lpszResult) {
+
+	// Given a HKEY and value name returns a string from the registry.
+	// Upon successful return the string should be freed using free()
+	// eg. RegGetString(hKey, TEXT("my value"), &szString);
+
+	DWORD dwType=0, dwDataSize=0, dwBufSize=0;
+	LONG lResult;
+
+	// Incase we fail set the return string to null...
+	if (lpszResult != NULL) *lpszResult = NULL;
+
+	// Check input parameters...
+	if (hKey == NULL || lpszResult == NULL) return E_INVALIDARG;
+
+	// Get the length of the string in bytes (placed in dwDataSize)...
+	lResult = RegQueryValueEx(hKey, szValueName, 0, &dwType, NULL, &dwDataSize );
+
+	// Check result and make sure the registry value is a string(REG_SZ)...
+	if (lResult != ERROR_SUCCESS) return HRESULT_FROM_WIN32(lResult);
+	else if (dwType != REG_SZ)    return DISP_E_TYPEMISMATCH;
+
+	// Allocate memory for string - We add space for a null terminating character...
+	dwBufSize = dwDataSize + (1 * sizeof(TCHAR));
+	*lpszResult = (LPTSTR)malloc(dwBufSize);
+
+	if (*lpszResult == NULL) return E_OUTOFMEMORY;
+
+	// Now get the actual string from the registry...
+	lResult = RegQueryValueEx(hKey, szValueName, 0, &dwType, (LPBYTE) *lpszResult, &dwDataSize );
+
+	// Check result and type again.
+	// If we fail here we must free the memory we allocated...
+	if (lResult != ERROR_SUCCESS) { free(*lpszResult); return HRESULT_FROM_WIN32(lResult); }
+	else if (dwType != REG_SZ)    { free(*lpszResult); return DISP_E_TYPEMISMATCH; }
+
+	// We are not guaranteed a null terminated string from RegQueryValueEx.
+	// Explicitly null terminate the returned string...
+	(*lpszResult)[(dwBufSize / sizeof(TCHAR)) - 1] = TEXT('\0');
+
+	return NOERROR;
+}
 
 
 LIBTYPE openDLLLibrary()
@@ -33,6 +79,37 @@ LIBTYPE openDLLLibrary()
 		DBthrowError("path buffer is too small !!!");
 	std::wstring dll = path;
 	dll += DLL_PATH;
+
+
+	try
+	{
+		HKEY hkey = NULL;
+		LONG lResult;
+		LPTSTR szVal;
+		DWORD dwVal;
+		HRESULT hr;
+
+		lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\DiveBoard", 0, KEY_QUERY_VALUE, &hkey);
+
+		if (lResult != ERROR_SUCCESS) 
+			throw std::exception();
+		else
+		{
+			hr = RegGetString(hkey, TEXT("InstallLocation"), &szVal);
+			if (FAILED(hr)) throw std::exception();
+
+			std::string s;
+			std::wstring ws;
+			ws = szVal;
+			s.assign(ws.begin(), ws.end());
+
+			LOGINFO("Registry found : %s", s.c_str());
+
+			dll = szVal;
+			dll += DLL_NAME;
+		}
+	} catch (std::exception e) {
+	}
 
 	//Transform the string to log
 	std::string dll_s;

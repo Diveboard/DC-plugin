@@ -8,7 +8,7 @@
 
 Name "DiveBoard"
 Caption "DiveBoard browser plugin"
-OutFile "..\..\build\bin\DiveBoard\Release\DiveBoard.exe"
+OutFile "..\..\build\bin\DiveBoard\Debug\DiveBoard-debug.exe"
 Icon "logo.ico"
 UninstallIcon "logo.ico"
 
@@ -20,8 +20,8 @@ XPStyle on
 
 RequestExecutionLevel admin
 
-!define DLL_LibDiveComputer '"..\..\libdivecomputer\Release\libdivecomputer.dll"'
-!define DLL_DiveBoardPlugin '"..\..\build\bin\DiveBoard\Release\npDiveBoard.dll"'
+!define DLL_LibDiveComputer '"..\..\libdivecomputer\Debug\libdivecomputer.dll"'
+!define DLL_DiveBoardPlugin '"..\..\build\bin\DiveBoard\Debug\npDiveBoard.dll"'
 
 
 
@@ -53,9 +53,9 @@ RequestExecutionLevel admin
 # Languages
 #--------------------------------
 
-LangString DESC_Driver1 ${LANG_ENGLISH} "Driver for Suunto and Oceanic. Usually this driver is not needed since Windows can automatically recognise the cable."
-LangString DESC_Driver2 ${LANG_ENGLISH} "Driver for Mares IRIS system and some Suunto computers. Usually this driver is not needed since Windows can automatically recognise the cable."
-LangString DESC_Driver3 ${LANG_ENGLISH} "Driver for Mares Nemo Sport, Cressi, Reefnet. Usually this driver is not needed since Windows can automatically recognise the cable."
+LangString DESC_Driver1 ${LANG_ENGLISH} "Description of section 1."
+LangString DESC_Driver2 ${LANG_ENGLISH} "Description of section 2."
+LangString DESC_Driver3 ${LANG_ENGLISH} "Description of section 3."
 
 
 
@@ -106,55 +106,12 @@ FunctionEnd
 Section
 
 SetShellVarContext all
-
-
-Var /GLOBAL PREINSTALL
-
-ClearErrors
-ReadRegStr $PREINSTALL HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "InstallLocation"
-IfErrors FoundInstalled 0
-
-RMDll1:
-ClearErrors
-Delete $PREINSTALL\npDiveBoard.dll
-IfErrors 0 NoError1
-  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
-  Goto RMDll1
-NoError1:
-
-RMDll2:
-ClearErrors
-Delete $PREINSTALL\libdivecomputer.dll
-IfErrors 0 NoError2
-  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
-  Goto RMDll2
-NoError2:
-
-FoundInstalled:
-
-RMDll3:
-ClearErrors
-Delete $INSTDIR\npDiveBoard.dll
-IfErrors 0 NoError3
-  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
-  Goto RMDll3
-NoError3:
-
-RMDll4:
-ClearErrors
-Delete $INSTDIR\libdivecomputer.dll
-IfErrors 0 NoError4
-  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
-  Goto RMDll4
-NoError4:
-
-
 CreateDirectory "$INSTDIR"
 !insertmacro InstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_LibDiveComputer} $INSTDIR\libdivecomputer.dll $INSTDIR
 !insertmacro InstallLib REGDLL    NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_DiveBoardPlugin} $INSTDIR\npDiveBoard.dll $INSTDIR
 WriteUninstaller $INSTDIR\uninstall.exe
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayName" "DiveBoard"
-WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayVersion" "1.1"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayVersion" "1.0"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "UninstallString" "$INSTDIR\uninstall.exe"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "InstallLocation" "$INSTDIR"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "NoModify" "1"
@@ -165,7 +122,7 @@ SectionEnd
 
 #---  Low level drivers ---
 
-Section /o "FTDI" Driver1
+Section "FTDI" Driver1
         SetOutPath $TEMP\DB_FTDI
 	File /r "..\..\drivers\ftdi_win"
 	ExecWait 'rundll32 syssetup,SetupInfObjectInstallAction DefaultInstall 128 "$TEMP\DB_FTDI\ftdi_win\ftdibus.inf"' $0
@@ -174,7 +131,7 @@ Section /o "FTDI" Driver1
 	Delete "$TEMP\DB_FTDI"
 SectionEnd
 
-Section /o "SiliconLabs CP210x" Driver2
+Section "SiliconLabs CP210x" Driver2
         SetOutPath $TEMP\DB_SILABS
 	File /r "..\..\drivers\Silabs_windows"
 	ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210x_VCP_Win2K.exe"' $0
@@ -184,7 +141,7 @@ Section /o "SiliconLabs CP210x" Driver2
 	Delete "$TEMP\DB_SILABS"
 SectionEnd
 
-Section /o "Prolific" Driver3
+Section "Prolific" Driver3
         SetOutPath $TEMP\DB_PROLIFIC
 	File /r "..\..\drivers\prolific_win"
 	ExecWait '"$TEMP\DB_PROLIFIC\prolific_win\PL2303_Prolific_DriverInstaller_v130.exe"' $0
