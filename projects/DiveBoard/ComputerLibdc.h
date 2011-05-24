@@ -1,5 +1,5 @@
 #pragma once
-#include "computer.h"
+#include "Computer.h"
 #include "../../libdivecomputer/src/deviceL.h"
 #include "../../libdivecomputer/src/parser.h"
 #include "../../libdivecomputer/src/buffer.h"
@@ -11,8 +11,8 @@
 
 #ifdef WIN32
 #define LIBTYPE HINSTANCE
-#elif __MACH__
-#define __cdecl 
+#elif defined(__MACH__) || defined(__linux__)
+#define __cdecl
 #define LIBTYPE void*
 #endif
 

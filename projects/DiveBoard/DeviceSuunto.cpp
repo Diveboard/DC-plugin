@@ -38,7 +38,7 @@
 #endif
 #include <time.h>
 
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <stdio.h>
@@ -157,7 +157,7 @@ int DeviceSuunto::open()
 	   return (SUUNTO_ERR_SETSIG);
    }
 
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 
 	struct termios options;
 
@@ -209,7 +209,7 @@ int DeviceSuunto::open()
 
   int len;
   DWORD  out;
-  bool rval=FALSE;
+  bool rval=false;
   
   len=strlen(cmd);
 
@@ -252,7 +252,7 @@ int DeviceSuunto::read_serial(unsigned char * buff, unsigned int num, int timeou
 	  return rval;
   }
 
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	
 	fd_set fds;
 	struct timeval tv;
@@ -290,7 +290,7 @@ int DeviceSuunto::write_serial(unsigned char *buffer,int len)
 	FlushFileBuffers(hCom);
 	Sleep(200);
 
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	rc = write(hCom,buffer,len);
 	Logger::binary("WRITE", buffer, len);
 	tcdrain(hCom);

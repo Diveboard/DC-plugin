@@ -2,12 +2,14 @@
 
 - in a shell, place yourself in the same folder as this readme
 - launch the correct prep... command for your platform with the arguments "projects" and "build" :
-	./firebreath/prepmac.sh projects build
-	firebreath\prep2010.cmd projects build
+	Mac : ./firebreath/prepmac.sh projects build
+	Linux : ./firebreath/prepcodeblocks.sh projects build
+	Windows : firebreath\prep2010.cmd projects build
 
 - open the project generated in the new "build" directory :
-	FireBreath.xcode
-	FireBreath.sln
+	Mac : FireBreath.xcode
+	Linux : FireBreath.cbp
+	Windows : FireBreath.sln
 
 Note for Mac build: in case of error with lipo, it might be because of parallel build. To disactivate that feature in xcode, go to "Project/Edit Project settings" and uncheck "Build independant targets in parallel"
 
@@ -19,10 +21,15 @@ Note for Mac build: in case of error with lipo, it might be because of parallel 
 	Mac : libdivecomputer/libdivecomputer.xcodeproj
 	Windows : libdivecomputer/libdivecomputer.sdf
 
+- Linux build:
+	./configure
+	make
 
 - The built library will be :
 	Mac : libdivecomputer/build/Debug/liblibdivecomputer.dylib 
+	Linux : libdivecomputer/src/.libs/libdivecomputer.so
 	Windows : 
+
 
 3/ Build the package
 

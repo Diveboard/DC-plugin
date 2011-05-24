@@ -16,7 +16,7 @@
 #include <iostream>
 #include <errno.h>
 
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 #include <dirent.h>
 #endif
 
@@ -52,7 +52,7 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
 
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	recognisedPorts["Emu Suunto"].push_back(NO_PORT_NEEDED);
 	recognisedPorts["Emu Mares M2"].push_back(NO_PORT_NEEDED);
 
@@ -92,16 +92,16 @@ bool IsNumeric(WCHAR *pszString, BOOL bIgnoreColon)
 {
   size_t nLen = wcslen(pszString);
   if (nLen == 0)
-    return FALSE;
+    return false;
 
   //What will be the return value from this function (assume the best)
-  BOOL bNumeric = TRUE;
+  BOOL bNumeric = true;
 
   for (size_t i=0; i<nLen && bNumeric; i++)
   {
     bNumeric = (isdigit(static_cast<int>(pszString[i])) != 0);
     if (bIgnoreColon && (pszString[i] == ':'))
-      bNumeric = TRUE;
+      bNumeric = true;
   }
 
   return bNumeric;
@@ -186,7 +186,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   }
 
   //Finally do the enumeration
-  BOOL bMoreItems = TRUE;
+  BOOL bMoreItems = true;
   int nIndex = 0;
   SP_DEVINFO_DATA devInfo;
   while (bMoreItems)
@@ -197,7 +197,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
     if (bMoreItems)
     {
       //Did we find a serial port for this device
-      BOOL bAdded = FALSE;
+      BOOL bAdded = false;
 
       //Get the registry key which stores the ports settings
       HKEY hDeviceKey = lpfnLPSETUPDIOPENDEVREGKEY(hDevInfoSet, &devInfo, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_QUERY_VALUE);
@@ -215,12 +215,12 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
           size_t nLen = _tcslen(szPortName);
           if (nLen > 3)
           {
-            if ((_tcsnicmp(szPortName, _T("COM"), 3) == 0) && IsNumeric(&(szPortName[3]), FALSE))
+            if ((_tcsnicmp(szPortName, _T("COM"), 3) == 0) && IsNumeric(&(szPortName[3]), false))
             {
               //Work out the port number
               int nPort = _ttoi(&(szPortName[3]));
 			  ports.push_back(str(boost::format("\\\\.\\COM%1%") % nPort));
-              bAdded = TRUE;
+              bAdded = true;
             }
           }
         }
@@ -278,29 +278,33 @@ void ComputerFactory::listPorts(std::string &a)
 
 #endif
 
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 
 void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendlyNames)
 {
-    int r;
+	int r;
 	DIR *dp;
-    struct dirent *dirp;
-    
+	struct dirent *dirp;
+
 	friendlyNames.empty();
 	files.empty();
 	
-	if((dp  = opendir("/dev")) == NULL)
+	if((dp = opendir("/dev")) == NULL)
 		throw DBException(str(boost::format("Error (%1%) while opening /dev") % errno));
-	
-    while ((dirp = readdir(dp)) != NULL) {
+
+	while ((dirp = readdir(dp)) != NULL) {
 		//todo : a NULL can also mean an error....
+#if defined(__MACH__)
 		LOGINFO(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
-        if (!strncmp("tty.", dirp->d_name, 4)) {
+		if (!strncmp("tty.", dirp->d_name, 4)) {
+#elif defined(__linux__)
+		if (!strncmp("ttyS", dirp->d_name, 4) || !strncmp("ttyUSB", dirp->d_name, 6)) {
+#endif
 			files.push_back(str(boost::format("/dev/%1%") % dirp->d_name));
 			friendlyNames.push_back(std::string(dirp->d_name));
 		}
-    }
-    
+	}
+
 	r = closedir(dp);
 	if (r) LOGINFO("Warning - Error while closing dir in ListTTY");
 }
@@ -325,7 +329,7 @@ std::string ComputerFactory::detectConnectedDevice(const std::string &computerTy
 #ifdef _WIN32
 	LOGINFO("Using SetupAPI");
 	UsingSetupAPI1(fileNames, friendlyNames);
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	ListTTY(fileNames, friendlyNames);
 #else
 #error "Platform not supported"
@@ -360,7 +364,7 @@ std::map <std::string, std::string> ComputerFactory::allPorts()
 #ifdef _WIN32
 	LOGINFO("Using SetupAPI");
 	UsingSetupAPI1(fileNames, friendlyNames);
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	ListTTY(fileNames, friendlyNames);
 #else
 #error "Platform not supported"

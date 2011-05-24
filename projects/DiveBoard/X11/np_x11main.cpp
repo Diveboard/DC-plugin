@@ -6,7 +6,7 @@
   doing!
 \**********************************************************/
 
-#include "config.h"
+#include "../gen/global/config.h"
 #include "NpapiTypes.h"
 #include "NpapiPluginModule.h"
 

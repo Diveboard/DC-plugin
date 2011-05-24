@@ -16,8 +16,8 @@ public:
 	DBException(std::string t, std::exception e);
 	DBException(std::string t);
 	~DBException(void) throw();
-	virtual const char* what() const throw() { 
-		return m_error.c_str(); 
+	virtual const char* what() const throw() {
+		return m_error.c_str();
 	}
 };
 

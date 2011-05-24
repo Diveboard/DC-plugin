@@ -52,7 +52,7 @@ ComputerMares::~ComputerMares(void)
 static gboolean suunto_detect_interface(gint fd) 
 {
   int rc=0;
-  gboolean rval=FALSE;
+  gboolean rval=false;
 	
   set_rts(fd,RTS_STATUS_ON);
   usleep(300000);
@@ -67,19 +67,19 @@ static gboolean suunto_detect_interface(gint fd)
     set_rts(fd,RTS_STATUS_ON);	// Try transfer mode now 
     if(!suunto_send_testcmd(fd,"AT\r")) g_printerr(_("Cannot detect Suunto interface.")); 
     else {
-      rval=TRUE;	
+      rval=true;	
       set_rts(fd,RTS_STATUS_OFF);
       rc=suunto_read_serial(fd);
       if(rc==-1) {
 
-        ifacealwaysechos=FALSE;
+        ifacealwaysechos=false;
       }
       else {
 
         suunto_read_serial(fd);
         suunto_read_serial(fd);
         suunto_read_serial(fd);
-        ifacealwaysechos=TRUE;
+        ifacealwaysechos=true;
       }
     }
   }
@@ -97,7 +97,7 @@ unsigned char ComputerMares::generate_crc(unsigned char *buffer,int len)
 
 bool ComputerMares::send_command(unsigned char *commbuffer,int len) 
 {
-  bool rval=TRUE;
+  bool rval=true;
 	std::string command;
   for (int i=0; i<len; i++)
 	  command.append(" %02X", (int)commbuffer[i]);
@@ -163,7 +163,7 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
 	  data += str(boost::format(" %02X") % (int)reply[0]);
 
 		if(crc==readcrc && rc >=0 ) 
-			rval=TRUE;
+			rval=true;
 		else {
 			LOGINFO("CRC Error -- %s", data.c_str());
 			LOGINFO("CRC calculated : %02X - CRC read (string) : %.2s - CRC read (int) : %2X", (int)crc, buffcrc, (int)readcrc);

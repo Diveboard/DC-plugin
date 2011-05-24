@@ -49,7 +49,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plugin(plugin), m_host(host)
 {
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 		alwaysAsync=true;
 #else
 		alwaysAsync=true;

@@ -300,7 +300,9 @@ extern "C" {
 typedef char*          (*NP_GetPluginVersionFunc)(void);
 NP_EXPORT(char*)       NP_GetPluginVersion(void);
 typedef const char*    (*NP_GetMIMEDescriptionFunc)(void);
+#ifndef __linux__
 NP_EXPORT(const char*) NP_GetMIMEDescription(void);
+#endif
 #ifdef XP_MACOSX
 typedef NPError        (*NP_InitializeFunc)(NPNetscapeFuncs*);
 NP_EXPORT(NPError)     NP_Initialize(NPNetscapeFuncs* bFuncs);

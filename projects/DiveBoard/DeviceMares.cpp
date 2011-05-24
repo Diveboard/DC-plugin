@@ -20,7 +20,7 @@
 #endif
 #include <time.h>
 
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <stdio.h>
@@ -111,7 +111,7 @@ int DeviceMares::open()
 		return (SUUNTO_ERR_SETSIG);
 	}	
 	
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	
 	struct termios options;
 	
@@ -163,7 +163,7 @@ int DeviceMares::open()
  
  int len;
  DWORD  out;
- bool rval=FALSE;
+ bool rval=false;
  
  len=strlen(cmd);
  
@@ -202,7 +202,7 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 	rval = ReadFile(hCom, buff, num, &out, NULL);
 	if (rval && out > 0) return rval;
 	
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	
 	fd_set fds;
 	struct timeval tv;
@@ -240,7 +240,7 @@ int DeviceMares::write_serial(unsigned char *buffer,int len)
 	FlushFileBuffers(hCom);
 	Sleep(200);
 	
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	rc = write(hCom,buffer,len);
 	tcdrain(hCom);
 	usleep(200000);

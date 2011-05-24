@@ -19,7 +19,7 @@
 //#define			 WCHAR char;
 //#define			 BOOL char;
 
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 typedef unsigned int UINT;
 typedef char BOOL;
 typedef wchar_t WCHAR;

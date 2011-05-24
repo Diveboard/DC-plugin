@@ -32,7 +32,7 @@ ComputerSuunto::~ComputerSuunto(void)
 static gboolean suunto_detect_interface(gint fd) 
 {
   int rc=0;
-  gboolean rval=FALSE;
+  gboolean rval=false;
 	
   set_rts(fd,RTS_STATUS_ON);
   usleep(300000);
@@ -47,19 +47,19 @@ static gboolean suunto_detect_interface(gint fd)
     set_rts(fd,RTS_STATUS_ON);	// Try transfer mode now 
     if(!suunto_send_testcmd(fd,"AT\r")) g_printerr(_("Cannot detect Suunto interface.")); 
     else {
-      rval=TRUE;	
+      rval=true;	
       set_rts(fd,RTS_STATUS_OFF);
       rc=suunto_read_serial(fd);
       if(rc==-1) {
 
-        ifacealwaysechos=FALSE;
+        ifacealwaysechos=false;
       }
       else {
 
         suunto_read_serial(fd);
         suunto_read_serial(fd);
         suunto_read_serial(fd);
-        ifacealwaysechos=TRUE;
+        ifacealwaysechos=true;
       }
     }
   }
@@ -79,14 +79,14 @@ void ComputerSuunto::send_command(unsigned char *commbuffer,int len)
 {
   int rc;
   unsigned char buff;
-  bool rval=TRUE;
+  bool rval=true;
 	std::string command;
   for (int i=0; i<len; i++)
 	  command += str(boost::format(" %02X") % (int)(commbuffer[i]));
 
 #ifdef _WIN32
   Sleep(800);
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
   usleep(800000);	
 #else
 #error unsoupported platform
@@ -105,10 +105,10 @@ void ComputerSuunto::send_command(unsigned char *commbuffer,int len)
     while(len--) {
 	  try {
 		  rc=device->read_serial(&buff);
-		  if(rc==-1 || buff!=*commbuffer++) rval=FALSE;
+		  if(rc==-1 || buff!=*commbuffer++) rval=false;
 	  } catch (...) {
 		  //todo : handle errors on communications  
-		  rval = FALSE;
+		  rval = false;
 	  }
     }
   }
@@ -140,7 +140,7 @@ void ComputerSuunto::read(int start,char *retbuffer,int len)
   send_command(command,5);
 #ifdef _WIN32
 	  Sleep(800);
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	  usleep(8000);	
 #else
 #error unsupported platform
@@ -164,7 +164,7 @@ void ComputerSuunto::read(int start,char *retbuffer,int len)
 
 	  device->read_serial(&read);
 	  data += str(boost::format(" %02X") % (int)read);
-      if(crc==read) rval=TRUE;
+      if(crc==read) rval=true;
       else {
 		  LOGINFO("CRC Error -- %s", data.c_str());
 		  throw DBException("CRC Error while reading");
@@ -295,7 +295,7 @@ void ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel mod
 /*    if(last_dive_datetime) {
       if(g_utf8_collate(dive.datetime,last_dive_datetime)<0) {
         g_free(dive.datetime);
-        return FALSE;
+        return false;
       }
     }*/
     interval=divebuf[i-3];
@@ -358,8 +358,8 @@ void ComputerSuunto::parse_dive(unsigned char *divebuf,int len,ComputerModel mod
     );
     if(g_utf8_collate(dive.datetime,last_dive_datetime)<0) {
       g_free(dive.datetime);
-      g_array_free(dive.profile,TRUE);
-      return FALSE;
+      g_array_free(dive.profile,true);
+      return false;
     }
     interval=divebuf[i-8];
     for(j=1;j<dive.profile->len;j++) {

@@ -11,19 +11,20 @@
 #define SO_LIB "/Library/Internet Plug-Ins/Diveboard.plugin/Contents/MacOS/liblibdivecomputer.dylib"
 #endif
 
+#ifdef __linux__
+#include <dlfcn.h>
+#define SO_LIB "/usr/lib/diveboard/libdivecomputer.so"
+#endif
+
 #include "Logger.h"
 
-#ifdef WIN32
+#define MAX_TEMP 99999
 
+#ifdef WIN32
 #define DLL_PATH (L"\\DiveBoard\\libdivecomputer.dll")
 #define DLL_NAME (L"\\libdivecomputer.dll")
 //return reinterpret_cast<HINSTANCE>(&__ImageBase);
 //#define DLL_PATH _T("libdivecomputer.dll")
-#endif
-
-#define MAX_TEMP 99999
-
-
 
 HRESULT RegGetString(HKEY hKey, LPCTSTR szValueName, LPTSTR * lpszResult) {
 
@@ -68,12 +69,13 @@ HRESULT RegGetString(HKEY hKey, LPCTSTR szValueName, LPTSTR * lpszResult) {
 	return NOERROR;
 }
 
+#endif
 
 LIBTYPE openDLLLibrary()
 {
 #ifdef WIN32
 	//Load the LibDiveComputer library
-	wchar_t path[1024]; 
+	wchar_t path[1024];
 	DWORD l = GetEnvironmentVariable(L"CommonProgramFiles", path, sizeof(path));
 	if (l>sizeof(path))
 		DBthrowError("path buffer is too small !!!");
@@ -91,7 +93,7 @@ LIBTYPE openDLLLibrary()
 
 		lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\DiveBoard", 0, KEY_QUERY_VALUE, &hkey);
 
-		if (lResult != ERROR_SUCCESS) 
+		if (lResult != ERROR_SUCCESS)
 			throw std::exception();
 		else
 		{
@@ -121,10 +123,10 @@ LIBTYPE openDLLLibrary()
 	{
     LPVOID lpMsgBuf;
     LPVOID lpDisplayBuf;
-    DWORD dw = GetLastError(); 
+    DWORD dw = GetLastError();
 
     FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
         FORMAT_MESSAGE_FROM_SYSTEM |
         FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL,
@@ -132,7 +134,7 @@ LIBTYPE openDLLLibrary()
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
         (LPTSTR) &lpMsgBuf,
         0, NULL );
-		
+
 		std::string msg = str(boost::format("Error loading DLL at %s : %d - %s") % dll_s % dw % (char*)lpMsgBuf);
 
 		LocalFree(lpMsgBuf);
@@ -141,15 +143,15 @@ LIBTYPE openDLLLibrary()
 	}
 
 	return libdc;
-#elif __MACH__
-	
+#elif defined(__MACH__) || defined(__linux__)
+
 	void *libdc;
 	libdc = dlopen(SO_LIB,RTLD_LAZY);
 	if (!libdc) DBthrowError("Impossible to load library : %s", dlerror());
-	
+
 	return libdc;
-	
-	
+
+
 #else
 #error "not supported"
 #endif
@@ -157,13 +159,13 @@ LIBTYPE openDLLLibrary()
 
 void closeDLLLibrary(LIBTYPE &lib)
 {
-#ifdef __MACH__
-	if (!dlclose(lib)) 
+#if defined(__MACH__) || defined(__linux__)
+	if (!dlclose(lib))
 		lib=NULL;
 #elif _WIN32
 	if (FreeLibrary(lib))
 		lib=NULL;
-#else 
+#else
 #error "Not supported"
 #endif
 }
@@ -177,12 +179,12 @@ void *getDLLFunction(LIBTYPE libdc, const char *function)
 
 #ifdef WIN32
 	ptr = GetProcAddress(libdc, function);
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	ptr = dlsym(libdc, function);
 #else
 #error "OS not supported"
 #endif
-	
+
 	if (!ptr)
 		DBthrowError("Error fetching DLL pointer to %s", function);
 
@@ -307,7 +309,7 @@ lookup_name (device_type_t type)
 		if (g_backends[i].type == type)
 			return g_backends[i].name;
 	}
-	
+
 	LOGWARNING("Name of type (%d) not found", type);
 	return NULL;
 }
@@ -484,7 +486,7 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 			vendor += str(boost::format("vendor type=\"%u\" size=\"%u\"") % value.vendor.type % value.vendor.size);
 			for (unsigned int i = 0; i < value.vendor.size; ++i)
 				vendor += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
-			
+
 			LOGINFO(vendor);
 			break;
 		default:
@@ -771,7 +773,7 @@ int G_dive_cb (const unsigned char *data, unsigned int size, const unsigned char
 {
 	dive_data_t *divedata = (dive_data_t *) userdata;
 	ComputerLibdc *computer = divedata->computer;
-	
+
 	return(computer->dive_cb (data, size, fingerprint, fsize, userdata));
 }
 
@@ -797,7 +799,7 @@ int ComputerLibdc::dive_cb (const unsigned char *data, unsigned int size, const 
 		LDCPARSERDESTROY *parser_destroy = reinterpret_cast<LDCPARSERDESTROY*>(getDLLFunction(libdc, "parser_destroy"));
 		LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
 		LOGDEBUG("General pointers to LibDiveComputer fetched");
-	
+
 
 		LOGINFO("Dive: number=%u, size=%u", divedata->number, size);
 		for (unsigned int i = 0; i < fsize; ++i)
@@ -856,7 +858,7 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	LDCPARSERDESTROY *parser_destroy = reinterpret_cast<LDCPARSERDESTROY*>(getDLLFunction(libdc, "parser_destroy"));
 	LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
 	LOGDEBUG("General pointers to LibDiveComputer fetched");
-	
+
 	// Open the device.
 	LOGINFO("Opening the device (%s, %s).", lookup_name (backend), devname.c_str());
 	device_t *device = NULL;
@@ -947,7 +949,7 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	else {
 		DBthrowError("Error in getching DLL pointers to function");
 	}
-		
+
 	if (rc != DEVICE_STATUS_SUCCESS)
 		DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
 
@@ -1090,7 +1092,7 @@ int ComputerLibdc::_get_all_dives(std::string &diveXML)
 
 	status.state = COMPUTER_FINISHED;
 	return(0);
-} 
+}
 
 
 
@@ -1115,7 +1117,7 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
 	LOGDEBUG("Opening LibDiveComputer");
 	libdc = openDLLLibrary();
 
-		
+
 	//message_set_logfile("d:\\temp\\libdc.log");
 	//return COMPUTER_MODEL_UNKNOWN;
 }

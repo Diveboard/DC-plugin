@@ -20,7 +20,7 @@
 #endif
 #include <time.h>
 
-#ifdef __MACH__
+#if defined(__MACH__) || defined(__linux__)
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <stdio.h>
@@ -40,7 +40,7 @@ void ComDevice::set_rts(RTSStatus status)
 #ifdef _WIN32
 	if(!EscapeCommFunction(hCom, status?CLRRTS:SETRTS))
 		throw DBException("Error setting RTS on COM Port");
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	
 	unsigned int bits=TIOCM_RTS;
 	
@@ -58,7 +58,7 @@ void ComDevice::set_dtr(DTRStatus status)
 #ifdef _WIN32
 	if(!EscapeCommFunction(hCom, status?CLRDTR:SETDTR))
 		throw DBException("Error setting DTR on COM Port");
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 	
 	unsigned int bits;
 	
@@ -83,7 +83,7 @@ void ComDevice::close()
 #ifdef _WIN32
 		if (!CloseHandle(hCom))
 			LOGINFO("Warning - Error closing COM Port");
-#elif __MACH__
+#elif defined(__MACH__) || defined(__linux__)
 		::close(hCom);
 #else	
 #error Platform not supported

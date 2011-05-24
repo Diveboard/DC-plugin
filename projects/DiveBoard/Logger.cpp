@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 
+#ifdef __linux__
+#include <stdarg.h>
+#endif
 
 using boost::format;
 
