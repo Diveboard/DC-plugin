@@ -15,6 +15,7 @@ public:
 	std::map <std::string, std::string>detectConnectedDevice();
 	Computer *createComputer(const std::string &type, const std::string &filename);
 	std::string detectConnectedDevice(const std::string &computerType);
+	bool isComputerPluggedin();
 	std::map <std::string, std::string> allPorts();
 protected:
 	void listPorts(std::string &);

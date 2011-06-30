@@ -67,6 +67,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		registerMethod("extract", make_method(this, &DiveBoardAPI::extract));
 		registerMethod("detect",  make_method(this, &DiveBoardAPI::detect));
 		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
+		registerMethod("isComputerPluggedin",make_method(this, &DiveBoardAPI::isComputerPluggedin));
 
 		// Read-only property
 		registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
@@ -293,4 +294,20 @@ FB::VariantMap DiveBoardAPI::allports()
 		ret[it->first] = FB::variant(it->second);
 
 	return(ret);
+}
+
+
+FB::variant DiveBoardAPI::isComputerPluggedin()
+{
+	try
+	{
+		ComputerFactory factory;
+		bool found = factory.isComputerPluggedin();
+		return(FB::variant(found));
+
+	} catch(DBException e)
+	{
+		LOGINFO("Caught Exception : %s", e.what());
+	}
+	return(FB::variant(false));
 }

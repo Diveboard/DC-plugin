@@ -36,6 +36,7 @@ public:
 	void extract(const std::string& labal, const std::string& sport);
 	FB::variant detect(const std::string& computerType);
 	FB::VariantMap allports();
+	FB::variant isComputerPluggedin();
 private:
     DiveBoardWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;
