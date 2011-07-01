@@ -258,8 +258,8 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   //Unload the setup dll
   FreeLibrary(hSetupAPI);
 
-  for (unsigned int i=0; i< ports.size();i++)
-	  LOGINFO(str(boost::format("COM port found : %s - %s") % ports[i] % friendlyNames[i]));
+  //for (unsigned int i=0; i< ports.size();i++)
+  //  LOGINFO(str(boost::format("COM port found : %s - %s") % ports[i] % friendlyNames[i]));
 }
 
 void ComputerFactory::listPorts(std::string &a)
@@ -382,11 +382,10 @@ bool ComputerFactory::isComputerPluggedin()
 	std::vector<std::string> fileNames;
 	std::vector<std::string> friendlyNames;
 
-	LOGINFO("Checking for potential known ports");
+	LOGINFO("Autodetect : Checking for potential known ports");
 
 	//1 list ports
 #ifdef _WIN32
-	LOGINFO("Using SetupAPI");
 	UsingSetupAPI1(fileNames, friendlyNames);
 #elif defined(__MACH__) || defined(__linux__)
 	ListTTY(fileNames, friendlyNames);
@@ -396,23 +395,26 @@ bool ComputerFactory::isComputerPluggedin()
 	
 	//2 filter interesting ones
 	for (unsigned int i=0; i< fileNames.size();i++) {
-		LOGINFO("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
+		//LOGINFO("Checking port %s - %s", fileNames[i].c_str(), friendlyNames[i].c_str());
 		
 		std::map <std::string, std::vector<std::string> >::const_iterator end = recognisedPorts.end();
 
 		for (std::map <std::string, std::vector<std::string> >::const_iterator it = recognisedPorts.begin(); it != end; ++it)
 			for (unsigned int j=0; j<it->second.size(); j++)
 			{
-				LOGDEBUG("Comparing '%s' with '%s' : %d", friendlyNames[i].c_str(), it->second[j].c_str(),it->second[j].compare(friendlyNames[i]));
+				//LOGDEBUG("Comparing '%s' with '%s' : %d", friendlyNames[i].c_str(), it->second[j].c_str(),it->second[j].compare(friendlyNames[i]));
 				//do not autodetect computers not needing any port
 				//if (!it->second[j].compare(NO_PORT_NEEDED))
 				//		return(NO_PORT_NEEDED);
 				if (!it->second[j].compare(friendlyNames[i]))
-						return(true);
+				{
+					LOGINFO("Autodetect : Found something : '%s' on '%s'", friendlyNames[i].c_str(), fileNames[i].c_str());
+					return(true);
+				}
 			}
 	}
 	
-	LOGINFO("No interesting port found !");
+	LOGINFO("Autodetect : No interesting port found !");
 	return(false);
 
 }
