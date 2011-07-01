@@ -22,7 +22,7 @@
 #ifndef MARES_PUCK_H
 #define MARES_PUCK_H
 
-#include "deviceL.h"
+#include "device.h"
 #include "parser.h"
 
 #ifdef __cplusplus

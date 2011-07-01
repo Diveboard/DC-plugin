@@ -41,7 +41,7 @@
 
 typedef struct mares_puck_device_t {
 	mares_common_device_t base;
-	struct serial *port;
+	serial_t *port;
 } mares_puck_device_t;
 
 static device_status_t mares_puck_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
@@ -146,6 +146,9 @@ mares_puck_device_open (device_t **out, const char* name)
 		free (device);
 		return DEVICE_STATUS_IO;
 	}
+
+	// Make sure everything is in a sane state.
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
 
 	// Identify the model number.
 	unsigned char header[PACKETSIZE] = {0};

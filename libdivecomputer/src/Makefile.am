@@ -7,7 +7,7 @@ libdivecomputer_HEADERS = 	\
 	version.h \
 	utils.h \
 	buffer.h \
-	deviceL.h \
+	device.h \
 	parser.h \
 	datetime.h \
 	units.h \
@@ -32,10 +32,13 @@ libdivecomputer_HEADERS = 	\
 	mares.h \
 	mares_nemo.h \
 	mares_puck.h \
+	mares_iconhd.h \
 	hw.h \
 	hw_ostc.h \
 	cressi.h \
-	cressi_edy.h
+	cressi_edy.h \
+	zeagle.h \
+	zeagle_n2ition3.h
 
 #
 # Source files.
@@ -56,7 +59,7 @@ endif
 
 libdivecomputer_la_SOURCES = \
 	version.c \
-	devicel.h device-private.h deviceL.c \
+	device.h device-private.h device.c \
 	parser.h parser-private.h parser.c \
 	datetime.h datetime.c \
 	suunto.h \
@@ -84,10 +87,13 @@ libdivecomputer_la_SOURCES = \
 	mares_common.h mares_common.c \
 	mares_nemo.h mares_nemo.c mares_nemo_parser.c \
 	mares_puck.h mares_puck.c \
+	mares_iconhd.h mares_iconhd.c mares_iconhd_parser.c \
 	hw.h \
 	hw_ostc.h hw_ostc.c hw_ostc_parser.c \
 	cressi.h \
 	cressi_edy.h cressi_edy.c cressi_edy_parser.c \
+	zeagle.h \
+	zeagle_n2ition3.h zeagle_n2ition3.c \
 	ringbuffer.h ringbuffer.c \
 	checksum.h checksum.c \
 	array.h array.c \

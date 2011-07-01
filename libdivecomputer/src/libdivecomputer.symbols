@@ -35,6 +35,7 @@ suunto_solution_parser_create
 suunto_eon_parser_create
 suunto_d9_parser_create
 mares_nemo_parser_create
+mares_iconhd_parser_create
 oceanic_vtpro_parser_create
 oceanic_veo250_parser_create
 oceanic_atom2_parser_create
@@ -60,6 +61,8 @@ mares_nemo_device_open
 mares_nemo_extract_dives
 mares_puck_device_open
 mares_puck_extract_dives
+mares_iconhd_device_open
+mares_iconhd_extract_dives
 oceanic_atom2_device_open
 oceanic_atom2_device_keepalive
 oceanic_veo250_device_open
@@ -109,3 +112,4 @@ uwatec_smart_device_set_timestamp
 uwatec_smart_extract_dives
 hw_ostc_device_open
 hw_ostc_extract_dives
+zeagle_n2ition3_device_open

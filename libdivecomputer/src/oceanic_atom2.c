@@ -43,7 +43,7 @@
 
 typedef struct oceanic_atom2_device_t {
 	oceanic_common_device_t base;
-	struct serial *port;
+	serial_t *port;
 	unsigned char version[PAGESIZE];
 } oceanic_atom2_device_t;
 
@@ -63,10 +63,15 @@ static const device_backend_t oceanic_atom2_device_backend = {
 	oceanic_atom2_device_close /* close */
 };
 
+static const unsigned char oceanic_proplus2_version[] = "PROPLUS2 \0\0 512K";
+static const unsigned char oceanic_wisdom2_version[] = "WISDOM R\0\0  512K";
 static const unsigned char oceanic_atom2_version[] = "2M ATOM r\0\0 512K";
+static const unsigned char oceanic_epic_version[]  = "2M EPIC r\0\0 512K";
+static const unsigned char oceanic_geo2_version[]  = "OCEGEO20 \0\0 512K";
 static const unsigned char oceanic_oc1_version[]   = "OCWATCH R\0\0 1024";
+static const unsigned char tusa_zenair_version[]   = "TUZENAIR \0\0 512K";
 
-static const oceanic_common_layout_t oceanic_atom2_layout = {
+static const oceanic_common_layout_t oceanic_default_layout = {
 	0x10000, /* memsize */
 	0x0000, /* cf_devinfo */
 	0x0040, /* cf_pointers */
@@ -76,6 +81,30 @@ static const oceanic_common_layout_t oceanic_atom2_layout = {
 	0x10000, /* rb_profile_end */
 	0, /* pt_mode_global */
 	0 /* pt_mode_logbook */
+};
+
+static const oceanic_common_layout_t oceanic_atom2_layout = {
+	0xFFF0, /* memsize */
+	0x0000, /* cf_devinfo */
+	0x0040, /* cf_pointers */
+	0x0240, /* rb_logbook_begin */
+	0x0A40, /* rb_logbook_end */
+	0x0A40, /* rb_profile_begin */
+	0xFFF0, /* rb_profile_end */
+	0, /* pt_mode_global */
+	0 /* pt_mode_logbook */
+};
+
+static const oceanic_common_layout_t tusa_zenair_layout = {
+	0xFFF0, /* memsize */
+	0x0000, /* cf_devinfo */
+	0x0040, /* cf_pointers */
+	0x0240, /* rb_logbook_begin */
+	0x0A40, /* rb_logbook_end */
+	0x0A40, /* rb_profile_begin */
+	0xFFF0, /* rb_profile_end */
+	0, /* pt_mode_global */
+	1 /* pt_mode_logbook */
 };
 
 static const oceanic_common_layout_t oceanic_oc1_layout = {
@@ -102,7 +131,7 @@ device_is_oceanic_atom2 (device_t *abstract)
 
 
 static device_status_t
-oceanic_atom2_send (oceanic_atom2_device_t *device, const unsigned char command[], unsigned int csize)
+oceanic_atom2_send (oceanic_atom2_device_t *device, const unsigned char command[], unsigned int csize, unsigned char ack)
 {
 	device_t *abstract = (device_t *) device;
 
@@ -117,7 +146,7 @@ oceanic_atom2_send (oceanic_atom2_device_t *device, const unsigned char command[
 	}
 
 	// Receive the response (ACK/NAK) of the dive computer.
-	unsigned char response = NAK;
+	unsigned char response = 0;
 	n = serial_read (device->port, &response, 1);
 	if (n != 1) {
 		WARNING ("Failed to receive the answer.");
@@ -125,7 +154,7 @@ oceanic_atom2_send (oceanic_atom2_device_t *device, const unsigned char command[
 	}
 
 	// Verify the response of the dive computer.
-	if (response != ACK) {
+	if (response != ack) {
 		WARNING ("Unexpected answer start byte(s).");
 		return DEVICE_STATUS_PROTOCOL;
 	}
@@ -145,13 +174,17 @@ oceanic_atom2_transfer (oceanic_atom2_device_t *device, const unsigned char comm
 
 	unsigned int nretries = 0;
 	device_status_t rc = DEVICE_STATUS_SUCCESS;
-	while ((rc = oceanic_atom2_send (device, command, csize)) != DEVICE_STATUS_SUCCESS) {
+	while ((rc = oceanic_atom2_send (device, command, csize, ACK)) != DEVICE_STATUS_SUCCESS) {
 		if (rc != DEVICE_STATUS_TIMEOUT && rc != DEVICE_STATUS_PROTOCOL)
 			return rc;
 
 		// Abort if the maximum number of retries is reached.
 		if (nretries++ >= MAXRETRIES)
 			return rc;
+
+		// Delay the next attempt.
+		serial_sleep (100);
+		serial_flush (device->port, SERIAL_QUEUE_INPUT);
 	}
 
 	if (asize) {
@@ -180,25 +213,12 @@ oceanic_atom2_init (oceanic_atom2_device_t *device)
 {
 	// Send the command to the dive computer.
 	unsigned char command[3] = {0xA8, 0x99, 0x00};
-	int n = serial_write (device->port, command, sizeof (command));
-	if (n != sizeof (command)) {
-		WARNING ("Failed to send the command.");
-		return EXITCODE (n);
-	}
+	device_status_t rc = oceanic_atom2_send (device, command, sizeof (command), NAK);
+	if (rc != DEVICE_STATUS_SUCCESS)
+		return rc;
 
-	// Receive the answer of the dive computer.
-	unsigned char answer[1] = {0};
-	n = serial_read (device->port, answer, sizeof (answer));
-	if (n != sizeof (answer)) {
-		WARNING ("Failed to receive the answer.");
-		return EXITCODE (n);
-	}
-
-	// Verify the answer.
-	if (answer[0] != NAK) {
-		WARNING ("Unexpected answer byte(s).");
-		return DEVICE_STATUS_PROTOCOL;
-	}
+	// Discard all additional bytes (if there are any)
+	serial_flush (device->port, SERIAL_QUEUE_INPUT);
 
 	return DEVICE_STATUS_SUCCESS;
 }
@@ -209,25 +229,9 @@ oceanic_atom2_quit (oceanic_atom2_device_t *device)
 {
 	// Send the command to the dive computer.
 	unsigned char command[4] = {0x6A, 0x05, 0xA5, 0x00};
-	int n = serial_write (device->port, command, sizeof (command));
-	if (n != sizeof (command)) {
-		WARNING ("Failed to send the command.");
-		return EXITCODE (n);
-	}
-
-	// Receive the answer of the dive computer.
-	unsigned char answer[1] = {0};
-	n = serial_read (device->port, answer, sizeof (answer));
-	if (n != sizeof (answer)) {
-		WARNING ("Failed to receive the answer.");
-		return EXITCODE (n);
-	}
-
-	// Verify the answer.
-	if (answer[0] != NAK) {
-		WARNING ("Unexpected answer byte(s).");
-		return DEVICE_STATUS_PROTOCOL;
-	}
+	device_status_t rc = oceanic_atom2_send (device, command, sizeof (command), NAK);
+	if (rc != DEVICE_STATUS_SUCCESS)
+		return rc;
 
 	return DEVICE_STATUS_SUCCESS;
 }
@@ -292,9 +296,6 @@ oceanic_atom2_device_open (device_t **out, const char* name)
 		return status;
 	}
 
-	// Make sure everything is in a sane state.
-	serial_flush (device->port, SERIAL_QUEUE_BOTH);
-
 	// Switch the device from surface mode into download mode. Before sending
 	// this command, the device needs to be in PC mode (automatically activated
 	// by connecting the device), or already in download mode.
@@ -308,8 +309,16 @@ oceanic_atom2_device_open (device_t **out, const char* name)
 	// Override the base class values.
 	if (oceanic_common_match (oceanic_oc1_version, device->version, sizeof (device->version)))
 		device->base.layout = &oceanic_oc1_layout;
-	else
+	else if (oceanic_common_match (tusa_zenair_version, device->version, sizeof (device->version)))
+		device->base.layout = &tusa_zenair_layout;
+	else if (oceanic_common_match (oceanic_atom2_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_epic_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_geo2_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_proplus2_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_wisdom2_version, device->version, sizeof (device->version)))
 		device->base.layout = &oceanic_atom2_layout;
+	else
+		device->base.layout = &oceanic_default_layout;
 
 	*out = (device_t*) device;
 

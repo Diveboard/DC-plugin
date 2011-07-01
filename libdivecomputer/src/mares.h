@@ -24,5 +24,6 @@
 
 #include "mares_nemo.h"
 #include "mares_puck.h"
+#include "mares_iconhd.h"
 
 #endif /* MARES_H */

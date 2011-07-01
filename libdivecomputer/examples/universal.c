@@ -41,6 +41,7 @@
 #include <mares.h>
 #include <hw.h>
 #include <cressi.h>
+#include <zeagle.h>
 #include <utils.h>
 
 static const char *g_cachedir = NULL;
@@ -86,8 +87,10 @@ static const backend_table_t g_backends[] = {
 	{"atom2",		DEVICE_TYPE_OCEANIC_ATOM2},
 	{"nemo",		DEVICE_TYPE_MARES_NEMO},
 	{"puck",		DEVICE_TYPE_MARES_PUCK},
+	{"iconhd",		DEVICE_TYPE_MARES_ICONHD},
 	{"ostc",		DEVICE_TYPE_HW_OSTC},
-	{"edy",			DEVICE_TYPE_CRESSI_EDY}
+	{"edy",			DEVICE_TYPE_CRESSI_EDY},
+	{"n2ition3",	DEVICE_TYPE_ZEAGLE_N2ITION3}
 };
 
 static device_type_t
@@ -318,7 +321,7 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 		rc = oceanic_vtpro_parser_create (&parser);
 		break;
 	case DEVICE_TYPE_OCEANIC_VEO250:
-		rc = oceanic_veo250_parser_create (&parser);
+		rc = oceanic_veo250_parser_create (&parser, devdata->devinfo.model);
 		break;
 	case DEVICE_TYPE_OCEANIC_ATOM2:
 		rc = oceanic_atom2_parser_create (&parser, devdata->devinfo.model);
@@ -327,10 +330,14 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	case DEVICE_TYPE_MARES_PUCK:
 		rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
 		break;
+	case DEVICE_TYPE_MARES_ICONHD:
+		rc = mares_iconhd_parser_create (&parser);
+		break;
 	case DEVICE_TYPE_HW_OSTC:
 		rc = hw_ostc_parser_create (&parser);
 		break;
 	case DEVICE_TYPE_CRESSI_EDY:
+	case DEVICE_TYPE_ZEAGLE_N2ITION3:
 		rc = cressi_edy_parser_create (&parser);
 		break;
 	default:
@@ -587,11 +594,17 @@ dowork (device_type_t backend, const char *devname, const char *rawfile, const c
 	case DEVICE_TYPE_MARES_PUCK:
 		rc = mares_puck_device_open (&device, devname);
 		break;
+	case DEVICE_TYPE_MARES_ICONHD:
+		rc = mares_iconhd_device_open (&device, devname);
+		break;
 	case DEVICE_TYPE_HW_OSTC:
 		rc = hw_ostc_device_open (&device, devname);
 		break;
 	case DEVICE_TYPE_CRESSI_EDY:
 		rc = cressi_edy_device_open (&device, devname);
+		break;
+	case DEVICE_TYPE_ZEAGLE_N2ITION3:
+		rc = zeagle_n2ition3_device_open (&device, devname);
 		break;
 	default:
 		rc = DEVICE_STATUS_ERROR;

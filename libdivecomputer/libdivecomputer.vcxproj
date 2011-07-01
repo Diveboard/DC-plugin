@@ -106,6 +106,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="revision.h" />
     <ClInclude Include="src\array.h" />
     <ClInclude Include="src\buffer.h" />
     <ClInclude Include="src\checksum.h" />
@@ -119,6 +120,7 @@
     <ClInclude Include="src\irda.h" />
     <ClInclude Include="src\mares.h" />
     <ClInclude Include="src\mares_common.h" />
+    <ClInclude Include="src\mares_iconhd.h" />
     <ClInclude Include="src\mares_nemo.h" />
     <ClInclude Include="src\mares_puck.h" />
     <ClInclude Include="src\oceanic.h" />
@@ -149,6 +151,7 @@
     <ClInclude Include="src\uwatec_memomouse.h" />
     <ClInclude Include="src\uwatec_smart.h" />
     <ClInclude Include="src\version.h" />
+    <ClInclude Include="src\zeagle_n2ition3.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -167,6 +170,8 @@
     <ClCompile Include="src\hw_ostc_parser.c" />
     <ClCompile Include="src\irda_dummy.c" />
     <ClCompile Include="src\mares_common.c" />
+    <ClCompile Include="src\mares_iconhd.c" />
+    <ClCompile Include="src\mares_iconhd_parser.c" />
     <ClCompile Include="src\mares_nemo.c" />
     <ClCompile Include="src\mares_nemo_parser.c" />
     <ClCompile Include="src\mares_puck.c" />
@@ -185,7 +190,6 @@
     <ClCompile Include="src\reefnet_sensusultra_parser.c" />
     <ClCompile Include="src\reefnet_sensus_parser.c" />
     <ClCompile Include="src\ringbuffer.c" />
-    <ClCompile Include="src\serial_posix.c" />
     <ClCompile Include="src\serial_win32.c" />
     <ClCompile Include="src\suunto_common.c" />
     <ClCompile Include="src\suunto_common2.c" />
@@ -205,6 +209,7 @@
     <ClCompile Include="src\uwatec_smart.c" />
     <ClCompile Include="src\uwatec_smart_parser.c" />
     <ClCompile Include="src\version.c" />
+    <ClCompile Include="src\zeagle_n2ition3.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

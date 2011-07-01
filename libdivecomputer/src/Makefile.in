@@ -82,8 +82,8 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(defdir)" \
 	"$(DESTDIR)$(libdivecomputerdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-am__libdivecomputer_la_SOURCES_DIST = version.c deviceL.h \
-	device-private.h deviceL.c parser.h parser-private.h parser.c \
+am__libdivecomputer_la_SOURCES_DIST = version.c device.h \
+	device-private.h device.c parser.h parser-private.h parser.c \
 	datetime.h datetime.c suunto.h suunto_common.h suunto_common.c \
 	suunto_common2.h suunto_common2.c suunto_solution.h \
 	suunto_solution.c suunto_solution_parser.c suunto_eon.h \
@@ -102,9 +102,11 @@ am__libdivecomputer_la_SOURCES_DIST = version.c deviceL.h \
 	oceanic_veo250.c oceanic_veo250_parser.c oceanic_vtpro.h \
 	oceanic_vtpro.c oceanic_vtpro_parser.c mares.h mares_common.h \
 	mares_common.c mares_nemo.h mares_nemo.c mares_nemo_parser.c \
-	mares_puck.h mares_puck.c hw.h hw_ostc.h hw_ostc.c \
+	mares_puck.h mares_puck.c mares_iconhd.h mares_iconhd.c \
+	mares_iconhd_parser.c hw.h hw_ostc.h hw_ostc.c \
 	hw_ostc_parser.c cressi.h cressi_edy.h cressi_edy.c \
-	cressi_edy_parser.c ringbuffer.h ringbuffer.c checksum.h \
+	cressi_edy_parser.c zeagle.h zeagle_n2ition3.h \
+	zeagle_n2ition3.c ringbuffer.h ringbuffer.c checksum.h \
 	checksum.c array.h array.c buffer.h buffer.c utils.h utils.c \
 	serial.h serial_win32.c serial_posix.c irda.h irda.c \
 	irda_dummy.c libdivecomputer.rc
@@ -113,7 +115,7 @@ am__libdivecomputer_la_SOURCES_DIST = version.c deviceL.h \
 @IRDA_TRUE@am__objects_3 = irda.lo
 @IRDA_FALSE@am__objects_4 = irda_dummy.lo
 @OS_WIN32_TRUE@am__objects_5 = libdivecomputer.lo
-am_libdivecomputer_la_OBJECTS = version.lo deviceL.lo parser.lo \
+am_libdivecomputer_la_OBJECTS = version.lo device.lo parser.lo \
 	datetime.lo suunto_common.lo suunto_common2.lo \
 	suunto_solution.lo suunto_solution_parser.lo suunto_eon.lo \
 	suunto_eon_parser.lo suunto_vyper.lo suunto_vyper_parser.lo \
@@ -127,8 +129,9 @@ am_libdivecomputer_la_OBJECTS = version.lo deviceL.lo parser.lo \
 	oceanic_atom2_parser.lo oceanic_veo250.lo \
 	oceanic_veo250_parser.lo oceanic_vtpro.lo \
 	oceanic_vtpro_parser.lo mares_common.lo mares_nemo.lo \
-	mares_nemo_parser.lo mares_puck.lo hw_ostc.lo \
-	hw_ostc_parser.lo cressi_edy.lo cressi_edy_parser.lo \
+	mares_nemo_parser.lo mares_puck.lo mares_iconhd.lo \
+	mares_iconhd_parser.lo hw_ostc.lo hw_ostc_parser.lo \
+	cressi_edy.lo cressi_edy_parser.lo zeagle_n2ition3.lo \
 	ringbuffer.lo checksum.lo array.lo buffer.lo utils.lo \
 	$(am__objects_1) $(am__objects_2) $(am__objects_3) \
 	$(am__objects_4) $(am__objects_5)
@@ -298,7 +301,7 @@ libdivecomputer_HEADERS = \
 	version.h \
 	utils.h \
 	buffer.h \
-	deviceL.h \
+	device.h \
 	parser.h \
 	datetime.h \
 	units.h \
@@ -323,10 +326,13 @@ libdivecomputer_HEADERS = \
 	mares.h \
 	mares_nemo.h \
 	mares_puck.h \
+	mares_iconhd.h \
 	hw.h \
 	hw_ostc.h \
 	cressi.h \
-	cressi_edy.h
+	cressi_edy.h \
+	zeagle.h \
+	zeagle_n2ition3.h
 
 
 #
@@ -338,8 +344,8 @@ libdivecomputer_la_LDFLAGS = -version-info $(DC_VERSION_LIBTOOL) \
 	$(am__append_1)
 @OS_WIN32_TRUE@defdir = $(libdir)
 @OS_WIN32_TRUE@dist_def_DATA = libdivecomputer.def
-libdivecomputer_la_SOURCES = version.c deviceL.h device-private.h \
-	deviceL.c parser.h parser-private.h parser.c datetime.h \
+libdivecomputer_la_SOURCES = version.c device.h device-private.h \
+	device.c parser.h parser-private.h parser.c datetime.h \
 	datetime.c suunto.h suunto_common.h suunto_common.c \
 	suunto_common2.h suunto_common2.c suunto_solution.h \
 	suunto_solution.c suunto_solution_parser.c suunto_eon.h \
@@ -358,9 +364,11 @@ libdivecomputer_la_SOURCES = version.c deviceL.h device-private.h \
 	oceanic_veo250.c oceanic_veo250_parser.c oceanic_vtpro.h \
 	oceanic_vtpro.c oceanic_vtpro_parser.c mares.h mares_common.h \
 	mares_common.c mares_nemo.h mares_nemo.c mares_nemo_parser.c \
-	mares_puck.h mares_puck.c hw.h hw_ostc.h hw_ostc.c \
+	mares_puck.h mares_puck.c mares_iconhd.h mares_iconhd.c \
+	mares_iconhd_parser.c hw.h hw_ostc.h hw_ostc.c \
 	hw_ostc_parser.c cressi.h cressi_edy.h cressi_edy.c \
-	cressi_edy_parser.c ringbuffer.h ringbuffer.c checksum.h \
+	cressi_edy_parser.c zeagle.h zeagle_n2ition3.h \
+	zeagle_n2ition3.c ringbuffer.h ringbuffer.c checksum.h \
 	checksum.c array.h array.c buffer.h buffer.c utils.h utils.c \
 	$(am__append_2) $(am__append_3) $(am__append_4) \
 	$(am__append_5) $(am__append_6)
@@ -454,12 +462,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cressi_edy.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cressi_edy_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/datetime.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/deviceL.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/device.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hw_ostc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hw_ostc_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/irda.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/irda_dummy.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_common.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_iconhd.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_iconhd_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_nemo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_nemo_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_puck.Plo@am__quote@
@@ -498,6 +508,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uwatec_smart.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uwatec_smart_parser.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/version.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zeagle_n2ition3.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

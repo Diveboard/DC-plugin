@@ -38,7 +38,7 @@
 
 typedef struct suunto_eon_device_t {
 	suunto_common_device_t base;
-	struct serial *port;
+	serial_t *port;
 } suunto_eon_device_t;
 
 static device_status_t suunto_eon_device_dump (device_t *abstract, dc_buffer_t *buffer);
@@ -111,8 +111,8 @@ suunto_eon_device_open (device_t **out, const char* name)
 		return DEVICE_STATUS_IO;
 	}
 
-	// Set the timeout for receiving data (30000ms).
-	if (serial_set_timeout (device->port, 30000) == -1) {
+	// Set the timeout for receiving data (1000ms).
+	if (serial_set_timeout (device->port, -1) == -1) {
 		WARNING ("Failed to set the timeout.");
 		serial_close (device->port);
 		free (device);

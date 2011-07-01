@@ -22,7 +22,7 @@
 #ifndef REEFNET_SENSUSPRO_H
 #define REEFNET_SENSUSPRO_H
 
-#include "deviceL.h"
+#include "device.h"
 #include "parser.h"
 
 #ifdef __cplusplus

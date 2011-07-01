@@ -22,7 +22,7 @@
 #ifndef OCEANIC_VEO250_H
 #define OCEANIC_VEO250_H
 
-#include "deviceL.h"
+#include "device.h"
 #include "parser.h"
 
 #ifdef __cplusplus
@@ -36,7 +36,7 @@ device_status_t
 oceanic_veo250_device_keepalive (device_t *device);
 
 parser_status_t
-oceanic_veo250_parser_create (parser_t **parser);
+oceanic_veo250_parser_create (parser_t **parser, unsigned int model);
 
 #ifdef __cplusplus
 }

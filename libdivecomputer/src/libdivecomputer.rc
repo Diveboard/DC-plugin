@@ -1,5 +1,7 @@
 #include <winver.h>
 
+#include "revision.h"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     0,0,0,0
 PRODUCTVERSION  0,0,0,0
@@ -21,6 +23,7 @@ BEGIN
 			VALUE "OriginalFilename", "libdivecomputer.dll"
 			VALUE "ProductName", "libdivecomputer"
 			VALUE "ProductVersion", "0.0.0"
+			VALUE "Comments", DC_VERSION_REVISION
 		END
 	END
 	BLOCK "VarFileInfo"

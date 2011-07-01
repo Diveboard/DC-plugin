@@ -18,7 +18,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA 02110-1301 USA
  */
-#ifndef _WIN32
 
 #include <stdlib.h> // malloc, free
 #include <string.h>	// strerror
@@ -45,7 +44,7 @@
 	errno = error; \
 }
 
-struct serial {
+struct serial_t {
 	/*
 	 * The file descriptor corresponding to the serial port.
 	 */
@@ -79,13 +78,13 @@ const char* serial_errmsg (void)
 //
 
 int
-serial_open (serial** out, const char* name)
+serial_open (serial_t **out, const char* name)
 {
 	if (out == NULL)
 		return -1; // EINVAL (Invalid argument)
 
 	// Allocate memory.
-	struct serial *device = (struct serial *) malloc (sizeof (struct serial));
+	serial_t *device = (serial_t *) malloc (sizeof (serial_t));
 	if (device == NULL) {
 		TRACE ("malloc");
 		return -1; // ENOMEM (Not enough space)
@@ -124,7 +123,7 @@ serial_open (serial** out, const char* name)
 //
 
 int
-serial_close (serial* device)
+serial_close (serial_t *device)
 {
 	if (device == NULL)
 		return 0;
@@ -155,7 +154,7 @@ serial_close (serial* device)
 //
 
 int
-serial_configure (serial *device, int baudrate, int databits, int parity, int stopbits, int flowcontrol)
+serial_configure (serial_t *device, int baudrate, int databits, int parity, int stopbits, int flowcontrol)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -329,7 +328,7 @@ serial_configure (serial *device, int baudrate, int databits, int parity, int st
 //
 
 int
-serial_set_timeout (serial *device, long timeout)
+serial_set_timeout (serial_t *device, long timeout)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -345,7 +344,7 @@ serial_set_timeout (serial *device, long timeout)
 //
 
 int
-serial_set_queue_size (serial *device, unsigned int input, unsigned int output)
+serial_set_queue_size (serial_t *device, unsigned int input, unsigned int output)
 {
 	if (device == NULL)
 		return -1; // ERROR_INVALID_PARAMETER (The parameter is incorrect)
@@ -354,138 +353,72 @@ serial_set_queue_size (serial *device, unsigned int input, unsigned int output)
 }
 
 
-#define MYSELECT(nfds, fds, queue, timeout) \
-	(queue == SERIAL_QUEUE_INPUT ? \
-	select (nfds, fds, NULL, NULL, timeout) : \
-	select (nfds, NULL, fds, NULL, timeout))
-
-
-static int
-serial_poll_internal (int fd, int queue, long timeout, const struct timeval *timestamp)
+int
+serial_read (serial_t *device, void *data, unsigned int size)
 {
-	// Calculate the initial timeout, and obtain
-	// a timestamp for updating the timeout.
+	if (device == NULL)
+		return -1; // EINVAL (Invalid argument)
 
-	struct timeval tvt, tve;
-	if (timeout > 0) {
-		// Calculate the initial timeout.
-		tvt.tv_sec  = (timeout / 1000);
-		tvt.tv_usec = (timeout % 1000) * 1000;
-		// Calculate the timestamp.
-		if (timestamp == NULL) {
-			struct timeval now;
-			if (gettimeofday (&now, NULL) != 0) {
-				TRACE ("gettimeofday");
-				return -1;
-			}
-			timeradd (&now, &tvt, &tve);
-		} else {
-			timeradd (timestamp, &tvt, &tve);
-		}
-	} else if (timeout == 0) {
-		timerclear (&tvt);
-	}
+	// The total timeout.
+	long timeout = device->timeout;
 
-	// Wait until the file descriptor is ready for reading/writing, or 
-	// the timeout expires. A file descriptor is considered ready for 
-	// reading/writing when a call to an input/output function with 
-	// O_NONBLOCK clear would not block, whether or not the function 
-	// would transfer data successfully. 
+	// The absolute target time.
+	struct timeval tve;
 
-	fd_set fds;
-	FD_ZERO (&fds);
-	FD_SET (fd, &fds);
-
-	int rc = 0;
-	while ((rc = MYSELECT (fd + 1, &fds, queue, timeout >= 0 ? &tvt : NULL)) == -1) {
-		if (errno != EINTR ) {
-			TRACE ("select");
-			return -1;
-		}
-
-		// According to the select() man pages, the file descriptor sets 
-		// and the timeout become undefined after select() returns an error.
-		// We follow the advise and do not rely on their contents.
-
+	int init = 1;
+	unsigned int nbytes = 0;
+	while (nbytes < size) {
+		fd_set fds;
 		FD_ZERO (&fds);
-		FD_SET (fd, &fds);
+		FD_SET (device->fd, &fds);
 
-		// Calculate the remaining timeout.
-
+		struct timeval tvt;
 		if (timeout > 0) {
 			struct timeval now;
 			if (gettimeofday (&now, NULL) != 0) {
 				TRACE ("gettimeofday");
 				return -1;
 			}
-			if (timercmp (&now, &tve, >=))
-				timerclear (&tvt);
-			else
-				timersub (&tve, &now, &tvt);				
+
+			if (init) {
+				// Calculate the initial timeout.
+				tvt.tv_sec  = (timeout / 1000);
+				tvt.tv_usec = (timeout % 1000) * 1000;
+				// Calculate the target time.
+				timeradd (&now, &tvt, &tve);
+			} else {
+				// Calculate the remaining timeout.
+				if (timercmp (&now, &tve, <))
+					timersub (&tve, &now, &tvt);
+				else
+					timerclear (&tvt);
+			}
+			init = 0;
 		} else if (timeout == 0) {
 			timerclear (&tvt);
 		}
-	}
 
-	return rc;
-}
-
-
-int
-serial_read (serial* device, void* data, unsigned int size)
-{
-	if (device == NULL)
-		return -1; // EINVAL (Invalid argument)
-
-	long timeout = device->timeout;
-
-	struct timeval timestamp;
-	if (timeout > 0) {
-		if (gettimeofday (&timestamp, NULL) != 0) {
-			TRACE ("gettimeofday");
-			return -1;
-		}
-	}
-
-	unsigned int nbytes = 0;
-	for (;;) {
-		// Attempt to read data from the file descriptor.
-		int n = read (device->fd, (char*) data + nbytes, size - nbytes);
-		if (n < 0) {
+		int rc = select (device->fd + 1, &fds, NULL, NULL, timeout >= 0 ? &tvt : NULL);
+		if (rc < 0) {
 			if (errno == EINTR)
 				continue; // Retry.
-			if (errno != EAGAIN) {
-				TRACE ("read");
-				return -1; // Error during read call.
-			}
-		} else {
-			nbytes += n;
-			if (!n || nbytes == size)
-				break; // Success or EOF.
+			TRACE ("select");
+			return -1; // Error during select call.
+		} else if (rc == 0) {
+			break; // Timeout.
 		}
 
-		// Wait until the file descriptor is ready for reading, or the timeout expires.
-		int rc = serial_poll_internal (device->fd, SERIAL_QUEUE_INPUT, timeout, timeout > 0 ? &timestamp : NULL);
-		if (rc < 0) {
-			return -1; // Error during select/poll call.
-		} else if (rc == 0)
-			break; // Timeout.
+		int n = read (device->fd, (char *) data + nbytes, size - nbytes);
+		if (n < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				continue; // Retry.
+			TRACE ("read");
+			return -1; // Error during read call.
+		} else if (n == 0) {
+			 break; // EOF.
+		}
 
-		// Calculate the remaining timeout.
-		if (timeout > 0) {
-			struct timeval now, delta;
-			if (gettimeofday (&now, NULL) != 0) {
-				TRACE ("gettimeofday");
-				return -1;
-			}
-			timersub (&now, &timestamp, &delta);
-			long elapsed = delta.tv_sec * 1000 + delta.tv_usec / 1000;
-			if (elapsed >= timeout)
-				timeout = 0;
-			else
-				timeout -= elapsed;
-			timestamp = now;
-		}	
+		nbytes += n;
 	}
 
 	return nbytes;
@@ -493,34 +426,38 @@ serial_read (serial* device, void* data, unsigned int size)
 
 
 int
-serial_write (serial* device, const void* data, unsigned int size)
+serial_write (serial_t *device, const void *data, unsigned int size)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
 	unsigned int nbytes = 0;
-	for (;;) {
-		// Attempt to write data to the file descriptor.
-		int n = write (device->fd, (char*) data + nbytes, size - nbytes);
-		if (n < 0) {
+	while (nbytes < size) {
+		fd_set fds;
+		FD_ZERO (&fds);
+		FD_SET (device->fd, &fds);
+
+		int rc = select (device->fd + 1, NULL, &fds, NULL, NULL);
+		if (rc < 0) {
 			if (errno == EINTR)
 				continue; // Retry.
-			if (errno != EAGAIN) {
-				TRACE ("write");
-				return -1; // Error during write call.
-			}
-		} else {
-			nbytes += n;
-			if (nbytes == size)
-				break; // Success.
-		}
-		
-		// Wait until the file descriptor is ready for writing, or the timeout expires.
-		int rc = serial_poll_internal (device->fd, SERIAL_QUEUE_OUTPUT, -1, NULL);
-		if (rc < 0) {
-			return -1; // Error during select/poll call.
-		} else if (rc == 0)
+			TRACE ("select");
+			return -1; // Error during select call.
+		} else if (rc == 0) {
 			break; // Timeout.
+		}
+
+		int n = write (device->fd, (char *) data + nbytes, size - nbytes);
+		if (n < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				continue; // Retry.
+			TRACE ("write");
+			return -1; // Error during write call.
+		} else if (n == 0) {
+			 break; // EOF.
+		}
+
+		nbytes += n;
 	}
 
 	return nbytes;
@@ -528,7 +465,7 @@ serial_write (serial* device, const void* data, unsigned int size)
 
 
 int
-serial_flush (serial *device, int queue)
+serial_flush (serial_t *device, int queue)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -557,7 +494,7 @@ serial_flush (serial *device, int queue)
 
 
 int
-serial_drain (serial *device)
+serial_drain (serial_t *device)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -574,7 +511,7 @@ serial_drain (serial *device)
 
 
 int
-serial_send_break (serial *device)
+serial_send_break (serial_t *device)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -589,7 +526,7 @@ serial_send_break (serial *device)
 
 
 int
-serial_set_break (serial *device, int level)
+serial_set_break (serial_t *device, int level)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -620,7 +557,7 @@ serial_set_status (int fd, int value, int level)
 
 
 int
-serial_set_dtr (serial *device, int level)
+serial_set_dtr (serial_t *device, int level)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -630,7 +567,7 @@ serial_set_dtr (serial *device, int level)
 
 
 int
-serial_set_rts (serial *device, int level)
+serial_set_rts (serial_t *device, int level)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -640,7 +577,7 @@ serial_set_rts (serial *device, int level)
 
 
 int
-serial_get_received (serial *device)
+serial_get_received (serial_t *device)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -656,7 +593,7 @@ serial_get_received (serial *device)
 
 
 int
-serial_get_transmitted (serial *device)
+serial_get_transmitted (serial_t *device)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -668,6 +605,35 @@ serial_get_transmitted (serial *device)
 	}
 
 	return bytes;
+}
+
+
+int
+serial_get_line (serial_t *device, int line)
+{
+	if (device == NULL)
+		return -1; // EINVAL (Invalid argument)
+
+	int status = 0;
+	if (ioctl (device->fd, TIOCMGET, &status) != 0) {
+		TRACE ("ioctl");
+		return -1;
+	}
+
+	switch (line) {
+	case SERIAL_LINE_DCD:
+		return (status & TIOCM_CAR) == TIOCM_CAR;
+	case SERIAL_LINE_CTS:
+		return (status & TIOCM_CTS) == TIOCM_CTS;
+	case SERIAL_LINE_DSR:
+		return (status & TIOCM_DSR) == TIOCM_DSR;
+	case SERIAL_LINE_RNG:
+		return (status & TIOCM_RNG) == TIOCM_RNG;
+	default:
+		return -1;
+	}
+
+	return 0;
 }
 
 
@@ -700,5 +666,3 @@ serial_timer (void)
 
 	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
-
-#endif

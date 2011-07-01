@@ -22,7 +22,7 @@
 #ifndef SUUNTO_EON_H
 #define SUUNTO_EON_H
 
-#include "deviceL.h"
+#include "device.h"
 #include "parser.h"
 
 #ifdef __cplusplus

@@ -38,8 +38,8 @@ bin_PROGRAMS = universal$(EXEEXT) solution$(EXEEXT) eon$(EXEEXT) \
 	vyper$(EXEEXT) vyper2$(EXEEXT) d9$(EXEEXT) sensus$(EXEEXT) \
 	sensuspro$(EXEEXT) sensusultra$(EXEEXT) aladin$(EXEEXT) \
 	memomouse$(EXEEXT) atom2$(EXEEXT) veo250$(EXEEXT) \
-	vtpro$(EXEEXT) nemo$(EXEEXT) puck$(EXEEXT) ostc$(EXEEXT) \
-	edy$(EXEEXT) $(am__EXEEXT_1)
+	vtpro$(EXEEXT) nemo$(EXEEXT) puck$(EXEEXT) iconhd$(EXEEXT) \
+	ostc$(EXEEXT) edy$(EXEEXT) n2ition3$(EXEEXT) $(am__EXEEXT_1)
 @IRDA_TRUE@am__append_1 = smart
 subdir = examples
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
@@ -77,10 +77,18 @@ am_eon_OBJECTS = suunto_eon_test.$(OBJEXT)
 eon_OBJECTS = $(am_eon_OBJECTS)
 eon_LDADD = $(LDADD)
 eon_DEPENDENCIES = $(top_builddir)/src/libdivecomputer.la
+am_iconhd_OBJECTS = mares_iconhd_test.$(OBJEXT)
+iconhd_OBJECTS = $(am_iconhd_OBJECTS)
+iconhd_LDADD = $(LDADD)
+iconhd_DEPENDENCIES = $(top_builddir)/src/libdivecomputer.la
 am_memomouse_OBJECTS = uwatec_memomouse_test.$(OBJEXT)
 memomouse_OBJECTS = $(am_memomouse_OBJECTS)
 memomouse_LDADD = $(LDADD)
 memomouse_DEPENDENCIES = $(top_builddir)/src/libdivecomputer.la
+am_n2ition3_OBJECTS = zeagle_n2ition3_test.$(OBJEXT)
+n2ition3_OBJECTS = $(am_n2ition3_OBJECTS)
+n2ition3_LDADD = $(LDADD)
+n2ition3_DEPENDENCIES = $(top_builddir)/src/libdivecomputer.la
 am_nemo_OBJECTS = mares_nemo_test.$(OBJEXT)
 nemo_OBJECTS = $(am_nemo_OBJECTS)
 nemo_LDADD = $(LDADD)
@@ -161,16 +169,17 @@ AM_V_GEN = $(am__v_GEN_$(V))
 am__v_GEN_ = $(am__v_GEN_$(AM_DEFAULT_VERBOSITY))
 am__v_GEN_0 = @echo "  GEN   " $@;
 SOURCES = $(aladin_SOURCES) $(atom2_SOURCES) $(d9_SOURCES) \
-	$(edy_SOURCES) $(eon_SOURCES) $(memomouse_SOURCES) \
-	$(nemo_SOURCES) $(ostc_SOURCES) $(puck_SOURCES) \
-	$(sensus_SOURCES) $(sensuspro_SOURCES) $(sensusultra_SOURCES) \
-	$(smart_SOURCES) $(solution_SOURCES) $(universal_SOURCES) \
-	$(veo250_SOURCES) $(vtpro_SOURCES) $(vyper_SOURCES) \
-	$(vyper2_SOURCES)
+	$(edy_SOURCES) $(eon_SOURCES) $(iconhd_SOURCES) \
+	$(memomouse_SOURCES) $(n2ition3_SOURCES) $(nemo_SOURCES) \
+	$(ostc_SOURCES) $(puck_SOURCES) $(sensus_SOURCES) \
+	$(sensuspro_SOURCES) $(sensusultra_SOURCES) $(smart_SOURCES) \
+	$(solution_SOURCES) $(universal_SOURCES) $(veo250_SOURCES) \
+	$(vtpro_SOURCES) $(vyper_SOURCES) $(vyper2_SOURCES)
 DIST_SOURCES = $(aladin_SOURCES) $(atom2_SOURCES) $(d9_SOURCES) \
-	$(edy_SOURCES) $(eon_SOURCES) $(memomouse_SOURCES) \
-	$(nemo_SOURCES) $(ostc_SOURCES) $(puck_SOURCES) \
-	$(sensus_SOURCES) $(sensuspro_SOURCES) $(sensusultra_SOURCES) \
+	$(edy_SOURCES) $(eon_SOURCES) $(iconhd_SOURCES) \
+	$(memomouse_SOURCES) $(n2ition3_SOURCES) $(nemo_SOURCES) \
+	$(ostc_SOURCES) $(puck_SOURCES) $(sensus_SOURCES) \
+	$(sensuspro_SOURCES) $(sensusultra_SOURCES) \
 	$(am__smart_SOURCES_DIST) $(solution_SOURCES) \
 	$(universal_SOURCES) $(veo250_SOURCES) $(vtpro_SOURCES) \
 	$(vyper_SOURCES) $(vyper2_SOURCES)
@@ -314,8 +323,10 @@ veo250_SOURCES = oceanic_veo250_test.c
 vtpro_SOURCES = oceanic_vtpro_test.c
 nemo_SOURCES = mares_nemo_test.c
 puck_SOURCES = mares_puck_test.c
+iconhd_SOURCES = mares_iconhd_test.c
 ostc_SOURCES = hw_ostc_test.c
 edy_SOURCES = cressi_edy_test.c
+n2ition3_SOURCES = zeagle_n2ition3_test.c
 @IRDA_TRUE@smart_SOURCES = uwatec_smart_test.c
 all: all-am
 
@@ -409,9 +420,15 @@ edy$(EXEEXT): $(edy_OBJECTS) $(edy_DEPENDENCIES)
 eon$(EXEEXT): $(eon_OBJECTS) $(eon_DEPENDENCIES) 
 	@rm -f eon$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(eon_OBJECTS) $(eon_LDADD) $(LIBS)
+iconhd$(EXEEXT): $(iconhd_OBJECTS) $(iconhd_DEPENDENCIES) 
+	@rm -f iconhd$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(iconhd_OBJECTS) $(iconhd_LDADD) $(LIBS)
 memomouse$(EXEEXT): $(memomouse_OBJECTS) $(memomouse_DEPENDENCIES) 
 	@rm -f memomouse$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(memomouse_OBJECTS) $(memomouse_LDADD) $(LIBS)
+n2ition3$(EXEEXT): $(n2ition3_OBJECTS) $(n2ition3_DEPENDENCIES) 
+	@rm -f n2ition3$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(n2ition3_OBJECTS) $(n2ition3_LDADD) $(LIBS)
 nemo$(EXEEXT): $(nemo_OBJECTS) $(nemo_DEPENDENCIES) 
 	@rm -f nemo$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(nemo_OBJECTS) $(nemo_LDADD) $(LIBS)
@@ -460,6 +477,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cressi_edy_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hw_ostc_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_iconhd_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_nemo_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mares_puck_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/oceanic_atom2_test.Po@am__quote@
@@ -477,6 +495,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uwatec_aladin_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uwatec_memomouse_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uwatec_smart_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zeagle_n2ition3_test.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

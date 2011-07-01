@@ -22,7 +22,7 @@
 #ifndef MARES_NEMO_H
 #define MARES_NEMO_H
 
-#include "deviceL.h"
+#include "device.h"
 #include "parser.h"
 
 #ifdef __cplusplus

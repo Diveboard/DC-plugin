@@ -33,6 +33,7 @@ typedef struct mares_nemo_parser_t mares_nemo_parser_t;
 
 struct mares_nemo_parser_t {
 	parser_t base;
+	unsigned int model;
 	unsigned int freedive;
 	/* Internal state */
 	unsigned int mode;
@@ -89,6 +90,7 @@ mares_nemo_parser_create (parser_t **out, unsigned int model)
 		freedive = 3;
 
 	// Set the default values.
+	parser->model = model;
 	parser->freedive = freedive;
 	parser->mode = 0;
 	parser->length = 0;
@@ -144,7 +146,10 @@ mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsig
 	unsigned int extra = 0;
 	const unsigned char marker[3] = {0xAA, 0xBB, 0xCC};
 	if (memcmp (data + length - 3, marker, sizeof (marker)) == 0) {
-		extra = 12;
+		if (parser->model == 19)
+			extra = 7;
+		else
+			extra = 12;
 	}
 
 	if (length < 2 + extra + 3)
@@ -153,7 +158,13 @@ mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsig
 	unsigned int mode = data[length - extra - 1];
 
 	unsigned int header_size = 53;
-	unsigned int sample_size = (extra ? 5 : 2);
+	unsigned int sample_size = 2;
+	if (extra) {
+		if (parser->model == 19)
+			sample_size = 3;
+		else
+			sample_size = 5;
+	}
 	if (mode == parser->freedive) {
 		header_size = 28;
 		sample_size = 6;
@@ -260,6 +271,13 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 				sample.event.value = 0;
 				if (callback) callback (SAMPLE_TYPE_EVENT, sample, userdata);
 			}
+
+			// Pressure (1 bar).
+			if (parser->sample_size == 3) {
+				sample.pressure.tank = 0;
+				sample.pressure.value = data[idx + 2];
+				if (callback) callback (SAMPLE_TYPE_PRESSURE, sample, userdata);
+			}
 		}
 	} else {
 		// A freedive session contains only summaries for each individual
@@ -289,9 +307,14 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 			if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
 
 			if (profiles) {
+				// Get the freedive sample interval for this model.
+				unsigned int interval = 4;
+				if (parser->model == 18)
+					interval = 1;
+
 				// Calculate the number of samples that should be present
 				// in the profile data, based on the divetime in the summary.
-				unsigned int n = (divetime + 3) / 4;
+				unsigned int n = (divetime + interval - 1) / interval;
 
 				// The last sample interval can be smaller than the normal
 				// 4 seconds. We keep track of the maximum divetime, to be
@@ -312,7 +335,7 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 					assert (count <= n);
 
 					// Time (seconds).
-					time += 4;
+					time += interval;
 					if (time > maxtime)
 						time = maxtime; // Adjust the last sample.
 					sample.time = time;

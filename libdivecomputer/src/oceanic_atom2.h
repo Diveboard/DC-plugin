@@ -22,7 +22,7 @@
 #ifndef OCEANIC_ATOM2_H
 #define OCEANIC_ATOM2_H
 
-#include "deviceL.h"
+#include "device.h"
 #include "parser.h"
 
 #ifdef __cplusplus

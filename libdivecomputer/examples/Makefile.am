@@ -18,8 +18,10 @@ bin_PROGRAMS = \
 	vtpro \
 	nemo \
 	puck \
+	iconhd \
 	ostc \
-	edy
+	edy \
+	n2ition3
 
 if IRDA
 bin_PROGRAMS += smart
@@ -57,9 +59,13 @@ nemo_SOURCES = mares_nemo_test.c
 
 puck_SOURCES = mares_puck_test.c
 
+iconhd_SOURCES = mares_iconhd_test.c
+
 ostc_SOURCES = hw_ostc_test.c
 
 edy_SOURCES = cressi_edy_test.c
+
+n2ition3_SOURCES = zeagle_n2ition3_test.c
 
 if IRDA
 smart_SOURCES = uwatec_smart_test.c
