@@ -17,7 +17,7 @@ Version: $VERSION
 Section: web
 Priority: optional
 Architecture: i386
-Depends: libc6 (>= 2.13)
+Depends: libc6 (>= 2.11)
 Maintainer: David Ross <david-db@rossy.co.uk>
 Description: Web Browser plugin for DiveBoard:
  http://www.diveboard.com
