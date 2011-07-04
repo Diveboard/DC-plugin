@@ -431,6 +431,8 @@ cancel_cb (void *userdata)
 }
 
 
+
+
 void
 sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdata)
 {
@@ -517,6 +519,7 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
 	LCDDCBUFFERFREE* dc_buffer_free = reinterpret_cast<LCDDCBUFFERFREE*>(getDLLFunction(libdc, "dc_buffer_free"));
 	LDCDEVSETEVENTS *device_set_events = reinterpret_cast<LDCDEVSETEVENTS*>(getDLLFunction(libdc, "device_set_events"));
+	LDCDEVSETCANCEL *device_set_cancel = reinterpret_cast<LDCDEVSETCANCEL*>(getDLLFunction(libdc, "device_set_cancel"));
 	LCDDCBUFFERAPPEND *dc_buffer_append = reinterpret_cast<LCDDCBUFFERAPPEND*>(getDLLFunction(libdc, "dc_buffer_append"));
 	LCDDCBUFFERNEW *dc_buffer_new = reinterpret_cast<LCDDCBUFFERNEW*>(getDLLFunction(libdc, "dc_buffer_new"));
 	LDCPARSERSAMPLESFOREACH *parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(getDLLFunction(libdc, "parser_samples_foreach"));
@@ -851,6 +854,7 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
 	LCDDCBUFFERFREE* dc_buffer_free = reinterpret_cast<LCDDCBUFFERFREE*>(getDLLFunction(libdc, "dc_buffer_free"));
 	LDCDEVSETEVENTS *device_set_events = reinterpret_cast<LDCDEVSETEVENTS*>(getDLLFunction(libdc, "device_set_events"));
+	LDCDEVSETCANCEL *device_set_cancel = reinterpret_cast<LDCDEVSETCANCEL*>(getDLLFunction(libdc, "device_set_cancel"));
 	LCDDCBUFFERAPPEND *dc_buffer_append = reinterpret_cast<LCDDCBUFFERAPPEND*>(getDLLFunction(libdc, "dc_buffer_append"));
 	LCDDCBUFFERNEW *dc_buffer_new = reinterpret_cast<LCDDCBUFFERNEW*>(getDLLFunction(libdc, "dc_buffer_new"));
 	LDCPARSERSAMPLESFOREACH *parser_samples_foreach = reinterpret_cast<LDCPARSERSAMPLESFOREACH*>(getDLLFunction(libdc, "parser_samples_foreach"));
@@ -967,14 +971,13 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	}
 
 	// todo Register the cancellation handler.
-	/*LOGINFO("Registering the cancellation handler.");
+	LOGINFO("Registering the cancellation handler.");
 	rc = device_set_cancel (device, cancel_cb, NULL);
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		LOGINFO("Error registering the cancellation handler.");
 		device_close (device);
-		return rc;
+		DBthrowError("Error registering the cancellation handler ");
 	}
-	*/
 
 	// todo Register the fingerprint data.
 	/*if (fingerprint) {
@@ -1078,6 +1081,8 @@ int ComputerLibdc::_get_all_dives(std::string &diveXML)
 
 	//LDCOPEN* ldcOpen = reinterpret_cast<LDCOPEN*>(GetProcAddress(libdc, "suunto_vyper2_device_open"));
 
+	g_cancel = 0;
+
 	LOGINFO(str(boost::format("Using backend on %1%") % devname));
 	try
 	{
@@ -1140,6 +1145,11 @@ ComputerModel ComputerLibdc::_get_model()
 ComputerStatus ComputerLibdc::get_status()
 {
 	return(status);
+}
+
+void ComputerLibdc::cancel()
+{
+	g_cancel = 1;
 }
 
 

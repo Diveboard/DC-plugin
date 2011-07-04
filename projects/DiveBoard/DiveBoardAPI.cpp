@@ -68,6 +68,8 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		registerMethod("detect",  make_method(this, &DiveBoardAPI::detect));
 		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
 		registerMethod("isComputerPluggedin",make_method(this, &DiveBoardAPI::isComputerPluggedin));
+		registerMethod("setLogLevel", make_method(this, &DiveBoardAPI::setLogLevel));
+		registerMethod("cancel",  make_method(this, &DiveBoardAPI::cancel));
 
 		// Read-only property
 		registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
@@ -310,4 +312,15 @@ FB::variant DiveBoardAPI::isComputerPluggedin()
 		LOGINFO("Caught Exception : %s", e.what());
 	}
 	return(FB::variant(false));
+}
+
+
+void DiveBoardAPI::cancel()
+{
+	if (comp) comp->cancel();
+}
+
+void DiveBoardAPI::setLogLevel(const std::string& level)
+{
+	Logger::setLogLevel(level);
 }

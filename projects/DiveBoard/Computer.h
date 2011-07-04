@@ -62,5 +62,6 @@ public:
 	int get_all_dives(std::string &xml) {return(_get_all_dives(xml));};
 	ComputerModel get_model() { return(_get_model());};
 	virtual ComputerStatus get_status() {ComputerStatus t; t.nbDivesRead=0; t.nbDivesTotal=0; t.state = COMPUTER_NOT_STARTED; return(t);};
+	virtual void cancel() { }
 };
 

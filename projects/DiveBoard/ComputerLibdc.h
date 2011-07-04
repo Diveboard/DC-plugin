@@ -40,7 +40,7 @@ typedef void (__cdecl LCDDCBUFFERFREE)(dc_buffer_t *buffer);
 typedef dc_buffer_t * (__cdecl LCDDCBUFFERNEW)(size_t capacity);
 typedef int (__cdecl LCDDCBUFFERAPPEND)(dc_buffer_t *buffer, const unsigned char data[], size_t size);
 typedef device_status_t (__cdecl LDCDEVSETEVENTS)(device_t *, unsigned int, device_event_callback_t, void *);
-
+typedef device_status_t (__cdecl LDCDEVSETCANCEL)(device_t *, device_cancel_callback_t callback, void *userdata);
 
 
 class ComputerLibdc : public Computer
@@ -59,6 +59,7 @@ public:
 	ComputerModel _get_model();
 	int _get_all_dives(std::string &xml);
 	virtual ComputerStatus get_status();
+	virtual void cancel();
 };
 
 

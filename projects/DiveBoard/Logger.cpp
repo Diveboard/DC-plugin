@@ -92,6 +92,7 @@ void Logger::append(const char *pstrFormat, ...)
 
 void Logger::appendL(int line, const char*file, const char * level, std::string s)
 {
+	if (!checkLevel(level)) return;
 	appendL(line, file, level, "%s", s.c_str());
 }
 
@@ -101,6 +102,8 @@ void Logger::appendL(int line, const char*file, const char *level, const char *p
 	std::string str;
 	time_t t;
 	tm * ptm;
+
+	if (!checkLevel(level)) return;
 	
 	time(&t);
 	ptm = gmtime(&t);
@@ -121,6 +124,7 @@ void Logger::appendL(int line, const char*file, const char *level, const char *p
 
 std::vector<std::string> Logger::logs;
 std::vector<BinaryData> Logger::binData;
+std::string Logger::logLevel;
 
 void Logger::binary(std::string type, unsigned char *data, unsigned int len)
 {
@@ -203,3 +207,37 @@ std::string Logger::toString()
 	return(out);
 }
 
+void Logger::setLogLevel(std::string level)
+{
+	//myLogLevel.push_back(level);
+	logLevel = level;
+}
+
+bool Logger::checkLevel(std::string req)
+{
+	try {
+		if (logLevel.compare("") == 0)
+		{
+			logLevel = "DEBUG";
+			return true;
+		}
+
+		if (logLevel.compare("DEBUG") == 0) 
+			return true;
+
+		if (logLevel.compare("INFO") == 0)
+			return (!req.compare("INFO") || !req.compare("WARNING") || !req.compare("ERROR") || !req.compare("CRITICAL"));
+
+		if (logLevel.compare("WARNING") == 0)
+			return (!req.compare("WARNING") || !req.compare("ERROR") || !req.compare("CRITICAL"));
+
+		if (logLevel.compare("ERROR") == 0)
+			return (!req.compare("ERROR") || !req.compare("CRITICAL"));
+		
+		if (logLevel.compare("CRITICAL") == 0)
+			return (!req.compare("CRITICAL"));
+
+	} catch(...) {}
+	
+	return(true);
+}

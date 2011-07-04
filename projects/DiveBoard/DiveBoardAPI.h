@@ -37,6 +37,8 @@ public:
 	FB::variant detect(const std::string& computerType);
 	FB::VariantMap allports();
 	FB::variant isComputerPluggedin();
+	void cancel();
+	void setLogLevel(const std::string&);
 private:
     DiveBoardWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;

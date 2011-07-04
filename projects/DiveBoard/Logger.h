@@ -31,7 +31,9 @@ class Logger
 private:
 	Logger(void);
 	~Logger(void);
+	
 public:
+	static std::string logLevel;
 	static std::vector<std::string> logs;
 	static std::vector<BinaryData> binData;
 	static std::string toString();
@@ -44,6 +46,8 @@ public:
 	static void addnthrow(int line, const char*file, const char * level, const char *pstrFormat, ...);
 	static void binary(std::string type, unsigned char *data, unsigned int len);
 	static void binary(std::string type, std::string data);
+	static void setLogLevel(std::string);
+	static bool checkLevel(std::string req);
 };
 
 
