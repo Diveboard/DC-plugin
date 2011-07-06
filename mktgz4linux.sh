@@ -4,27 +4,13 @@ VERSION=1.1.0-alpha1
 
 DIR=$(dirname $(readlink -f $0))
 
-BUILDDIR=$DIR/build/projects/DiveBoard/ubuntu
+BUILDDIR=$DIR/build/projects/DiveBoard/diveboard-plugin-$VERSION
 OUTDIR=$DIR/build/packages
 
 LIBDIVE=$DIR/libdivecomputer/src/.libs/libdivecomputer.so.0.0.0
 LIBDIVEBOARD=$DIR/build/bin/DiveBoard/npDiveBoard.so
 
-PKGNAME=diveboard-$VERSION.deb
-
-CONTROL="Package:diveboard
-Version: $VERSION
-Section: web
-Priority: optional
-Architecture: i386
-Depends: libc6 (>= 2.11)
-Maintainer: David Ross <david-db@rossy.co.uk>
-Description: Web Browser plugin for DiveBoard:
- http://www.diveboard.com
- .
- With the DiveBoard browser plugin you can upload your dive
- profiles direct from a supported dive computer to the web.
-"
+PKGNAME=diveboard-$VERSION.tgz
 
 #
 # Put the package together
@@ -57,36 +43,50 @@ strip $BUILDDIR/usr/lib/diveboard/*.so
 echo Fixing permissions...
 chmod 644 $BUILDDIR/usr/lib/diveboard/*.so
 
-echo Creating control file...
-mkdir -p $BUILDDIR/DEBIAN
-echo -e "$CONTROL" > $BUILDDIR/DEBIAN/control
-
-echo Creating postinst script...
-cat > $BUILDDIR/DEBIAN/postinst << EOF
+echo Creating install script...
+cat > "$BUILDDIR/install.sh" << EOF
 #!/bin/bash
 
 set -e
+
+SELF=\$(which "\$0")
+BASEDIR=\$(dirname "\$SELF")
+
+if [ ! -w /usr/lib ]; then
+	echo "You need to be root to install the plugin"
+	exit 1
+fi
+
+cp -a "\$BASEDIR/usr" /
 
 BROWSERS="mozilla firefox seamonkey"
 
-if [ "\$1" == "configure" ];then
-	for BROWSER in \$BROWSERS; do
-		if [ -d /usr/lib/\$BROWSER ];then
-			mkdir -p /usr/lib/\$BROWSER/plugins
-			ln -sf /usr/lib/diveboard/npDiveBoard.so /usr/lib/\$BROWSER/plugins/
-		fi
-	done
-fi
+for BROWSER in \$BROWSERS; do
+	if [ -d /usr/lib/\$BROWSER ];then
+		mkdir -p /usr/lib/\$BROWSER/plugins
+		ln -sf /usr/lib/diveboard/npDiveBoard.so /usr/lib/\$BROWSER/plugins/
+	fi
+done
 
 exit 0
 EOF
-chmod 755 $BUILDDIR/DEBIAN/postinst
+chmod 755 $BUILDDIR/install.sh
 
-echo Creating prerm script...
-cat > $BUILDDIR/DEBIAN/prerm << EOF
+echo Creating uninstall script...
+cat > $BUILDDIR/uninstall.sh << EOF
 #!/bin/bash
 
 set -e
+
+if [ ! -d /usr/lib/diveboard ]; then
+	echo "The plugin for Diveboard does not seem to be installed. Aborting uninstallation."
+	exit 2
+fi
+
+if [ ! -w /usr/lib ]; then
+	echo "You need to be root to uninstall the plugin"
+	exit 1
+fi
 
 BROWSERS="mozilla firefox seamonkey"
 
@@ -96,12 +96,15 @@ for BROWSER in \$BROWSERS; do
 	fi
 done
 
+rm -fr /usr/lib/diveboard
+
 exit 0
 EOF
-chmod 755 $BUILDDIR/DEBIAN/prerm
+chmod 755 $BUILDDIR/uninstall.sh
 
 echo Building Package...
-fakeroot dpkg-deb --build $BUILDDIR $OUTDIR/$PKGNAME
+cd $BUILDDIR/..
+tar zcf $OUTDIR/$PKGNAME --owner=root --group=root $(basename "$BUILDDIR")
 
 if [ ! -f $OUTDIR/$PKGNAME ];then
 	echo Something went wrong!
