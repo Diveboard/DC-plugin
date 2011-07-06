@@ -256,6 +256,8 @@ static const backend_table_t g_backends[] = {
 	{"LDC nemo",		DEVICE_TYPE_MARES_NEMO},
 	{"LDC puck",		DEVICE_TYPE_MARES_PUCK},
 	{"LDC ostc",		DEVICE_TYPE_HW_OSTC},
+	{"LDC iconhd",      DEVICE_TYPE_MARES_ICONHD},
+	{"LDC zeagle",      DEVICE_TYPE_ZEAGLE_N2ITION3},
 	{"LDC edy",			DEVICE_TYPE_CRESSI_EDY}
 };
 
@@ -610,6 +612,18 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 			rc = create_parser1(&parser);
 			//rc = hw_ostc_parser_create (&parser);
 			break;
+
+		case DEVICE_TYPE_MARES_ICONHD:
+			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "mares_iconhd_parser_create");
+			rc = create_parser1(&parser);
+			break;
+
+		//No parser in current version for Zeagle
+		//case DEVICE_TYPE_ZEAGLE_N2ITION3:
+		//	create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "XXXXXXX_parser_create");
+		//	rc = create_parser1(&parser);
+		//	break;
+
 		case DEVICE_TYPE_CRESSI_EDY:
 			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "cressi_edy_parser_create");
 			rc = create_parser1(&parser);
@@ -930,6 +944,10 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 		break;
 	case DEVICE_TYPE_MARES_NEMO:
 		device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "mares_nemo_device_open");
+		//rc = mares_nemo_device_open (&device, devname.c_str());
+		break;	
+	case DEVICE_TYPE_MARES_ICONHD:
+		device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "mares_iconhd_device_open");
 		//rc = mares_nemo_device_open (&device, devname.c_str());
 		break;
 	case DEVICE_TYPE_MARES_PUCK:

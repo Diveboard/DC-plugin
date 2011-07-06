@@ -1,6 +1,6 @@
 #pragma once
 #include "Computer.h"
-#include "../../libdivecomputer/src/deviceL.h"
+#include "../../libdivecomputer/src/device.h"
 #include "../../libdivecomputer/src/parser.h"
 #include "../../libdivecomputer/src/buffer.h"
 
