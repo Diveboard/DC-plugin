@@ -28,6 +28,7 @@ public:
     // Read-only property ${PROPERTY.ident}
     std::string get_version();
 	std::string get_name();
+	std::string get_nodename();
 	FB::VariantMap get_status();
 	std::string get_logs();
 

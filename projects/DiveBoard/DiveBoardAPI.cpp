@@ -73,6 +73,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 
 		// Read-only property
 		registerProperty("name",         make_property(this, &DiveBoardAPI::get_name));
+		registerProperty("nodeName",     make_property(this, &DiveBoardAPI::get_nodename));
 		registerProperty("version",      make_property(this, &DiveBoardAPI::get_version));
 		registerProperty("logs",         make_property(this, &DiveBoardAPI::get_logs));
 		registerProperty("status",       make_property(this, &DiveBoardAPI::get_status));
@@ -120,6 +121,14 @@ std::string DiveBoardAPI::get_name()
 		return "DiveBoard Reader";
 	} catchall()
 }
+
+std::string DiveBoardAPI::get_nodename()
+{
+    try {
+		return "OBJECT";
+	} catchall()
+}
+
 
 // Read-only property version
 std::string DiveBoardAPI::get_version()
