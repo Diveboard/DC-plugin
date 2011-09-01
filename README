@@ -1,3 +1,6 @@
+0/ Install prerequisites
+get Cmake : http://www.cmake.org/cmake/resources/software.html
+
 1/ Build the main plugin :
 
 - in a shell, place yourself in the same folder as this readme
