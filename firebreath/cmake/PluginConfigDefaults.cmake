@@ -23,4 +23,4 @@ if (WIN32)
     set (FBWIN_WINDOWLESS 0)
 endif(WIN32)
 
-set (FB_GUI_DISABLED 0)
+set (FB_GUI_DISABLED 1)

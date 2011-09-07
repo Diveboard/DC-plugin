@@ -15,6 +15,8 @@
 
 find_package(PkgConfig)
 
+set(FB_GUI_DISABLED 1)
+
 # not even optional
 set(BUILD_SHARED_LIBS YES)
 
