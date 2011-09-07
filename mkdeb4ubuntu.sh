@@ -18,12 +18,14 @@ Section: web
 Priority: optional
 Architecture: i386
 Depends: libc6 (>= 2.11)
-Maintainer: David Ross <david-db@rossy.co.uk>
+Maintainer: Diveboard <support@diveboard.com>
 Description: Web Browser plugin for DiveBoard:
  http://www.diveboard.com
  .
  With the DiveBoard browser plugin you can upload your dive
  profiles direct from a supported dive computer to the web.
+ This plugin links with Jef Driesen's LibDiveComputer http://www.divesoftware.org/libdc/
+
 "
 
 #
