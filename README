@@ -16,6 +16,8 @@ get Cmake : http://www.cmake.org/cmake/resources/software.html
 
 Note for Mac build: in case of error with lipo, it might be because of parallel build. To disactivate that feature in xcode, go to "Project/Edit Project settings" and uncheck "Build independant targets in parallel"
 
+WARNING ! On Linux you must build on both a 32-bit platform and a 64-bit platform - you must build really 2 times on 2 platforms, no kidding.
+
 Note for Linux build: it is also possible to build the plugin by running "make" directly in the "build" directory
 
 2/ Build the library libdivecomputer :
@@ -27,6 +29,7 @@ Note for Linux build: it is also possible to build the plugin by running "make" 
 - Linux build:
 	./configure
 	make
+WARNING ! On Linux you must build on both a 32-bit platform and a 64-bit platform - you must build really 2 times on 2 platforms, no kidding.
 
 - The built library will be :
 	Mac : libdivecomputer/build/Release/liblibdivecomputer.dylib 
@@ -39,8 +42,10 @@ Note for Linux build: it is also possible to build the plugin by running "make" 
 - To build the package run
 	Windows : compile with NSIS (Nullsoft Installer) projects\diveboard\installer.nsi
 	Mac : mkpkg4mac.sh
-  Linux - deb package : mkdeb4ubuntu.sh
-  Linux - tgz package : mktgz4linux.sh
+  Linux 32bit- deb package : mkdeb4ubuntu.sh
+  Linux 32bit- tgz package : mktgz4linux.sh
+  Linux 64bit- deb package : mkdeb4ubuntu64.sh
+  Linux 64bit- tgz package : mktgz4linux64.sh
 
 - The installation package will be placed in
 	Mac : build/packages/diveboard.dmg
