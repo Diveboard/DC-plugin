@@ -9,7 +9,7 @@
 
 using boost::format;
 
-
+unsigned long Logger::logSize = 1500000;
 
 std::wstring s2ws(const std::string& s)
 {
@@ -58,9 +58,19 @@ Logger::~Logger(void)
 {
 }
 
-void Logger::append(std::string line)
+void Logger::append(const std::string &line)
 {
 	logs.push_back(line);
+        
+    unsigned long logUsed = 0;
+    int i;
+    for (i = logs.size()-1 ; i>0 && logUsed < logSize ; i--) {
+        logUsed += logs[i].capacity();
+        //logUsed++;
+    }
+
+    if (i>0)
+        logs.erase(logs.begin(), logs.begin()+i);
 }
 
 void Logger::append(const char *pstrFormat, ...)
@@ -72,11 +82,11 @@ void Logger::append(const char *pstrFormat, ...)
    //CString str = timeWrite.Format("%d %b %y %H:%M:%S - ");
    //refFile.Write(str, str.GetLength());
 
-	std::string str;
+    std::string str;
 
    // format and write the data we were given
-   va_list args;
-   va_start(args, pstrFormat);
+    va_list args;
+    va_start(args, pstrFormat);
 
 	char buff[2048];
 	vsprintf(buff, pstrFormat, args);
@@ -85,8 +95,8 @@ void Logger::append(const char *pstrFormat, ...)
 
 	str = buff;
 	
-   append(str);
-   return;
+    append(str);
+    return;
 }
 
 
@@ -126,7 +136,7 @@ std::vector<std::string> Logger::logs;
 std::vector<BinaryData> Logger::binData;
 std::string Logger::logLevel;
 
-void Logger::binary(std::string type, unsigned char *data, unsigned int len)
+void Logger::binary(const std::string &type, unsigned char *data, unsigned int len)
 {
 	std::string buff;
 
@@ -169,7 +179,7 @@ void Logger::addnthrow(int line, const char*file, const char *level, const char 
 
 
 
-void Logger::binary(std::string type, std::string data)
+void Logger::binary(const std::string &type, const std::string &data)
 {
 	BinaryData b;
 	b.type = type;
@@ -190,7 +200,8 @@ std::string Logger::getBinary()
 	}
 	out = ssb.str();
 	//std::string out0 = CT2CA(out);
-	return(out);}
+	return(out);
+}
 
 std::string Logger::toString()
 {
@@ -207,13 +218,13 @@ std::string Logger::toString()
 	return(out);
 }
 
-void Logger::setLogLevel(std::string level)
+void Logger::setLogLevel(const std::string &level)
 {
 	//myLogLevel.push_back(level);
 	logLevel = level;
 }
 
-bool Logger::checkLevel(std::string req)
+bool Logger::checkLevel(const std::string &req)
 {
 	try {
 		if (logLevel.compare("") == 0)

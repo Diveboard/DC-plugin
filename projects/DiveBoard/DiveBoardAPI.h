@@ -40,6 +40,7 @@ public:
 	FB::variant isComputerPluggedin();
 	void cancel();
 	void setLogLevel(const std::string&);
+	void setLogSize(const unsigned long& size);
 private:
     DiveBoardWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;

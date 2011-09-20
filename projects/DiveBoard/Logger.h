@@ -34,20 +34,21 @@ private:
 	
 public:
 	static std::string logLevel;
+	static unsigned long logSize;
 	static std::vector<std::string> logs;
 	static std::vector<BinaryData> binData;
 	static std::string toString();
 	static std::string getBinary();
-	static void append(std::string);
+	static void append(const std::string&);
 	static void append(const char *pstrFormat, ...);
 	static void appendL(int line, const char*file, const char * level, std::string s);
 	static void appendL(int line, const char*file, const char * level, const char *pstrFormat, ...);
 	static void addnthrow(int line, const char*file, const char * level, std::string s);
 	static void addnthrow(int line, const char*file, const char * level, const char *pstrFormat, ...);
-	static void binary(std::string type, unsigned char *data, unsigned int len);
-	static void binary(std::string type, std::string data);
-	static void setLogLevel(std::string);
-	static bool checkLevel(std::string req);
+	static void binary(const std::string &type, unsigned char *data, unsigned int len);
+	static void binary(const std::string &type, const std::string &data);
+	static void setLogLevel(const std::string&);
+	static bool checkLevel(const std::string &req);
 };
 
 

@@ -69,6 +69,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
 		registerMethod("isComputerPluggedin",make_method(this, &DiveBoardAPI::isComputerPluggedin));
 		registerMethod("setLogLevel", make_method(this, &DiveBoardAPI::setLogLevel));
+		registerMethod("setLogSize", make_method(this, &DiveBoardAPI::setLogSize));
 		registerMethod("cancel",  make_method(this, &DiveBoardAPI::cancel));
 
 		// Read-only property
@@ -332,4 +333,10 @@ void DiveBoardAPI::cancel()
 void DiveBoardAPI::setLogLevel(const std::string& level)
 {
 	Logger::setLogLevel(level);
+}
+
+
+void DiveBoardAPI::setLogSize(const unsigned long& size)
+{
+	Logger::logSize = size;
 }
