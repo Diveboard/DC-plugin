@@ -74,17 +74,17 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
             double y = evt->data.mouse.pluginY;
             switch(evt->data.mouse.buttonNumber) {
                 case 0: {
-                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, x, y, 0);
+                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, x, y);
                     return window->SendEvent(&ev);
                     break;
                 }
                 case 1: {
-                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Right, x, y, 0);
+                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Right, x, y);
                     return window->SendEvent(&ev);
                     break;
                 }
                 case 2: {
-                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Middle, x, y, 0);
+                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Middle, x, y);
                     return window->SendEvent(&ev);
                     break;
                 }
@@ -96,17 +96,17 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
             double y = evt->data.mouse.pluginY;
             switch(evt->data.mouse.buttonNumber) {
                 case 0: {
-                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Left, x, y, 0);
+                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Left, x, y);
                     return window->SendEvent(&ev);
                     break;
                 }
                 case 1: {
-                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Right, x, y, 0);
+                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Right, x, y);
                     return window->SendEvent(&ev);
                     break;
                 }
                 case 2: {
-                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Middle, x, y, 0);
+                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Middle, x, y);
                     return window->SendEvent(&ev);
                     break;
                 }
