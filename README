@@ -1,9 +1,16 @@
-0.1/ Install prerequisites
-get Cmake : http://www.cmake.org/cmake/resources/software.html
+0/ Prerequisites
 
-0.2/ Configure globally Xcode for mac
+- Install CMake :
+  Mac/windows : http://www.cmake.org/cmake/resources/software.html
+  Debian/Ubuntu : apt-get install cmake
 
-- For mac, make sure that the build location can be configured on a project basis :
+- Make sure dependencies are there :
+  Mac : xcode
+  Windows : Visual studio (we're using verion 10)
+  Linux : sudo apt-get install libgtk2.0-dev automake autoconf
+
+- Configure globally Xcode for mac
+  For mac, make sure that the build location can be configured on a project basis :
   XCode > Preferences > Locations > Advanced > Build Location = Location Specified By Targets
 
 
