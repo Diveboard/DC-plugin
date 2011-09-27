@@ -13,22 +13,33 @@ Copyright 2010 Richard Bateman, Firebreath development team
 \**********************************************************/
 
 #include "win_targetver.h"
-#include <windows.h>
+#include "win_common.h"
+#include <boost/lexical_cast.hpp>
+#include <boost/bind.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include "AsyncFunctionCall.h"
-#include <ShlGuid.h>
 #include "logging.h"
+#include "../precompiled_headers.h" // On windows, everything above this line in PCH
+
+#include <ShlGuid.h>
+#include <string>
 
 #include "WinMessageWindow.h"
 
 extern HINSTANCE gInstance;
 
+static boost::recursive_mutex _windowMapMutex;
+static std::map<HWND, FB::WinMessageWindow*> _windowMap;
+
 FB::WinMessageWindow::WinMessageWindow() {
     WNDCLASSEX wc;
     DWORD err(0);
-    static ATOM clsAtom(NULL);
+    ATOM clsAtom(NULL);
+    static int count(0);
 
-    wchar_t *wszWinName = L"FireBreathEventWindow";
-    wchar_t *wszClassName = L"FBEventWindow";
+    std::wstring winName = L"FireBreathEventWindow" + boost::lexical_cast<std::wstring>(count);
+    std::wstring className = L"FBEventWindow" + boost::lexical_cast<std::wstring>(count);
+    ++count;
 
     if (!clsAtom) {
         //Step 1: Registering the Window Class
@@ -39,7 +50,7 @@ FB::WinMessageWindow::WinMessageWindow() {
         wc.cbWndExtra    = 0;
         wc.hInstance     = gInstance;
         wc.lpszMenuName  = NULL;
-        wc.lpszClassName = wszClassName;
+        wc.lpszClassName = className.c_str();
         wc.hIcon = NULL;
         wc.hCursor = NULL;
         wc.hIconSm = NULL;
@@ -55,8 +66,8 @@ FB::WinMessageWindow::WinMessageWindow() {
     // Step 2: Creating the Window
     HWND messageWin = CreateWindowEx(
         WS_OVERLAPPED,
-        wszClassName,
-        wszWinName,
+        className.c_str(),
+        winName.c_str(),
         0,
         0, 0, 0, 0,
         HWND_MESSAGE, NULL, gInstance, NULL);
@@ -64,19 +75,26 @@ FB::WinMessageWindow::WinMessageWindow() {
         err = ::GetLastError();
         throw std::runtime_error("Could not create Message Window");
     }
+    _windowMap[messageWin] = this;
     m_hWnd = messageWin;
+    boost::recursive_mutex::scoped_lock _l(_windowMapMutex);
+    winProc = boost::bind(&FB::WinMessageWindow::DefaultWinProc, this, _1, _2, _3, _4, _5);
 }
 
 LRESULT CALLBACK FB::WinMessageWindow::_WinProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
-    if (uMsg == WM_ASYNCTHREADINVOKE) {
-        FBLOG_TRACE("PluginWindow", "Running async function call");
-        FB::AsyncFunctionCall *evt = static_cast<FB::AsyncFunctionCall*>((void*)lParam);
-        evt->func(evt->userData);
-        delete evt;
-        return S_OK;
+    LRESULT lres = S_OK;
+    FB::WinMessageWindow* self(NULL);
+    {
+        boost::recursive_mutex::scoped_lock _l(_windowMapMutex);
+        if (_windowMap.find(hWnd) != _windowMap.end())
+            self = _windowMap[hWnd];
     }
-    return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    if (!self || !self->winProc(hWnd, uMsg, wParam, lParam, lres)) {
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    } else {
+        return lres;
+    }
 }
 
 HWND FB::WinMessageWindow::getHWND()
@@ -86,6 +104,20 @@ HWND FB::WinMessageWindow::getHWND()
 
 FB::WinMessageWindow::~WinMessageWindow()
 {
+    boost::recursive_mutex::scoped_lock _l(_windowMapMutex);
+    _windowMap.erase(m_hWnd);
     ::DestroyWindow(m_hWnd);
 }
 
+bool FB::WinMessageWindow::DefaultWinProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& lResult )
+{
+    if (uMsg == WM_ASYNCTHREADINVOKE) {
+        FBLOG_TRACE("PluginWindow", "Running async function call");
+        FB::AsyncFunctionCall *evt = static_cast<FB::AsyncFunctionCall*>((void*)lParam);
+        evt->func(evt->userData);
+        delete evt;
+        lResult = S_OK;
+        return true;
+    }
+    return false;
+}

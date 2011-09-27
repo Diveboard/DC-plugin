@@ -19,7 +19,6 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 #if FB_GUI_DISABLED != 1
 
-#include <X11/Xlib.h>
 #include <gtk/gtk.h>
 
 #endif
@@ -31,6 +30,11 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 namespace FB {
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @class  PluginWindowX11
+    ///
+    /// @brief  X11 specific implementation of PluginWindow
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     class PluginWindowX11 : public PluginWindow
     {
     public:
@@ -50,6 +54,7 @@ namespace FB {
 
 #if FB_GUI_DISABLED != 1
     public:
+        bool hasKeyboardFocus() const { return m_focus; }
         GdkNativeWindow getWindow();
         GtkWidget* getWidget() { return m_canvas; }
         void setBrowserWindow(GdkNativeWindow win) {  m_browserWindow = win; }
@@ -65,7 +70,7 @@ namespace FB {
         GdkNativeWindow m_browserWindow;
         GtkWidget *m_container;
         GtkWidget *m_canvas;
-
+        bool m_focus;
 #endif
 
     protected:

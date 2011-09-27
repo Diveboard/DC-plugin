@@ -16,8 +16,11 @@ Copyright 2010 Richard Bateman, Firebreath development team
 #define WinMessageWindow_h__
 
 #include <boost/noncopyable.hpp>
+#include <boost/function.hpp>
 
 namespace FB {
+    typedef boost::function<bool (HWND, UINT, WPARAM, LPARAM, LRESULT&)> WinProcHandler;
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class WinMessageWindow
     ///
@@ -34,8 +37,11 @@ namespace FB {
         HWND getHWND();
 
         static LRESULT CALLBACK _WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+        bool DefaultWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& lResult);
+        void setWinProc( const WinProcHandler& handler ) { winProc = handler; }
     private:
         HWND m_hWnd;
+        WinProcHandler winProc;
     };
 }
 #endif // WinMessageWindow_h__

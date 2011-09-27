@@ -49,6 +49,12 @@ namespace FB { namespace Npapi {
         size_t getMemberCount() const;
     public:
         virtual JSAPIPtr getJSAPI() const;
+        void invalidate() { inner.reset(); }
+        bool isValid() { return !m_browser.expired(); }
+        virtual bool supportsOptimizedCalls() const { return true; }
+        virtual void callMultipleFunctions(const std::string& name, const FB::VariantList& args,
+                                           const std::vector<JSObjectPtr>& direct,
+                                           const std::vector<JSObjectPtr>& ifaces);
 
     protected:
         NpapiBrowserHostPtr getHost() const {
@@ -67,16 +73,17 @@ namespace FB { namespace Npapi {
         bool HasMethod(const std::string& methodName) const;
         bool HasProperty(const std::string& propertyName) const;
         bool HasProperty(int idx) const;
-        bool HasEvent(const std::string& eventName) const;
 
         variant GetProperty(const std::string& propertyName);
         void SetProperty(const std::string& propertyName, const variant& value);
+        void RemoveProperty(const std::string& propertyName);
         variant GetProperty(int idx);
         void SetProperty(int idx, const variant& value);
+        void RemoveProperty(int idx);
 
         variant Invoke(const std::string& methodName, const std::vector<variant>& args);
 
-        //FB::JSObjectPtr Construct(const std::string& memberName, const std::vector<variant>& args);
+        variant Construct(const std::vector<variant>& args);
     };
 
 }; };

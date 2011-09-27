@@ -15,8 +15,6 @@
 
 find_package(PkgConfig)
 
-set(FB_GUI_DISABLED 1)
-
 # not even optional
 set(BUILD_SHARED_LIBS YES)
 
@@ -63,8 +61,8 @@ MACRO(add_x11_plugin PROJNAME INSOURCES)
         PROJECT_LABEL "${PROJNAME}"
         LINK_FLAGS "${NPAPI_LINK_FLAGS}"
         PREFIX ""
-        RUNTIME_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
-        LIBRARY_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
+        RUNTIME_OUTPUT_DIRECTORY "${FB_BIN_DIR}/${PLUGIN_NAME}"
+        LIBRARY_OUTPUT_DIRECTORY "${FB_BIN_DIR}/${PLUGIN_NAME}"
     )
 ENDMACRO(add_x11_plugin)
 

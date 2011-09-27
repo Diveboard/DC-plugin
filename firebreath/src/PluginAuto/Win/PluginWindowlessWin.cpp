@@ -6,6 +6,7 @@
 #include "PluginEvents/DrawingEvents.h" 
 #include "PluginEvents/MouseEvents.h"
 #include "PluginEvents/KeyboardEvents.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 using namespace std; using namespace FB;
 
@@ -20,7 +21,6 @@ PluginWindowlessWin::PluginWindowlessWin(const FB::WindowContextWindowless& ctx)
 PluginWindowlessWin::~PluginWindowlessWin() {}
 
 void PluginWindowlessWin::translateWindowToPlugin(int32_t &x, int32_t &y) const {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     int32_t tempX, tempY;
     tempX = x - m_x;
     tempY = y - m_y;
@@ -30,7 +30,6 @@ void PluginWindowlessWin::translateWindowToPlugin(int32_t &x, int32_t &y) const 
 
 bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t lParam, LRESULT& lRes)
 { 
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     {
         LRESULT lres(0);
         WindowsEvent nEvt((HWND)NULL, event, wParam, lParam, lres);
@@ -39,13 +38,16 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             return TRUE;
         }
     }
+	unsigned int modifierState = (GetKeyState(VK_SHIFT) & 0x8000) != 0 ? MouseButtonEvent::ModifierState_Shift : 0;
+	modifierState += (GetKeyState(VK_CONTROL) & 0x8000) != 0 ? MouseButtonEvent::ModifierState_Control : 0;
+	modifierState += (GetKeyState(VK_MENU) & 0x8000) != 0 ? MouseButtonEvent::ModifierState_Menu : 0;
     switch(event) {
         case WM_LBUTTONDOWN: 
         {
             int32_t x = GET_X_LPARAM(lParam);
             int32_t y = GET_Y_LPARAM(lParam);
             translateWindowToPlugin(x, y);
-            MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, x, y);
+            MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, x, y, modifierState);
             return SendEvent(&ev);
         }
         case WM_RBUTTONDOWN:
@@ -53,7 +55,7 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             int32_t x = GET_X_LPARAM(lParam);
             int32_t y = GET_Y_LPARAM(lParam);
             translateWindowToPlugin(x, y);
-            MouseDownEvent ev(MouseButtonEvent::MouseButton_Right, x, y);
+            MouseDownEvent ev(MouseButtonEvent::MouseButton_Right, x, y, modifierState);
             return SendEvent(&ev);
         }
         case WM_MBUTTONDOWN:
@@ -61,7 +63,7 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             int32_t x = GET_X_LPARAM(lParam);
             int32_t y = GET_Y_LPARAM(lParam);
             translateWindowToPlugin(x, y);
-            MouseDownEvent ev(MouseButtonEvent::MouseButton_Middle, x, y);
+            MouseDownEvent ev(MouseButtonEvent::MouseButton_Middle, x, y, modifierState);
             return SendEvent(&ev);
         }
         case WM_LBUTTONUP: 
@@ -69,7 +71,7 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             int32_t x = GET_X_LPARAM(lParam);
             int32_t y = GET_Y_LPARAM(lParam);
             translateWindowToPlugin(x, y);
-            MouseUpEvent ev(MouseButtonEvent::MouseButton_Left, x, y);
+            MouseUpEvent ev(MouseButtonEvent::MouseButton_Left, x, y, modifierState);
             return SendEvent(&ev);
         }
         case WM_RBUTTONUP:
@@ -77,7 +79,7 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             int32_t x = GET_X_LPARAM(lParam);
             int32_t y = GET_Y_LPARAM(lParam);
             translateWindowToPlugin(x, y);
-            MouseUpEvent ev(MouseButtonEvent::MouseButton_Right, x, y);
+            MouseUpEvent ev(MouseButtonEvent::MouseButton_Right, x, y, modifierState);
             return SendEvent(&ev);
         }
         case WM_MBUTTONUP:
@@ -85,7 +87,7 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             int32_t x = GET_X_LPARAM(lParam);
             int32_t y = GET_Y_LPARAM(lParam);
             translateWindowToPlugin(x, y);
-            MouseUpEvent ev(MouseButtonEvent::MouseButton_Middle, x, y);
+            MouseUpEvent ev(MouseButtonEvent::MouseButton_Middle, x, y, modifierState);
             return SendEvent(&ev);
         }
         case WM_MOUSEMOVE:
@@ -95,21 +97,6 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
             translateWindowToPlugin(x, y);
             MouseMoveEvent ev(x, y);
             return SendEvent(&ev);
-        }
-        case WM_PAINT:
-        {
-            HDC dc = (HDC)wParam;
-            if(dc != m_hdc) {
-                setHDC(dc);
-            }
-            RefreshEvent ev;
-            if (!SendEvent(&ev)) {
-                FB::Rect pos = getWindowPosition();
-            	::SetTextAlign(dc, TA_CENTER|TA_BASELINE);
-            	LPCTSTR pszText = _T("FireBreath Plugin");
-            	::TextOut(dc, pos.left + (pos.right - pos.left) / 2, pos.top + (pos.bottom - pos.top) / 2, pszText, lstrlen(pszText));
-            }
-            return 0;
         }
         case WM_KEYUP:
         {
@@ -127,8 +114,23 @@ bool PluginWindowlessWin::HandleEvent(uint32_t event, uint32_t wParam, uint32_t 
     return 0;
 }
 
+bool PluginWindowlessWin::HandleDraw(HDC dc, FB::Rect bounds) {
+    if (dc != m_hdc) {
+        setHDC(dc);
+    }
+
+    RefreshEvent ev(bounds);
+    if (!SendEvent(&ev)) {
+        FB::Rect pos = getWindowPosition();
+        ::SetTextAlign(dc, TA_CENTER|TA_BASELINE);
+        LPCTSTR pszText = _T("FireBreath Plugin");
+        ::TextOut(dc, pos.left + (pos.right - pos.left) / 2, pos.top + (pos.bottom - pos.top) / 2, pszText, lstrlen(pszText));
+    }
+
+    return true;
+}
+
 FB::Rect PluginWindowlessWin::getWindowPosition() const {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     int32_t top = m_y;
     int32_t left = m_x;
     int32_t bottom = m_y + m_height;
@@ -138,29 +140,39 @@ FB::Rect PluginWindowlessWin::getWindowPosition() const {
 }
 
 void PluginWindowlessWin::setWindowPosition(int32_t x, int32_t y, uint32_t width, uint32_t height) {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
+    bool changed = x != m_x || y != m_y || height != m_height || width != m_width;
+
     m_x = x;
     m_y = y;
     m_height = height;
     m_width = width;
+
+    if (changed) {
+        ResizedEvent ev;
+        SendEvent(&ev);  //notify the plugin the window has changed position/size
+    }
 }
 
 void PluginWindowlessWin::setWindowPosition(FB::Rect pos) {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
+    bool changed = pos.left != m_x || pos.top != m_y || pos.bottom - pos.top != m_height || pos.right - pos.left != m_width;
+
     m_x = pos.left;
     m_y = pos.top;
     m_height = pos.bottom - m_y;
     m_width = pos.right - m_x;
+
+    if (changed) {
+        ResizedEvent ev;
+        SendEvent(&ev);  //notify the plugin the window has changed position/size
+    }
 }
 
 FB::Rect FB::PluginWindowlessWin::getWindowClipping() const {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     FB::Rect r = { m_clipTop, m_clipLeft, m_clipBottom, m_clipRight };
     return r;
 }
 
 void PluginWindowlessWin::setWindowClipping(int32_t top, int32_t left, int32_t bottom, int32_t right) {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     m_clipTop = top;
     m_clipLeft = left;
     m_clipBottom = bottom;
@@ -168,7 +180,6 @@ void PluginWindowlessWin::setWindowClipping(int32_t top, int32_t left, int32_t b
 }
 
 void PluginWindowlessWin::setWindowClipping(FB::Rect clip) {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
     m_clipTop = clip.top;
     m_clipLeft = clip.left;
     m_clipBottom = clip.bottom;
@@ -177,9 +188,7 @@ void PluginWindowlessWin::setWindowClipping(FB::Rect clip) {
 
 void FB::PluginWindowlessWin::InvalidateWindow() const
 {
-    boost::recursive_mutex::scoped_lock _l(m_mutex);
-    FB::Rect r = getWindowPosition();
     if (m_invalidateWindow)
-        m_invalidateWindow(r.left, r.top, r.right, r.bottom);
+        m_invalidateWindow(0, 0, getWindowWidth(), getWindowHeight());
 }
 

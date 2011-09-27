@@ -19,10 +19,13 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "win_common.h"
 //#include "global/COM_config.h"
 #include <atlctl.h>
+#include <map>
 #include "BrowserHost.h"
 #include "APITypes.h"
 #include "FBPointers.h"
 #include "SafeQueue.h"
+#include "ShareableReference.h"
+#include "ActiveXFactoryDefinitions.h"
 
 namespace FB {
     class WinMessageWindow;
@@ -30,6 +33,8 @@ namespace FB {
         FB_FORWARD_PTR(ActiveXBrowserHost);
         FB_FORWARD_PTR(IDispatchAPI);
 
+        typedef boost::weak_ptr<FB::ShareableReference<IDispatch> > IDispatchWRef;
+        typedef boost::shared_ptr<FB::ShareableReference<IDispatch> > IDispatchSRef;
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @class  ActiveXBrowserHost
         ///
@@ -49,12 +54,25 @@ namespace FB {
                                                     bool cache = true, bool seekable = false, 
                                                     size_t internalBufferSize = 128 * 1024 ) const;
 
+            IDispatchEx* getJSAPIWrapper(const FB::JSAPIWeakPtr& api, bool autoRelease = false);
+            IDispatchWRef getIDispatchRef(IDispatch* obj);
+
+            virtual FB::BrowserStreamPtr _createPostStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
+                                                    const std::string& postdata, bool cache = true, bool seekable = false, 
+                                                    size_t internalBufferSize = 128 * 1024 ) const;
+
         public:
             FB::DOM::DocumentPtr getDOMDocument();
             FB::DOM::WindowPtr getDOMWindow();
+            
+            bool hasHTMLWindow() { return m_htmlWin != NULL; }
+
+            void suspend();
+            void resume(IWebBrowser2 *doc, IOleClientSite* clientSite);
+            
             FB::DOM::ElementPtr getDOMElement();
             void evaluateJavaScript(const std::string &script);
-			void shutdown();
+            void shutdown();
 
         public:
             FB::DOM::WindowPtr _createWindow(const FB::JSObjectPtr& obj) const;
@@ -64,25 +82,28 @@ namespace FB {
 
         protected:
             void initDOMObjects(); // This is const so that getDOMDocument/Window can be
-        	CComQIPtr<IOleClientSite> m_spClientSite;
-            CComQIPtr<IHTMLDocument2> m_htmlDoc;
+            CComQIPtr<IOleClientSite> m_spClientSite;
             CComQIPtr<IDispatch> m_htmlDocDisp;
             CComPtr<IHTMLWindow2> m_htmlWin;
             CComPtr<IWebBrowser2> m_webBrowser;
-            CComQIPtr<IDispatch> m_htmlWinDisp;
             mutable FB::DOM::WindowPtr m_window;
             mutable FB::DOM::DocumentPtr m_document;
             boost::scoped_ptr<FB::WinMessageWindow> m_messageWin;
 
         private:
             mutable boost::shared_mutex m_xtmutex;
-            mutable FB::SafeQueue<IDispatch*> m_deferredObjects;
+            mutable FB::SafeQueue<IDispatchWRef> m_deferredObjects;
+            typedef std::map<void*, FB::WeakIDispatchExRef> IDispatchExRefMap;
+            typedef std::list<IDispatchSRef> IDispatchRefList;
+            mutable IDispatchExRefMap m_cachedIDispatch;
+            mutable IDispatchRefList m_heldIDispatch;
 
         public:
             FB::variant getVariant(const VARIANT *cVar);
             void getComVariant(VARIANT *dest, const FB::variant &var);
-            void deferred_release( IDispatch* m_obj ) const;
+            void deferred_release( const IDispatchWRef& obj ) const;
             void DoDeferredRelease() const;
+            void ReleaseAllHeldObjects();
         };
     }
 }

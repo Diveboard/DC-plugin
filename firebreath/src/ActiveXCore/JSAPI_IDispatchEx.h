@@ -95,7 +95,7 @@ namespace FB { namespace ActiveX {
             : m_attachFunc(boost::make_shared<IDisp_AttachEvent>(this)), 
               m_detachFunc(boost::make_shared<IDisp_DetachEvent>(this))
         { }
-        void setAPI(FB::JSAPIWeakPtr api, ActiveXBrowserHostPtr host)
+        void setAPI(FB::JSAPIWeakPtr api, const ActiveXBrowserHostPtr& host)
         {
             m_api = api;
             m_host = host;
@@ -108,6 +108,9 @@ namespace FB { namespace ActiveX {
                 throw std::bad_cast("Invalid object");
             return api;
         }
+        ActiveXBrowserHostPtr getHost() const {
+            return m_host.lock();
+        }
 
         friend class IDisp_AttachEvent;
         friend class IDisp_DetachEvent;
@@ -117,7 +120,7 @@ namespace FB { namespace ActiveX {
         IDisp_AttachEventPtr m_attachFunc;
         IDisp_DetachEventPtr m_detachFunc;
 
-        ActiveXBrowserHostPtr m_host;
+        ActiveXBrowserHostWeakPtr m_host;
     };
 
     template <class T, class IDISP, const IID* piid>
@@ -258,7 +261,7 @@ namespace FB { namespace ActiveX {
         try {
             CComQIPtr<IDispatch> disp(pUnkSink);
             if (disp) {
-				IDispatchAPIPtr obj(IDispatchAPI::create(disp, m_host));
+                IDispatchAPIPtr obj(IDispatchAPI::create(disp, getHost()));
                 m_connPtMap[(DWORD)obj.get()] = obj;
                 *pdwCookie = (DWORD)obj.get();
                 getAPI()->registerEventInterface(obj);
@@ -343,7 +346,7 @@ namespace FB { namespace ActiveX {
             FB::JSAPIPtr api(getAPI());
             if ((wsName == L"attachEvent") || (wsName == L"detachEvent")) {
                 *pid = AxIdMap.getIdForValue(wsName);
-            } else if (api->HasProperty(wsName) || api->HasMethod(wsName) || api->HasEvent(wsName)) {
+            } else if (api->HasProperty(wsName) || api->HasMethod(wsName)) {
                 *pid = AxIdMap.getIdForValue(wsName);
             } else {
                 *pid = -1;
@@ -401,6 +404,7 @@ namespace FB { namespace ActiveX {
         try 
         {
             wsName = AxIdMap.getValueForId<std::wstring>(id);
+            ActiveXBrowserHostPtr host(getHost());
 
             if (wFlags & DISPATCH_PROPERTYGET) {
                 if(!pvarRes)
@@ -422,7 +426,7 @@ namespace FB { namespace ActiveX {
                 if (wFlags & DISPATCH_METHOD) {
                     std::vector<FB::variant> params;
                     for (int i = pdp->cArgs - 1; i >= 0; i--) {
-                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                        params.push_back(host->getVariant(&pdp->rgvarg[i]));
                     }
 
                     if (wsName[0] == L'a') {
@@ -437,32 +441,49 @@ namespace FB { namespace ActiveX {
                     } else {
                         rVal = m_detachFunc;
                     }
-                    m_host->getComVariant(pvarRes, rVal);
+                    host->getComVariant(pvarRes, rVal);
                 }
 
             } else if (wFlags & DISPATCH_METHOD && (api->HasMethod(wsName) || !id) ) {
 
                 std::vector<FB::variant> params;
                 if (pdp->cNamedArgs > 0 && pdp->rgdispidNamedArgs[0] == DISPID_THIS) {
-                    // TODO: Figure out why default function calls have an extra argument;
-                    // My theory is that the argument is the object we're calling this on,
-                    // since the first (last, since we reverse the order) argument passed
-                    // is an IDispatch object
                     if (id == 0)
                         wsName = L"";
                     for (int i = pdp->cArgs - 1; i >= 1; i--) {
-                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                        params.push_back(host->getVariant(&pdp->rgvarg[i]));
                     }
                 } else {
                     for (int i = pdp->cArgs - 1; i >= 0; i--) {
-                        params.push_back(m_host->getVariant(&pdp->rgvarg[i]));
+                        params.push_back(host->getVariant(&pdp->rgvarg[i]));
                     }
                 }
                 FB::variant rVal;
                 rVal = api->Invoke(wsName, params);
                 
                 if(pvarRes)
-                    m_host->getComVariant(pvarRes, rVal);
+                    host->getComVariant(pvarRes, rVal);
+
+            } else if (wFlags & DISPATCH_CONSTRUCT) {
+
+                std::vector<FB::variant> params;
+                if (pdp->cNamedArgs > 0 && pdp->rgdispidNamedArgs[0] == DISPID_THIS) {
+                    if (id == 0)
+                        wsName = L"";
+                    for (int i = pdp->cArgs - 1; i >= 1; i--) {
+                        params.push_back(host->getVariant(&pdp->rgvarg[i]));
+                    }
+                } else {
+                    for (int i = pdp->cArgs - 1; i >= 0; i--) {
+                        params.push_back(host->getVariant(&pdp->rgvarg[i]));
+                    }
+                }
+                FB::variant rVal;
+                rVal = api->Construct(params);
+                
+                if(pvarRes)
+                    host->getComVariant(pvarRes, rVal);
+
 
             } else if (wFlags & DISPATCH_PROPERTYGET && api->HasMethod(wsName)) {
 
@@ -471,7 +492,7 @@ namespace FB { namespace ActiveX {
                     rVal = api->GetMethodObject(wsName);
                 else
                     rVal = true;
-                m_host->getComVariant(pvarRes, rVal);
+                host->getComVariant(pvarRes, rVal);
 
             } else if (wFlags & DISPATCH_PROPERTYGET && api->HasProperty(wsName)) {
 
@@ -480,21 +501,11 @@ namespace FB { namespace ActiveX {
 
                 FB::variant rVal = api->GetProperty(wsName);
 
-                m_host->getComVariant(pvarRes, rVal);
-
-            } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasEvent(wsName)) {
-                
-                FB::variant newVal = m_host->getVariant(&pdp->rgvarg[0]);
-                if (newVal.empty()) {
-                    api->setDefaultEventMethod(wsName, FB::JSObjectPtr());
-                } else {
-                    FB::JSObjectPtr method(newVal.cast<FB::JSObjectPtr>());
-                    api->setDefaultEventMethod(wsName, method);
-                }
+                host->getComVariant(pvarRes, rVal);
 
             } else if ((wFlags & DISPATCH_PROPERTYPUT || wFlags & DISPATCH_PROPERTYPUTREF) && api->HasProperty(wsName)) {
 
-                FB::variant newVal = m_host->getVariant(&pdp->rgvarg[0]);
+                FB::variant newVal = host->getVariant(&pdp->rgvarg[0]);
                 api->SetProperty(wsName, newVal);
 
             } else {
@@ -529,7 +540,29 @@ namespace FB { namespace ActiveX {
     template <class T, class IDISP, const IID* piid>
     HRESULT JSAPI_IDispatchEx<T,IDISP,piid>::DeleteMemberByDispID(DISPID id)
     {
-        return E_NOTIMPL;
+        FB::JSAPIPtr api;
+        try {
+            api = getAPI();
+        } catch (...) {
+            return S_FALSE;
+        }
+        if (!AxIdMap.idExists(id)) {
+            return S_FALSE;
+        }
+
+        std::wstring wsName;
+        try 
+        {
+            wsName = AxIdMap.getValueForId<std::wstring>(id);
+            api->RemoveProperty(wsName);
+        } catch (const FB::script_error& se) {
+            FBLOG_INFO("JSAPI_IDispatchEx", "Script error for \"" << FB::wstring_to_utf8(wsName) << "\": " << se.what());
+            return S_FALSE;
+        } catch (...) {
+            return S_FALSE;
+        }
+
+        return S_OK;
     }
 
     template <class T, class IDISP, const IID* piid>

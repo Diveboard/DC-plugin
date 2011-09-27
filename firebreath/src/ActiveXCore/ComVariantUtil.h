@@ -36,6 +36,7 @@
 #include "AXDOM/Document.h"
 #include "AXDOM/Element.h"
 #include "AXDOM/Node.h"
+#include <atlsafe.h>
 
 namespace FB { namespace ActiveX
 {    
@@ -49,9 +50,59 @@ namespace FB { namespace ActiveX
     
     typedef CComVariant (*ComVariantBuilder)(const ActiveXBrowserHostPtr&, const FB::variant&);    
     typedef std::map<std::type_info const*, ComVariantBuilder, type_info_less> ComVariantBuilderMap;
+    //  GJS  ---
+    //  I would probably put the ComVariantBuilderMap code into ComVariantUtil.cpp?
+    template<class T>
+    inline ComVariantBuilderMap::value_type makeBuilderEntry()
+    {
+        return ComVariantBuilderMap::value_type(&typeid(T), select_ccomvariant_builder::select<T>());
+    }
+    
+    inline ComVariantBuilderMap makeComVariantBuilderMap()
+    {
+        ComVariantBuilderMap tdm;
+        tdm.insert(makeBuilderEntry<bool>());
+        tdm.insert(makeBuilderEntry<char>());
+        tdm.insert(makeBuilderEntry<unsigned char>());
+        tdm.insert(makeBuilderEntry<short>());
+        tdm.insert(makeBuilderEntry<unsigned short>());
+        tdm.insert(makeBuilderEntry<int>());
+        tdm.insert(makeBuilderEntry<unsigned int>());
+        tdm.insert(makeBuilderEntry<long>());
+        tdm.insert(makeBuilderEntry<unsigned long>());
+        
+#ifndef BOOST_NO_LONG_LONG
+        tdm.insert(makeBuilderEntry<long long>());
+        tdm.insert(makeBuilderEntry<unsigned long long>());
+#endif
+        
+        tdm.insert(makeBuilderEntry<float>());
+        tdm.insert(makeBuilderEntry<double>());
+        
+        tdm.insert(makeBuilderEntry<std::string>());
+        tdm.insert(makeBuilderEntry<std::wstring>());
+        
+        tdm.insert(makeBuilderEntry<FB::VariantList>());
+        tdm.insert(makeBuilderEntry<FB::VariantMap>());
+        tdm.insert(makeBuilderEntry<FB::JSAPIPtr>());
+        tdm.insert(makeBuilderEntry<FB::JSAPIWeakPtr>());
+        tdm.insert(makeBuilderEntry<FB::JSObjectPtr>());
+
+        tdm.insert(makeBuilderEntry<FB::FBVoid>());
+        tdm.insert(makeBuilderEntry<FB::FBNull>());
+        
+        return tdm;
+    }
+    
+    inline const ComVariantBuilderMap& getComVariantBuilderMap()
+    {
+        static const ComVariantBuilderMap tdm = makeComVariantBuilderMap();
+        return tdm;
+    }
+    //  GJS  ---
     
     template<class T>
-    CComVariant makeArithmeticComVariant(const ActiveXBrowserHostPtr& host, const FB::variant& var)
+    inline CComVariant makeArithmeticComVariant(const ActiveXBrowserHostPtr& host, const FB::variant& var)
     {
         return var.convert_cast<T>();
     }
@@ -110,38 +161,82 @@ namespace FB { namespace ActiveX
     template<> inline
     CComVariant makeComVariant<FB::VariantList>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
     {
+        //  GJS  ---
         CComVariant outVar;
-
-        FB::JSObjectPtr outArr = host->getDOMWindow()->createArray();
         FB::VariantList inArr = var.cast<FB::VariantList>();
-        for (FB::VariantList::iterator it = inArr.begin(); it != inArr.end(); it++) {
-            FB::VariantList vl = boost::assign::list_of(*it);
-            outArr->Invoke("push", vl);
+        if (host->hasHTMLWindow())
+        {
+            FB::JSObjectPtr outArr = host->getDOMWindow()->createArray();
+            for (FB::VariantList::iterator it = inArr.begin(); it != inArr.end(); it++) {
+                FB::VariantList vl = boost::assign::list_of(*it);
+                outArr->Invoke("push", vl);
+            }
+            IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(outArr);
+            if (api) {
+                return api->getIDispatch();
+            } 
         }
-        IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(outArr);
-        if (api) {
-            return api->getIDispatch();
-        } 
+        else
+        {
+            CComSafeArray<VARIANT> sa;
+			sa.Create();
+            const ComVariantBuilderMap& builderMap = getComVariantBuilderMap();
+            for (FB::VariantList::iterator itr = inArr.begin(); itr != inArr.end(); itr++) {
+                const std::type_info& type = itr->get_type();
+                ComVariantBuilderMap::const_iterator found = builderMap.find(&type);
 
+                if (found == builderMap.end())
+                    continue;
+
+                CComVariant var = (found->second)(host, *itr);
+                sa.Add(var);
+            }
+
+            outVar = sa.Detach();
+        }
         return outVar;
+        //  GJS  ---
     }
     
     template<> inline
     CComVariant makeComVariant<FB::VariantMap>(const ActiveXBrowserHostPtr& host, const FB::variant& var)
     {
+        //  GJS  ---
         CComVariant outVar;
-
-        FB::JSObjectPtr out = host->getDOMWindow()->createMap();
         FB::VariantMap inMap = var.cast<FB::VariantMap>();
-        for (FB::VariantMap::iterator it = inMap.begin(); it != inMap.end(); it++) {
-            out->SetProperty(it->first, it->second);
+        if (host->hasHTMLWindow())
+        {
+            FB::JSObjectPtr out = host->getDOMWindow()->createMap();
+            for (FB::VariantMap::iterator it = inMap.begin(); it != inMap.end(); it++) {
+                out->SetProperty(it->first, it->second);
+            }
+            IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(out);
+            if (api) {
+                outVar = api->getIDispatch();
+            }
         }
-        IDispatchAPIPtr api = ptr_cast<IDispatchAPI>(out);
-        if (api) {
-            outVar = api->getIDispatch();
-        }
+        else
+        {
+            CComSafeArray<VARIANT> sa;
+			sa.Create();
+            const ComVariantBuilderMap& builderMap = getComVariantBuilderMap();
+            for (FB::VariantMap::iterator itr = inMap.begin(); itr != inMap.end(); itr++) {
+                const std::type_info& valType = itr->second.get_type();
+                ComVariantBuilderMap::const_iterator valTypeFound = builderMap.find(&valType);
+                if (valTypeFound == builderMap.end())
+                    continue;
 
+                CComSafeArray<VARIANT> sa2;
+                CComVariant key = makeComVariant<std::string>(host, itr->first);
+                CComVariant val = (valTypeFound->second)(host, itr->second);
+                sa2.Add(key);
+                sa2.Add(val);
+                sa.Add(sa2.Detach());
+            }
+                outVar = sa.Detach();
+        }
         return outVar;
+        //  GJS  ---
     }
     
     template<> inline
@@ -157,7 +252,7 @@ namespace FB { namespace ActiveX
             if (obj) {
                 // Add obj to the list of shared_ptrs that browserhost keeps
                 host->retainJSAPIPtr(obj);
-                outVar = getFactoryInstance()->createCOMJSObject(host, var.cast<FB::JSAPIPtr>(), true);
+                outVar = host->getJSAPIWrapper(obj, true);
                 outVar.pdispVal->Release();
             } else {
                 outVar.ChangeType(VT_NULL);
@@ -178,7 +273,7 @@ namespace FB { namespace ActiveX
             outVar = api->getIDispatch();
         } else {
             if (obj) {
-                outVar = getFactoryInstance()->createCOMJSObject(host, obj);
+                outVar = host->getJSAPIWrapper(obj);
                 outVar.pdispVal->Release();
             } else {
                 outVar.ChangeType(VT_NULL);

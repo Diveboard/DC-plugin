@@ -15,6 +15,11 @@ Copyright 2010 Facebook, Inc
 #include <string>
 #include <boost/scoped_ptr.hpp>
 
+#include "FactoryBase.h"
+#include "logging.h"
+#include "utf8_tools.h"
+
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 #include "log4cplus/config/defines.hxx"
 #include "log4cplus/logger.h"
 #include "log4cplus/loglevel.h"
@@ -24,10 +29,6 @@ Copyright 2010 Facebook, Inc
 #include "log4cplus/win32debugappender.h"
 #include "log4cplus/consoleappender.h"
 #include "log4cplus/nullappender.h"
-
-#include "FactoryBase.h"
-#include "logging.h"
-#include "utf8_tools.h"
 
 namespace 
 {
@@ -61,7 +62,7 @@ void FB::Log::initLogging()
             logger.addAppender(debugAppender);
             addedAppender = true;
 #endif
-            }
+            } break;
         case FB::Log::LogMethod_File: {
             log4cplus::SharedAppenderPtr fileAppender(new log4cplus::FileAppender(FB::utf8_to_wstring(it->second)));
             std::auto_ptr<log4cplus::Layout> layout(new log4cplus::TTCCLayout());

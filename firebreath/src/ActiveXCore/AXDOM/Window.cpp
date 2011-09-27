@@ -15,6 +15,7 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 #include "Document.h"
 #include "IDispatchAPI.h"
 
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 #include "Window.h"
 
 using namespace FB::ActiveX::AXDOM;
@@ -37,7 +38,7 @@ FB::DOM::DocumentPtr Window::getDocument() const
     CComPtr<IHTMLDocument2> htmlDoc;
     m_htmlWin->get_document(&htmlDoc);
     CComQIPtr<IDispatch> htmlDocDisp(htmlDoc);
-	FB::JSObjectPtr docAPI(IDispatchAPI::create(htmlDocDisp, FB::ptr_cast<ActiveXBrowserHost>(this->m_element->getHost())));
+    FB::JSObjectPtr docAPI(IDispatchAPI::create(htmlDocDisp, FB::ptr_cast<ActiveXBrowserHost>(this->m_element->getHost())));
     return FB::DOM::Document::create(docAPI);
 }
 
@@ -49,10 +50,7 @@ void Window::alert(const std::string& str) const
 std::string Window::getLocation() const
 {
     CComBSTR bstr;
-    //m_webBrowser->get_LocationURL(&bstr);
-    CComPtr<IHTMLLocation> location;
-    m_htmlWin->get_location(&location);
-    location->get_href(&bstr);
+    m_webBrowser->get_LocationURL(&bstr);
     return FB::wstring_to_utf8(std::wstring(bstr.m_str));
 }
 

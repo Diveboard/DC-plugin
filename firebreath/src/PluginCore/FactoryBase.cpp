@@ -15,10 +15,13 @@
 #include "FactoryBase.h"
 #include "ConstructDefaultPluginWindows.h"
 #include "NpapiPluginFactory.h"
+
 #ifdef FB_WIN
 #include "ActiveXFactoryDefinitions.h"
 #endif
+
 #include "PluginInfo.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 FB::FactoryBase::FactoryBase()
 {
@@ -101,30 +104,35 @@ HRESULT FB::FactoryBase::UpdateWindowsRegistry( bool install )
 #endif
 
 #ifdef FB_MACOSX
-FB::PluginWindowMacCarbonQD* FB::FactoryBase::createPluginWindowCarbonQD(const FB::WindowContextQuickDraw& ctx)
+FB::PluginWindowMacICA* FB::FactoryBase::createPluginWindowMacICA()
 {
-    return FB::createPluginWindowCarbonQD(ctx);
+    return FB::createPluginWindowMacICA();
 }
+FB::PluginWindowMacCA* FB::FactoryBase::createPluginWindowMacCA()
+{
+    return FB::createPluginWindowMacCA();
+}
+FB::PluginWindowMacCG* FB::FactoryBase::createPluginWindowMacCG()
+{
+    return FB::createPluginWindowMacCG();
+}
+#ifndef NP_NO_QUICKDRAW
+FB::PluginWindowMacQD* FB::FactoryBase::createPluginWindowMacQD()
+{
+    return FB::createPluginWindowMacQD();
+}
+#endif
+FB::PluginEventMacCocoa* FB::FactoryBase::createPluginEventMacCocoa()
+{
+    return FB::createPluginEventMacCocoa();
+}
+#ifndef NP_NO_CARBON
+FB::PluginEventMacCarbon* FB::FactoryBase::createPluginEventMacCarbon()
+{
+    return FB::createPluginEventMacCarbon();
+}
+#endif
 
-FB::PluginWindowMacCarbonCG* FB::FactoryBase::createPluginWindowCarbonCG(const FB::WindowContextCoreGraphics& ctx)
-{
-    return FB::createPluginWindowCarbonCG(ctx);
-}
-
-FB::PluginWindowMacCocoaCG* FB::FactoryBase::createPluginWindowCocoaCG()
-{
-    return FB::createPluginWindowCocoaCG();
-}
-
-FB::PluginWindowMacCocoaCA* FB::FactoryBase::createPluginWindowCocoaCA()
-{
-    return FB::createPluginWindowCocoaCA();
-}
-
-FB::PluginWindowMacCocoaICA* FB::FactoryBase::createPluginWindowCocoaICA()
-{
-    return FB::createPluginWindowCocoaICA();
-}
 #endif
 
 #ifdef FB_X11

@@ -16,8 +16,6 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
 project (UnitTest++)
 if (VERBOSE)
     message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
@@ -58,6 +56,8 @@ elseif (WIN32)
 endif()
 
 add_library (UnitTest++ STATIC ${SOURCES})
+set_target_properties(UnitTest++ PROPERTIES FOLDER "UnitTests")
+export(TARGETS UnitTest++ APPEND FILE ${FB_EXPORT_FILE})
 
 add_definitions(
     -D_CRT_SECURE_NO_DEPRECATE

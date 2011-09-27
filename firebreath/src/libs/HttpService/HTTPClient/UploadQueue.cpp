@@ -45,6 +45,7 @@ FB::VariantMap UploadQueue::getEmptyProgressDict() {
     d["total_queue_bytes"] = 0;
     d["total_queue_files"] = 0;
     d["batches_remaining"] = 0;
+    d["status"] = "Unknown";
 
     return d;
 }
@@ -58,6 +59,7 @@ FB::VariantMap UploadQueue::getStatusDict(bool include_filenames) {
     d["total_queue_files"] = total_queue_files;
     d["current_queue_files_remaining"] = files_waiting;
     d["batches_remaining"] = ceil(static_cast<float>(files_waiting) / static_cast<float>(batch_size));
+    d["status"] = "Uploading";
 
     // this-batch stats
     if (include_filenames) {
@@ -146,10 +148,11 @@ void UploadQueue::start_next_upload() {
             it->setStatus(UploadQueueEntry::ENTRY_IN_PROGRESS);
             --files_waiting;
             current_queue_bytes -= qe.filesize;
-
-            std::string s = "file" + files_started;
-            qe.post_field = s;
-            data->addFile(s, FB::wstring_to_utf8(qe.filename), "application/octet-stream", qe.datablock);
+            
+            std::stringstream ss;
+            ss << "file" << files_started;
+            qe.post_field = ss.str();
+            data->addFile(ss.str(), FB::wstring_to_utf8(qe.filename), "application/octet-stream", qe.datablock);
 
             current_upload_files.insert(qe.source_path);
             current_batch_bytes += qe.filesize;
@@ -200,6 +203,7 @@ void UploadQueue::start_next_upload() {
 
         if (! failures.empty()) d["failed_files"] = failures;
 
+        d["status"] = "Complete";
         status = UploadQueue::UPLOAD_COMPLETE;
         // fire completion handlers, if available
         for (std::list<FB::URI>::iterator it = completion_handlers.begin();
@@ -210,7 +214,7 @@ void UploadQueue::start_next_upload() {
         }
 
         if (queue_finished_callback)
-            queue_finished_callback(shared_ptr());
+            queue_finished_callback(shared_from_this());
         
         StatusUpdateEvent evt(d);
         SendEvent(&evt);
@@ -221,7 +225,7 @@ void UploadQueue::upload_request_status_changed(const HTTP::Status &status) {
     // Deliver status dict to interested observers
     sendUpdateEvent();
 
-    uint64_t this_batch_size = 0;
+    uint32_t this_batch_size = 0;
     if (status.state == HTTP::Status::HTTP_ERROR) {
         if ((++current_batch_retry) < max_retries) {
             // Retry on networking error.
@@ -234,6 +238,16 @@ void UploadQueue::upload_request_status_changed(const HTTP::Status &status) {
             // to reuse.
             boost::shared_ptr<HTTPRequestData> req_data = current_upload_request->getRequest();
             current_upload_request->threadSafeDestroy();
+            {
+                FB::VariantMap err;
+                // Notify the plugin that there was an error
+                err["status"] = "Error";
+                err["retries_remaining"] = max_retries - current_batch_retry;
+                err["message"] = status.last_error;
+                err["queueStatus"] = getStatusDict();
+                UploadErrorEvent evt(err);
+                SendEvent(&evt);
+            }
 
             current_upload_request = HTTPRequest::create();
             current_upload_request->onStatusChanged(
@@ -241,6 +255,15 @@ void UploadQueue::upload_request_status_changed(const HTTP::Status &status) {
                 );
             current_upload_request->startRequest(req_data);
             return;
+        }
+        {
+            // Notify the plugin that there was an error
+            FB::VariantMap err;
+            err["status"] = "Failed";
+            err["retries_remaining"] = 0;
+            err["message"] = status.last_error;
+            UploadErrorEvent evt(err);
+            SendEvent(&evt);
         }
         for (std::list<UploadQueueEntry>::iterator it = queue.begin(); it != queue.end(); ++it) {
             if (it->status == UploadQueueEntry::ENTRY_IN_PROGRESS) {
@@ -332,7 +355,7 @@ void UploadQueue::cancel() {
 
     queue.clear();
     status = UploadQueue::UPLOAD_COMPLETE;
-    if (queue_finished_callback) queue_finished_callback(shared_ptr());
+    if (queue_finished_callback) queue_finished_callback(shared_from_this());
 }
 
 void UploadQueue::sendUpdateEvent()

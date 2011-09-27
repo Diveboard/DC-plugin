@@ -15,6 +15,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include <cstring>
 #include "NpapiTypes.h"
 #include "NpapiPluginModule.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 #ifdef min
 #  undef min
@@ -117,7 +118,9 @@ void FB::Npapi::copyNPBrowserFuncs(NPNetscapeFuncs *dstFuncs, NPNetscapeFuncs *s
         // ?
     }
     if(srcFuncs->version >= NPVERS_HAS_URL_AND_AUTH_INFO) { // 21
-        // ?
+        dstFuncs->getvalueforurl = srcFuncs->getvalueforurl;
+        dstFuncs->setvalueforurl = srcFuncs->setvalueforurl;
+        dstFuncs->getauthenticationinfo = srcFuncs->getauthenticationinfo;
     }
 }
 

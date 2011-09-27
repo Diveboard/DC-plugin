@@ -17,46 +17,26 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 #define H_FB_NPAPI_NPAPIPLUGINMAC
 
 #include "NpapiPlugin.h"
-#include "PluginWindow.h"
+#include "PluginWindowMac.h"
+#include "PluginEventMac.h"
 #include "NpapiTypes.h"
 
 
-namespace FB {
-    class PluginWindowMacCarbonQD; // Carbon & QuickDraw (really deprecated)
-    class PluginWindowMacCarbonCG; // Carbon & CoreGraphics
-    class PluginWindowMacCocoaCG; // Cocoa & CoreGraphics
-    class PluginWindowMacCocoaCA; // Cocoa & CoreAnimation
-    class PluginWindowMacCocoaICA; // Cocoa & InvalidatingCoreAnimation
-    
-    namespace Npapi {
+namespace FB { namespace Npapi {
 
     class NpapiPluginMac : public NpapiPlugin
     {        
     public:
-        enum EventModel
-        {
-            EventModelCarbon,
-            EventModelCocoa
-        };
-        
-        enum DrawingModel
-        {
-            DrawingModelQuickDraw,
-            DrawingModelCoreGraphics,
-            DrawingModelCoreAnimation,
-            DrawingModelInvalidatingCoreAnimation
-        };
-        
-    public:
         NpapiPluginMac(const NpapiBrowserHostPtr &host, const std::string& mimetype);
         virtual ~NpapiPluginMac(void);
         
-        EventModel   getEventModel  () const;
-        DrawingModel getDrawingModel() const;
+        void init(NPMIMEType pluginType, int16_t argc, char* argn[], char *argv[]);
 
     protected:
-        FB::PluginWindow* pluginWin;
-
+        NPEventModel m_eventModel;
+        NPDrawingModel m_drawingModel;
+        FB::PluginWindowMacPtr pluginWin;
+        FB::PluginEventMacPtr pluginEvt;
     public:
         // These calls are proxied from the NpapiPluginModule to this object, and are
         // the NPP_ functions given to the browser; essentially, the entrypoints for the
@@ -64,21 +44,11 @@ namespace FB {
         NPError SetWindow(NPWindow* window);
         int16_t HandleEvent(void* event);
 
-        // This call is proxied from the TimerFunctor callback (only used in Cocoa Event Model)
-        void HandleCocoaTimerEvent();
+        // This call is proxied from the TimerFunctor callback
+        void HandleTimerEvent();
         
     private:
-        NPError SetWindowCarbonQD(NPWindow*);
-        NPError SetWindowCarbonCG(NPWindow*);
-        NPError SetWindowCocoaCG(NPWindow*);
-        NPError SetWindowCocoaCA(NPWindow*);
-        NPError SetWindowCocoaICA(NPWindow*);
-        int16_t HandleEventCarbon(void* event);
-        int16_t HandleEventCocoa(void* event);
         int16_t GetValue(NPPVariable variable, void* value);
-        
-        EventModel m_eventModel;
-        DrawingModel m_drawingModel;
     };
 
 }; }; // FB::Npapi

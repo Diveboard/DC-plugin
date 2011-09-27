@@ -20,7 +20,6 @@ Copyright 2010 Anson MacKeracher, Firebreath development team
 
 #include "Win/KeyCodesWin.h"
 #include <boost/function.hpp>
-#include <boost/thread/recursive_mutex.hpp>
 
 #include "Win/WindowContextWin.h"
 
@@ -77,6 +76,9 @@ namespace FB {
             // Handle event given to us from NPAPI (windowless plugins don't intercept raw Windows events)
             bool HandleEvent(uint32_t event, uint32_t wParam, uint32_t lParam, LRESULT& lRes);
 
+            // Handle draw event specially, since it needs draw bounds
+            bool HandleDraw(HDC dc, FB::Rect bounds);
+
             // Invalidate the window (Call from any thread)
             void InvalidateWindow() const;
 
@@ -87,7 +89,6 @@ namespace FB {
             uint32_t m_width, m_height; 
             int32_t m_clipTop, m_clipLeft, m_clipBottom, m_clipRight;
             InvalidateWindowFunc m_invalidateWindow;
-            mutable boost::recursive_mutex m_mutex;
     };    
 };
 

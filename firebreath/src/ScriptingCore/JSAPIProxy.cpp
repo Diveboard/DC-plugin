@@ -13,6 +13,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
 #include <boost/make_shared.hpp>
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 #include "JSAPIProxy.h"
 
@@ -20,7 +21,9 @@ FB::JSAPIProxyPtr FB::JSAPIProxy::create( const FB::JSAPIPtr &inner )
 {
     // This is necessary because you can't use shared_from_this in the constructor
     FB::JSAPIProxyPtr ptr(new FB::JSAPIProxy(inner));
-    inner->registerProxy(ptr);
+    FB::JSAPIImplPtr impl(FB::ptr_cast<JSAPIImpl>(ptr));
+    if (impl)
+        impl->registerProxy(ptr);
 
     return ptr;
 }
@@ -29,9 +32,9 @@ FB::JSAPIProxyPtr FB::JSAPIProxy::create( const FB::JSAPIWeakPtr &inner )
 {
     // This is necessary because you can't use shared_from_this in the constructor
     FB::JSAPIProxyPtr ptr(new FB::JSAPIProxy(inner));
-    FB::JSAPIPtr tmp = inner.lock();
-    if (tmp)
-        tmp->registerProxy(ptr);
+    FB::JSAPIImplPtr impl(FB::ptr_cast<JSAPIImpl>(inner.lock()));
+    if (impl)
+        impl->registerProxy(ptr);
 
     return ptr;
 }
@@ -40,8 +43,10 @@ FB::JSAPIProxyPtr FB::JSAPIProxy::create( const SecurityZone& securityLevel, con
 {
     // This is necessary because you can't use shared_from_this in the constructor
     FB::JSAPIProxyPtr ptr(new FB::JSAPIProxy(securityLevel, inner));
-    inner->registerProxy(ptr);
-
+    FB::JSAPIImplPtr impl(FB::ptr_cast<JSAPIImpl>(ptr));
+    if (impl)
+        impl->registerProxy(ptr);
+    
     return ptr;
 }
 
@@ -49,10 +54,10 @@ FB::JSAPIProxyPtr FB::JSAPIProxy::create( const SecurityZone& securityLevel, con
 {
     // This is necessary because you can't use shared_from_this in the constructor
     FB::JSAPIProxyPtr ptr(new FB::JSAPIProxy(securityLevel, inner));
-    FB::JSAPIPtr tmp = inner.lock();
-    if (tmp)
-        tmp->registerProxy(ptr);
-
+    FB::JSAPIImplPtr impl(FB::ptr_cast<JSAPIImpl>(inner.lock()));
+    if (impl)
+        impl->registerProxy(ptr);
+    
     return ptr;
 }
 
@@ -71,7 +76,7 @@ FB::JSAPIProxy::JSAPIProxy( const FB::JSAPIWeakPtr &inner )
 }
 
 FB::JSAPIProxy::JSAPIProxy( const SecurityZone& securityLevel, const FB::JSAPIPtr &inner )
-    : FB::JSAPI(securityLevel), m_api(inner), m_apiWeak(inner)
+    : FB::JSAPIImpl(securityLevel), m_api(inner), m_apiWeak(inner)
 {
     if (!inner) {
         throw FB::script_error("Invalid inner JSAPI object passed to proxy");
@@ -79,7 +84,7 @@ FB::JSAPIProxy::JSAPIProxy( const SecurityZone& securityLevel, const FB::JSAPIPt
 }
 
 FB::JSAPIProxy::JSAPIProxy( const SecurityZone& securityLevel, const FB::JSAPIWeakPtr &inner )
-    : FB::JSAPI(securityLevel), m_apiWeak(inner)
+    : FB::JSAPIImpl(securityLevel), m_apiWeak(inner)
 {
 
 }
@@ -90,37 +95,43 @@ FB::JSAPIProxy::~JSAPIProxy( void )
 
 void FB::JSAPIProxy::changeObject( const FB::JSAPIWeakPtr &inner )
 {
-    if (FB::JSAPIPtr ptr = m_apiWeak.lock()) {
-        ptr->unregisterProxy(shared_ptr());
+    if (FB::JSAPIImplPtr ptr = FB::ptr_cast<FB::JSAPIImpl>(m_apiWeak.lock())) {
+        ptr->unregisterProxy(shared_from_this());
     }
     this->m_api.reset();
     this->m_apiWeak = inner;
-    FB::JSAPIPtr ptr = inner.lock();
+    FB::JSAPIImplPtr ptr = FB::ptr_cast<FB::JSAPIImpl>(inner.lock());
     if (ptr)
-        ptr->registerProxy(shared_ptr());
+        ptr->registerProxy(shared_from_this());
 }
 
 void FB::JSAPIProxy::changeObject( const FB::JSAPIPtr &inner )
 {
-    if (FB::JSAPIPtr ptr = m_apiWeak.lock()) {
-        ptr->unregisterProxy(shared_ptr());
+    if (FB::JSAPIImplPtr ptr = FB::ptr_cast<FB::JSAPIImpl>(m_apiWeak.lock())) {
+        ptr->unregisterProxy(shared_from_this());
     }
     this->m_api = inner;
     this->m_apiWeak = inner;
-    inner->registerProxy(shared_ptr());
+    FB::JSAPIImplPtr ptr = FB::ptr_cast<FB::JSAPIImpl>(inner);
+    if (ptr)
+        ptr->registerProxy(shared_from_this());
 }
 
 void FB::JSAPIProxy::reset()
 {
-    if (FB::JSAPIPtr ptr = m_apiWeak.lock()) {
-        ptr->unregisterProxy(shared_ptr());
+    if (FB::JSAPIImplPtr ptr = FB::ptr_cast<FB::JSAPIImpl>(m_apiWeak.lock())) {
+        ptr->unregisterProxy(shared_from_this());
     }
     
 }
 
 void FB::JSAPIProxy::invalidate()
 {
-    getAPI()->invalidate();
+    try {
+        getAPI()->invalidate();
+    } catch (...) {
+        // If that didn't work it's already invalid
+    }
 }
 
 void FB::JSAPIProxy::getMemberNames( std::vector<std::string> &nameVector ) const
@@ -169,18 +180,6 @@ bool FB::JSAPIProxy::HasProperty( int idx ) const
     return getAPI()->HasProperty(idx);
 }
 
-bool FB::JSAPIProxy::HasEvent( const std::string& eventName ) const
-{
-    FB::scoped_zonelock _l(getAPI(), getZone());
-    return getAPI()->HasEvent(eventName);
-}
-
-bool FB::JSAPIProxy::HasEvent( const std::wstring& eventName ) const
-{
-    FB::scoped_zonelock _l(getAPI(), getZone());
-    return getAPI()->HasEvent(eventName);
-}
-
 FB::variant FB::JSAPIProxy::GetProperty( const std::wstring& propertyName )
 {
     if (propertyName == L"expired")
@@ -221,6 +220,24 @@ void FB::JSAPIProxy::SetProperty( int idx, const variant& value )
     getAPI()->SetProperty(idx, value);
 }
 
+void FB::JSAPIProxy::RemoveProperty( const std::wstring& propertyName )
+{
+    FB::scoped_zonelock _l(getAPI(), getZone());
+    getAPI()->RemoveProperty(propertyName);
+}
+
+void FB::JSAPIProxy::RemoveProperty( const std::string& propertyName )
+{
+    FB::scoped_zonelock _l(getAPI(), getZone());
+    getAPI()->RemoveProperty(propertyName);
+}
+
+void FB::JSAPIProxy::RemoveProperty( int idx )
+{
+    FB::scoped_zonelock _l(getAPI(), getZone());
+    getAPI()->RemoveProperty(idx);
+}
+
 FB::variant FB::JSAPIProxy::Invoke( const std::wstring& methodName, const std::vector<variant>& args )
 {
     FB::scoped_zonelock _l(getAPI(), getZone());
@@ -231,5 +248,11 @@ FB::variant FB::JSAPIProxy::Invoke( const std::string& methodName, const std::ve
 {
     FB::scoped_zonelock _l(getAPI(), getZone());
     return getAPI()->Invoke(methodName, args);
+}
+
+FB::variant FB::JSAPIProxy::Construct( const std::vector<variant>& args )
+{
+    FB::scoped_zonelock _l(getAPI(), getZone());
+    return getAPI()->Construct(args);
 }
 

@@ -27,24 +27,33 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 #include "NpapiStream.h"
 #include "NpapiBrowserHost.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 #include "NPVariantUtil.h"
+#include "URI.h"
 
 using namespace FB::Npapi;
 
-namespace 
+using boost::algorithm::split;
+using boost::algorithm::is_any_of;
+using boost::algorithm::istarts_with;
+using std::vector;
+using std::string;
+using std::map;
+
+namespace
 {
     struct MethodCallReq
     {
         //FB::variant
     };
-    
+
     template<class T>
     NPVariantBuilderMap::value_type makeBuilderEntry()
     {
         return NPVariantBuilderMap::value_type(&typeid(T), select_npvariant_builder::select<T>());
     }
-    
+
     NPVariantBuilderMap makeNPVariantBuilderMap()
     {
         NPVariantBuilderMap tdm;
@@ -57,18 +66,18 @@ namespace
         tdm.insert(makeBuilderEntry<unsigned int>());
         tdm.insert(makeBuilderEntry<long>());
         tdm.insert(makeBuilderEntry<unsigned long>());
-        
+
 #ifndef BOOST_NO_LONG_LONG
         tdm.insert(makeBuilderEntry<long long>());
         tdm.insert(makeBuilderEntry<unsigned long long>());
 #endif
-        
+
         tdm.insert(makeBuilderEntry<float>());
         tdm.insert(makeBuilderEntry<double>());
-        
+
         tdm.insert(makeBuilderEntry<std::string>());
         tdm.insert(makeBuilderEntry<std::wstring>());
-        
+
         tdm.insert(makeBuilderEntry<FB::FBNull>());
         tdm.insert(makeBuilderEntry<FB::FBVoid>());
         //tdm.insert(makeBuilderEntry<FB::FBDateString>());
@@ -77,10 +86,10 @@ namespace
         tdm.insert(makeBuilderEntry<FB::JSAPIPtr>());
         tdm.insert(makeBuilderEntry<FB::JSAPIWeakPtr>());
         tdm.insert(makeBuilderEntry<FB::JSObjectPtr>());
-        
+
         return tdm;
     }
-    
+
     const NPVariantBuilderMap& getNPVariantBuilderMap()
     {
         static const NPVariantBuilderMap tdm = makeNPVariantBuilderMap();
@@ -98,6 +107,16 @@ NpapiBrowserHost::NpapiBrowserHost(NpapiPluginModule *module, NPP npp)
 
 NpapiBrowserHost::~NpapiBrowserHost(void)
 {
+}
+
+void NpapiBrowserHost::shutdown() {
+    memset(&NPNFuncs, 0, sizeof(NPNetscapeFuncs));
+    FB::BrowserHost::shutdown();
+
+    // Release these now as the BrowserHost will be expired when the they go out of scope in the destructor.
+    m_htmlWin.reset();
+    m_htmlElement.reset();
+    m_htmlDoc.reset();
 }
 
 bool NpapiBrowserHost::_scheduleAsyncCall(void (*func)(void *), void *userData) const
@@ -118,12 +137,14 @@ void NpapiBrowserHost::setBrowserFuncs(NPNetscapeFuncs *pFuncs)
         GetValue(NPNVWindowNPObject, (void**)&window);
         GetValue(NPNVPluginElementNPObject, (void**)&element);
 
-        m_htmlWin = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(window, ptr_cast<NpapiBrowserHost>(shared_ptr())));
-        m_htmlElement = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(element, ptr_cast<NpapiBrowserHost>(shared_ptr())));
+        m_htmlWin = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(window, ptr_cast<NpapiBrowserHost>(shared_from_this())));
+        m_htmlElement = NPObjectAPIPtr(new FB::Npapi::NPObjectAPI(element, ptr_cast<NpapiBrowserHost>(shared_from_this())));
+        ReleaseObject(window);
+        ReleaseObject(element);
     } catch (...) {
-        if (window)
+        if (window && !m_htmlWin)
             ReleaseObject(window);
-        if (element)
+        if (element && !m_htmlElement)
             ReleaseObject(element);
     }
     if (m_htmlWin) {
@@ -163,6 +184,10 @@ void FB::Npapi::NpapiBrowserHost::deferred_release( NPObject* obj )
     }
 }
 
+bool isExpired(std::pair<void*, FB::Npapi::NPObjectWeakRef> cur) {
+    return cur.second.expired();
+}
+
 void FB::Npapi::NpapiBrowserHost::DoDeferredRelease() const
 {
     assertMainThread();
@@ -170,9 +195,18 @@ void FB::Npapi::NpapiBrowserHost::DoDeferredRelease() const
     while (m_deferredObjects.try_pop(cur)) {
         ReleaseObject(cur);
     }
+    // Also remove any expired IDispatch WeakReferences
+    NPObjectRefMap::iterator iter = m_cachedNPObject.begin();
+    NPObjectRefMap::iterator endIter = m_cachedNPObject.end();
+    while (iter != endIter) {
+        if (isExpired(*iter))
+            m_cachedNPObject.erase(iter++);
+        else
+            ++iter;
+    }
 }
 
-void NpapiBrowserHost::evaluateJavaScript(const std::string &script) 
+void NpapiBrowserHost::evaluateJavaScript(const std::string &script)
 {
     assertMainThread();
     NPVariant retVal;
@@ -220,7 +254,7 @@ FB::variant NpapiBrowserHost::getVariant(const NPVariant *npVar)
             break;
 
         case NPVariantType_Object:
-            retVal = JSObjectPtr(new NPObjectAPI(npVar->value.objectValue, ptr_cast<NpapiBrowserHost>(shared_ptr())));
+            retVal = JSObjectPtr(new NPObjectAPI(npVar->value.objectValue, ptr_cast<NpapiBrowserHost>(shared_from_this())));
             break;
 
         case NPVariantType_Void:
@@ -234,24 +268,40 @@ FB::variant NpapiBrowserHost::getVariant(const NPVariant *npVar)
 
 bool NpapiBrowserHost::isSafari() const
 {
+    // Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_6; en-us) AppleWebKit/533.20.25 (KHTML, like Gecko) Version/5.0.4 Safari/533.20.27
     std::string agent(UserAgent());
-    return boost::algorithm::contains(agent, "Safari");
+    return boost::algorithm::contains(agent, "Safari") && !isChrome();
+}
+
+bool NpapiBrowserHost::isFirefox() const
+{
+    // Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0) Gecko/20100101 Firefox/4.0
+    // Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; en-US; rv:1.9.2.15) Gecko/20110303 Firefox/3.6.15
+    std::string agent(UserAgent());
+    return boost::algorithm::contains(agent, "Firefox");
+}
+
+bool NpapiBrowserHost::isChrome() const
+{
+    // Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_6; en-US) AppleWebKit/534.16 (KHTML, like Gecko) Chrome/10.0.648.204 Safari/534.16
+    std::string agent(UserAgent());
+    return boost::algorithm::contains(agent, "Chrome");
 }
 
 void NpapiBrowserHost::getNPVariant(NPVariant *dst, const FB::variant &var)
 {
     assertMainThread();
-    
+
     const NPVariantBuilderMap& builderMap = getNPVariantBuilderMap();
     const std::type_info& type = var.get_type();
     NPVariantBuilderMap::const_iterator it = builderMap.find(&type);
-    
+
     if (it == builderMap.end()) {
         // unhandled type :(
         return;
     }
-    
-    *dst = (it->second)(FB::ptr_cast<NpapiBrowserHost>(shared_ptr()), var);
+
+    *dst = (it->second)(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), var);
 }
 
 NPError NpapiBrowserHost::GetURLNotify(const char* url, const char* target, void* notifyData) const
@@ -351,22 +401,16 @@ uint32_t NpapiBrowserHost::MemFlush(uint32_t size) const
 
 NPObject *NpapiBrowserHost::RetainObject(NPObject *npobj) const
 {
-    if (isShutDown())
-        return NULL;
     assertMainThread();
     return module->RetainObject(npobj);
 }
 void NpapiBrowserHost::ReleaseObject(NPObject *npobj) const
 {
-    if (isShutDown())
-        return;
     assertMainThread();
     return module->ReleaseObject(npobj);
 }
 void NpapiBrowserHost::ReleaseVariantValue(NPVariant *variant) const
 {
-    if (isShutDown())
-        return;
     assertMainThread();
     return module->ReleaseVariantValue(variant);
 }
@@ -641,7 +685,39 @@ void NpapiBrowserHost::UnscheduleTimer(int timerId)  const
     }
 }
 
-FB::BrowserStreamPtr NpapiBrowserHost::_createStream(const std::string& url, const FB::PluginEventSinkPtr& callback, 
+NPError FB::Npapi::NpapiBrowserHost::GetValueForURL( NPNURLVariable variable, const char *url, char **value, uint32_t *len )
+{
+    if(NPNFuncs.getvalueforurl != NULL) {
+        return NPNFuncs.getvalueforurl(m_npp, variable, url, value, len);
+    } else {
+        return NPERR_INCOMPATIBLE_VERSION_ERROR;
+    }
+}
+
+NPError FB::Npapi::NpapiBrowserHost::SetValueForURL( NPNURLVariable variable, const char *url, const char *value, uint32_t len )
+{
+    if(NPNFuncs.setvalueforurl != NULL) {
+        return NPNFuncs.setvalueforurl(m_npp, variable, url, value, len);
+    } else {
+        return NPERR_INCOMPATIBLE_VERSION_ERROR;
+    }
+}
+
+NPError FB::Npapi::NpapiBrowserHost::GetAuthenticationInfo( const char *protocol,
+                                                            const char *host, int32_t port,
+                                                            const char *scheme, const char *realm,
+                                                            char **username, uint32_t *ulen,
+                                                            char **password, uint32_t *plen )
+{
+    if(NPNFuncs.getauthenticationinfo != NULL) {
+        return NPNFuncs.getauthenticationinfo(m_npp, protocol, host, port, scheme, realm,
+                                              username, ulen, password, plen);
+    } else {
+        return NPERR_INCOMPATIBLE_VERSION_ERROR;
+    }
+}
+
+FB::BrowserStreamPtr NpapiBrowserHost::_createStream(const std::string& url, const FB::PluginEventSinkPtr& callback,
                                     bool cache, bool seekable, size_t internalBufferSize ) const
 {
     NpapiStreamPtr stream( boost::make_shared<NpapiStream>( url, cache, seekable, internalBufferSize, FB::ptr_cast<const NpapiBrowserHost>(shared_from_this()) ) );
@@ -661,3 +737,93 @@ FB::BrowserStreamPtr NpapiBrowserHost::_createStream(const std::string& url, con
     return stream;
 }
 
+FB::BrowserStreamPtr NpapiBrowserHost::_createPostStream(const std::string& url, const FB::PluginEventSinkPtr& callback,
+                                    const std::string& postdata, bool cache, bool seekable, size_t internalBufferSize ) const
+{
+    NpapiStreamPtr stream( boost::make_shared<NpapiStream>( url, cache, seekable, internalBufferSize, FB::ptr_cast<const NpapiBrowserHost>(shared_from_this()) ) );
+    stream->AttachObserver( callback );
+
+    // Add custom headers before data to post!
+    std::stringstream headers;
+    headers << "Content-type: application/x-www-form-urlencoded\n";
+    headers << "Content-Length: " << postdata.length() << "\n\n";
+    headers << postdata;
+
+    // always use target = 0 for now
+    if ( PostURLNotify( url.c_str(), 0, headers.str().length(), headers.str().c_str(), false, stream.get() ) == NPERR_NO_ERROR )
+    {
+        stream->setCreated();
+        StreamCreatedEvent ev(stream.get());
+        stream->SendEvent( &ev );
+    }
+    else
+    {
+        stream.reset();
+    }
+    return stream;
+}
+NPJavascriptObject* FB::Npapi::NpapiBrowserHost::getJSAPIWrapper( const FB::JSAPIWeakPtr& api, bool autoRelease/* = false*/ )
+{
+    assertMainThread(); // This should only be called on the main thread
+    typedef boost::shared_ptr<FB::ShareableReference<NPJavascriptObject> > SharedNPObjectRef;
+    NPJavascriptObject* ret(NULL);
+    FB::JSAPIPtr ptr(api.lock());
+    if (!ptr)
+        return NPJavascriptObject::NewObject(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), api, false);
+
+    NPObjectRefMap::iterator fnd = m_cachedNPObject.find(ptr.get());
+    if (fnd != m_cachedNPObject.end()) {
+        SharedNPObjectRef ref(fnd->second.lock());
+        if (ref) {
+            // Fortunately this doesn't have to be threadsafe since this method only gets called
+            // from the main thread and the browser access happens on that thread as well!
+            ret = ref->getPtr();
+            RetainObject(ret);
+        } else {
+            m_cachedNPObject.erase(fnd);
+        }
+    }
+    if (!ret) {
+        ret = NPJavascriptObject::NewObject(FB::ptr_cast<NpapiBrowserHost>(shared_from_this()), api, true);
+        if (ret)
+            m_cachedNPObject[ptr.get()] = ret->getWeakReference();
+    }
+    return ret;
+}
+
+bool FB::Npapi::NpapiBrowserHost::DetectProxySettings( std::map<std::string, std::string>& settingsMap, const std::string& URL )
+{
+    char* retVal;
+    uint32_t len;
+    NPError err = GetValueForURL(NPNURLVProxy, URL.c_str(), &retVal, &len);
+    if (err != NPERR_NO_ERROR) {
+        // Only fall back to system proxy detection if NPAPI's API isn't supported on this browser
+        if (err == NPERR_INCOMPATIBLE_VERSION_ERROR)
+            return FB::BrowserHost::DetectProxySettings(settingsMap, URL);
+        else
+            return false;
+    }
+    std::string res(retVal, len);
+    MemFree(retVal);
+
+    if (res == "DIRECT") {
+        return false;
+    } else {
+        settingsMap.clear();
+        vector<string> params;
+        split(params, res, is_any_of(" "));
+        vector<string> host;
+        split(host, params[1], is_any_of(":"));
+        if (params[0] == "PROXY") {
+            FB::URI uri = FB::URI::fromString(URL);
+            settingsMap["type"] = uri.protocol;
+        } else if(params[0] == "SOCKS") {
+            settingsMap["type"] = "socks";
+        } else {
+            settingsMap["type"] = params[0];
+        }
+        settingsMap["hostname"] = host[0];
+        settingsMap["port"] = host[1];
+        return true;
+    }
+}

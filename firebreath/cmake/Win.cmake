@@ -82,13 +82,17 @@ if (NOT ATL_INCLUDE_DIR)
     NO_DEFAULT_PATH
     )
 
-    find_file(ATLLIB
-        atls.lib
-    PATHS
-        ${VC_DIR}/atlmfc/lib
-        ${ATLLIB_GUESSES}
-    NO_DEFAULT_PATH
-    )
+	if (CMAKE_SIZEOF_VOID_P EQUAL 8)		
+		set(ATLLIB_GUESSES "${VC_DIR}/atlmfc/lib/amd64" ${ATLLIB_GUESSES})
+	else()
+		set(ATLLIB_GUESSES "${VC_DIR}/atlmfc/lib" ${ATLLIB_GUESSES})
+	endif()
+	find_file(ATLLIB
+		atls.lib
+	PATHS
+		${ATLLIB_GUESSES}
+		NO_DEFAULT_PATH
+	)
 
     find_file(MFCWIN
         winres.h
@@ -141,8 +145,8 @@ MACRO(add_windows_plugin PROJNAME INSOURCES)
     set_target_properties (${PROJNAME} PROPERTIES
         OUTPUT_NAME ${FBSTRING_PluginFileName}
         PROJECT_LABEL ${PROJNAME}
-        RUNTIME_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
-        LIBRARY_OUTPUT_DIRECTORY "${BIN_DIR}/${PLUGIN_NAME}"
+        RUNTIME_OUTPUT_DIRECTORY "${FB_BIN_DIR}/${PLUGIN_NAME}"
+        LIBRARY_OUTPUT_DIRECTORY "${FB_BIN_DIR}/${PLUGIN_NAME}"
         LINK_FLAGS "${LINK_FLAGS}"
         )
 
@@ -197,7 +201,6 @@ macro(firebreath_sign_plugin PROJNAME PFXFILE PASSFILE TIMESTAMP_URL)
 endmacro(firebreath_sign_plugin)
 
 function (add_wix_installer PROJNAME WIX_SOURCEFILES WIX_COMPGROUP WIX_OUTDIR WIX_DLLFILES WIX_PROJDEP)
-	# WiX doesn't work with VC8 generated DLLs
     if (WIN32 AND WIX_FOUND)
         set(SOURCELIST )
         FOREACH(_curFile ${WIX_SOURCEFILES})
@@ -206,8 +209,8 @@ function (add_wix_installer PROJNAME WIX_SOURCEFILES WIX_COMPGROUP WIX_OUTDIR WI
             message("Configuring ${_curFile} -> ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File}")
             set(SOURCELIST ${SOURCELIST} ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File})
         ENDFOREACH()
-        
-        set (WIX_HEAT_FLAGS ${WIX_HEAT_FLAGS} -var var.BINSRC "-t:${CMAKE_DIR}\\FixFragment.xslt")
+
+        set (WIX_HEAT_FLAGS ${WIX_HEAT_FLAGS} -var var.BINSRC "-t:${FB_ROOT}\\cmake\\FixFragment.xslt")
         set (WIX_CANDLE_FLAGS ${WIX_LINK_FLAGS} -dBINSRC=${WIX_OUTDIR})
         set (WIX_LINK_FLAGS ${WIX_LINK_FLAGS} -sw1076)
         WIX_HEAT(WIX_DLLFILES WIXDLLWXS_LIST NONE)
@@ -215,7 +218,11 @@ function (add_wix_installer PROJNAME WIX_SOURCEFILES WIX_COMPGROUP WIX_OUTDIR WI
         WIX_COMPILE(SOURCELIST WIXOBJ_LIST WIXDLLWXS_LIST)
         SET (WIX_FULLOBJLIST ${WIXOBJ_LIST} )
 
-        SET (WIX_DEST ${WIX_OUTDIR}/${PROJNAME}.msi)
+        if (FB_WIX_DEST)
+            SET (WIX_DEST ${FB_WIX_DEST})
+        else()
+            SET (WIX_DEST ${WIX_OUTDIR}/${PROJNAME}.msi)
+        endif()
 
         set_source_files_properties(${SOURCELIST} PROPERTIES HEADER_FILE_ONLY 1)
         SOURCE_GROUP(Sources FILES ${WIX_SOURCEFILES})
@@ -223,16 +230,19 @@ function (add_wix_installer PROJNAME WIX_SOURCEFILES WIX_COMPGROUP WIX_OUTDIR WI
         set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)
         SOURCE_GROUP(Binary FILES ${WIXOBJ_LIST})
         set (WIX_SOURCES
-                ${CMAKE_DIR}/dummy.cpp
+                ${FB_ROOT}/cmake/dummy.cpp
                 ${WIX_SOURCEFILES}
                 ${SOURCELIST}
                 ${WIXOBJ_LIST}
             )
-        ADD_LIBRARY(${PROJNAME}_WiXInstall STATIC ${WIX_SOURCES})
+        if (NOT FB_WIX_SUFFIX)
+            set (FB_WIX_SUFFIX _WiXInstall)
+        endif()
+        ADD_LIBRARY(${PROJNAME}${FB_WIX_SUFFIX} STATIC ${WIX_SOURCES})
 
-        WIX_LINK(${PROJNAME}_WiXInstall ${WIX_DEST} WIX_FULLOBJLIST NONE)
+        WIX_LINK(${PROJNAME}${FB_WIX_SUFFIX} ${WIX_DEST} WIX_FULLOBJLIST NONE)
 
-        ADD_DEPENDENCIES(${PROJNAME}_WiXInstall ${WIX_PROJDEP})
+        ADD_DEPENDENCIES(${PROJNAME}${FB_WIX_SUFFIX} ${WIX_PROJDEP})
 
     endif()
 endfunction(add_wix_installer)

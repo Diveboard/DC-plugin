@@ -16,23 +16,19 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
-set (PROJNAME UnitTest_ScriptingCore)
-Project (${PROJNAME})
+Project (UnitTest_ScriptingCore)
 if (VERBOSE)
     message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
 endif()
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
-    ${SCRIPTINGCORE_SOURCE_DIR}
-    ${PLUGINAUTO_SOURCE_DIR}
-    ${FIREBREATH_CONFIG_DIR}
-    ${GEN_DIR}/gen
-    ${CONFIG_DIR}
-    ${UNITTEST_FW_SOURCE_DIR}/src
+    ${FB_SCRIPTINGCORE_SOURCE_DIR}
+    ${FB_PLUGINAUTO_SOURCE_DIR}
+    ${FB_CONFIG_DIR}
+    ${FB_UNITTEST_FW_SOURCE_DIR}/src
     ${Boost_INCLUDE_DIRS}
+    ${ATL_INCLUDE_DIRS}
     )
 
 file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -42,20 +38,40 @@ file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
 
 set (SOURCES
     ${GENERAL}
-    ${PLUGINAUTO_SOURCE_DIR}/null/NullLogger.cpp
+    ${FB_PLUGINAUTO_SOURCE_DIR}/null/NullLogger.cpp
     )
 
-add_executable(${PROJNAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES})
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "UnitTests")
 
-target_link_libraries (${PROJNAME}
+set_target_properties (${PROJECT_NAME} PROPERTIES
+    LINK_FLAGS "${LINK_FLAGS}"
+    )
+
+target_link_libraries (${PROJECT_NAME}
     ScriptingCore
     PluginCore
     UnitTest++
     )
 
-set_target_properties(${PROJNAME} PROPERTIES
-	RUNTIME_OUTPUT_DIRECTORY "${BIN_DIR}"
+if (APPLE)
+    find_library(CARBON_FRAMEWORK Carbon) 
+    find_library(SYSCONFIG_FRAMEWORK SystemConfiguration)
+    target_link_libraries (${PROJECT_NAME}
+    	${CARBON_FRAMEWORK}
+    	${SYSCONFIG_FRAMEWORK}
+    	)
+endif()
+
+if (WIN32)
+    target_link_libraries (${PROJECT_NAME}
+        Wininet
+        )
+endif()
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${FB_BIN_DIR}"
 )
 
-add_custom_command(TARGET ${PROJNAME} POST_BUILD
-    COMMAND "${BIN_DIR}/${CMAKE_CFG_INTDIR}/${PROJNAME}")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND "${FB_BIN_DIR}/${CMAKE_CFG_INTDIR}/${PROJECT_NAME}")

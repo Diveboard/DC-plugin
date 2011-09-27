@@ -12,6 +12,7 @@ License:    Dual license model; choose one of two:
 Copyright 2010 Facebook, Inc and the Firebreath development team
 \**********************************************************/
 
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 #include "Element.h"
 
 using namespace FB::ActiveX::AXDOM;
@@ -48,7 +49,7 @@ std::vector<FB::DOM::ElementPtr> Element::getElementsByTagName(const std::string
             CComPtr<IDispatch> dispObj;
             CComVariant idx(i);
             list->item(idx, idx, &dispObj);
-			FB::JSObjectPtr obj(IDispatchAPI::create(dispObj, FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->getHost())));
+            FB::JSObjectPtr obj(IDispatchAPI::create(dispObj, FB::ptr_cast<ActiveXBrowserHost>(getJSObject()->getHost())));
             tagList.push_back(FB::DOM::Element::create(obj));
         }
     }

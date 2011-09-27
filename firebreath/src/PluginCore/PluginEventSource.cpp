@@ -17,9 +17,7 @@ Copyright 2009 PacketPass, Inc and the Firebreath development team
 #include "PluginEventSink.h"
 #include "PluginEventSource.h"
 #include "PluginEvents/AttachedEvent.h"
-#include <boost/lambda/lambda.hpp>
-#include <boost/lambda/if.hpp>
-#include <boost/lambda/bind.hpp>
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 using namespace FB;
 
@@ -33,12 +31,11 @@ PluginEventSource::~PluginEventSource()
 
 void PluginEventSource::AttachObserver(FB::PluginEventSink *sink)
 {
-    AttachObserver(sink->shared_ptr());
+    AttachObserver(sink->shared_from_this());
 }
 
 void PluginEventSource::AttachObserver( PluginEventSinkPtr sink )
 {
-    using namespace boost::lambda;
     boost::recursive_mutex::scoped_lock _l(m_observerLock);
     m_observers.push_back(sink);
     AttachedEvent newEvent;
@@ -47,28 +44,33 @@ void PluginEventSource::AttachObserver( PluginEventSinkPtr sink )
 
 void PluginEventSource::DetachObserver(FB::PluginEventSink *sink)
 {
-    DetachObserver(sink->shared_ptr());
-}
-
-bool PluginEventSource::_deleteObserver( PluginEventSinkPtr sink, PluginEventSinkWeakPtr wptr )
-{
-    PluginEventSinkPtr ptr(wptr.lock());
-    if (!ptr) {
-        return true;
-    } else if (sink == ptr) {
-        DetachedEvent evt;
-        sink->HandleEvent(&evt, this);
-        return true;
-    } else {
-        return false;
-    }
+    DetachObserver(sink->shared_from_this());
 }
 
 void PluginEventSource::DetachObserver( PluginEventSinkPtr sink )
 {
-    using namespace boost::lambda;
     boost::recursive_mutex::scoped_lock _l(m_observerLock);
-    m_observers.remove_if(bind<bool>(&PluginEventSource::_deleteObserver, this, var(sink), _1));
+	
+	std::list<PluginEventSinkPtr> detachedList;
+	{
+		std::list<PluginEventSinkWeakPtr>::iterator end = m_observers.end();
+		for (std::list<PluginEventSinkWeakPtr>::iterator it = m_observers.begin(); it != end; ) {
+			PluginEventSinkPtr ptr(it->lock());
+			if (!ptr || sink == ptr) {
+				it = m_observers.erase(it);
+				if (ptr)
+					detachedList.push_back(ptr);
+			} else {
+				++it;
+			}
+		}
+	}
+	
+	std::list<PluginEventSinkPtr>::iterator end = detachedList.end();
+	DetachedEvent evt;
+	for (std::list<PluginEventSinkPtr>::iterator it = detachedList.begin(); it != end; ++it) {
+		(*it)->HandleEvent(&evt, this);
+	}
 }
 
 bool PluginEventSource::SendEvent(PluginEvent* evt)

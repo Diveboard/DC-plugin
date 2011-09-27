@@ -16,6 +16,8 @@ Copyright 2011 Richard Bateman,
 #include "BrowserHost.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/bind.hpp>
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
+
 #include "SimpleStreamHelper.h"
 
 static const int MEGABYTE = 1024 * 1024;
@@ -31,9 +33,25 @@ FB::SimpleStreamHelperPtr FB::SimpleStreamHelper::AsyncGet( const FB::BrowserHos
     // This is kinda a weird trick; it's responsible for freeing itself, unless something decides
     // to hold a reference to it.
     ptr->keepReference(ptr);
-    FB::BrowserStreamPtr stream(host->createStream(uri.toString(), ptr, true, false, bufferSize));
+    FB::BrowserStreamPtr stream(host->createStream(uri.toString(), ptr, cache, false, bufferSize));
     return ptr;
 }
+
+FB::SimpleStreamHelperPtr FB::SimpleStreamHelper::AsyncPost( const FB::BrowserHostPtr& host, const FB::URI& uri, const std::string& postdata, 
+                                                           const HttpCallback& callback, bool cache /*= true*/, size_t bufferSize /*= 256*1024*/ )
+{
+    if (!host->isMainThread()) {
+        // This must be run from the main thread
+        return host->CallOnMainThread(boost::bind(&FB::SimpleStreamHelper::AsyncPost, host, uri, postdata, callback, cache, bufferSize));
+    }
+    FB::SimpleStreamHelperPtr ptr(boost::make_shared<FB::SimpleStreamHelper>(host, callback, bufferSize));
+    // This is kinda a weird trick; it's responsible for freeing itself, unless something decides
+    // to hold a reference to it.
+    ptr->keepReference(ptr);
+    FB::BrowserStreamPtr stream(host->createPostStream(uri.toString(), ptr, postdata, cache, false, bufferSize));
+    return ptr;
+}
+
 
 struct SyncGetHelper
 {
@@ -90,7 +108,7 @@ FB::SimpleStreamHelper::SimpleStreamHelper( const BrowserHostPtr& host, const Ht
 
 }
 
-bool FB::SimpleStreamHelper::onStreamCompleted( FB::StreamCompletedEvent *evt, FB::BrowserStream * )
+bool FB::SimpleStreamHelper::onStreamCompleted( FB::StreamCompletedEvent *evt, FB::BrowserStream *stream )
 {
     if (!evt->success) {
         if (callback)
@@ -115,11 +133,14 @@ bool FB::SimpleStreamHelper::onStreamCompleted( FB::StreamCompletedEvent *evt, F
         // Free all the old blocks
         blocks.clear();
     }
-    if (callback)
-        callback(true, parse_http_headers(stream->getHeaders()), data, received);
+    if (callback) {
+        std::multimap<std::string, std::string> headers;
+        headers = parse_http_headers(stream->getHeaders());
+        callback(true, headers, data, received);
+    }
     callback.clear();
     self.reset();
-    return false;
+    return false; // Always return false to make sure the browserhost knows to let go of the object
 }
 
 bool FB::SimpleStreamHelper::onStreamOpened( FB::StreamOpenedEvent *evt, FB::BrowserStream * )

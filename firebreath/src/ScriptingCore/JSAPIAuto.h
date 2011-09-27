@@ -1,4 +1,4 @@
-/**********************************************************\ 
+/**********************************************************\
 Original Author: Georg Fritzsche
 
 Created:    November 7, 2009
@@ -16,15 +16,16 @@ Copyright 2009 Georg Fritzsche, Firebreath development team
 #ifndef JSAPIAUTO_H
 #define JSAPIAUTO_H
 
-#include "JSAPI.h"
-#include "MethodConverter.h"
-#include "PropertyConverter.h"
 #include <deque>
 #include <vector>
 #include <string>
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp> 
+#include "JSAPIImpl.h"
+#include "MethodConverter.h"
+#include "PropertyConverter.h"
+#include "Util/typesafe_event.h"
 
 namespace FB {
     FB_FORWARD_PTR(JSFunction);
@@ -90,7 +91,7 @@ namespace FB {
     /// @see PluginCore
     /// @author Georg Fritzsche
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    class JSAPIAuto : public JSAPI
+    class JSAPIAuto : public JSAPIImpl
     {
     protected:
         struct Attribute {
@@ -111,7 +112,7 @@ namespace FB {
         JSAPIAuto(const SecurityZone& securityLevel, const std::string& description = "<JSAPI-Auto Secure Javascript Object>");
         typedef std::deque<SecurityZone> ZoneStack;
 
-        void init( );
+        void init();
 
         virtual ~JSAPIAuto();
 
@@ -173,6 +174,7 @@ namespace FB {
         virtual size_t getMemberCount() const;
 
         virtual variant Invoke(const std::string& methodName, const std::vector<variant>& args);
+        virtual variant Construct(const std::vector<variant>& args);
         virtual JSAPIPtr GetMethodObject(const std::string& methodObjName);
 
         virtual void unregisterMethod(const std::wstring& name)
@@ -271,8 +273,13 @@ namespace FB {
         
         virtual variant GetProperty(const std::string& propertyName);
         virtual void SetProperty(const std::string& propertyName, const variant& value);
+        virtual void RemoveProperty(const std::string& propertyName);
         virtual variant GetProperty(int idx);
         virtual void SetProperty(int idx, const variant& value);
+        virtual void RemoveProperty(int idx);
+
+        virtual void FireJSEvent(const std::string& eventName, const FB::VariantMap &members, const FB::VariantList &arguments);
+        virtual void fireAsyncEvent( const std::string& eventName, const std::vector<variant>& args );
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual std::string JSAPIAuto::ToString()
@@ -313,6 +320,7 @@ namespace FB {
         /// @since 1.4a3
         /// @see registerAttribute
         /// @see setAttribute
+        /// @see removeAttribute
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual FB::variant getAttribute(const std::string& name);
         ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -326,8 +334,22 @@ namespace FB {
         /// @since 1.4a3
         /// @see registerAttribute
         /// @see getAttribute
+        /// @see removeAttribute
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void setAttribute(const std::string& name, const FB::variant& value);
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn public virtual void removeAttribute(const std::string& name)
+        ///
+        /// @brief   Removes the attribute with the given name
+        ///
+        /// @param  name    name of the attribute to remove
+        ///
+        /// @since 1.5
+        /// @see registerAttribute
+        /// @see setAttribute
+        /// @see getAttribute
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void unregisterAttribute(const std::string& name);
 
     protected:
         bool memberAccessible( ZoneMap::const_iterator it ) const
@@ -350,7 +372,12 @@ namespace FB {
         AttributeMap m_attributes;
         FB::StringSet m_reservedMembers;
         bool m_allowDynamicAttributes;
+        bool m_allowRemoveProperties;
         bool m_allowMethodObjects;
+    public:
+        static bool s_allowDynamicAttributes;
+        static bool s_allowRemoveProperties;
+        static bool s_allowMethodObjects;
     };
 
 };

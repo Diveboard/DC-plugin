@@ -17,7 +17,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #define H_FB_JSAPIProxy
 
 #include "APITypes.h"
-#include "JSAPI.h"
+#include "JSAPIImpl.h"
 
 namespace FB
 {
@@ -42,7 +42,7 @@ namespace FB
     /// @see FB::JSAPI
     /// @see FB::JSAPIAuto
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    class JSAPIProxy : public JSAPI
+    class JSAPIProxy : public JSAPIImpl
     {
     protected:
         JSAPIProxy(const FB::JSAPIPtr &inner);
@@ -103,7 +103,7 @@ namespace FB
         ///
         /// @brief  Changes the wrapped JSAPIPtr to the given one
         ///
-        /// @param  inner	const FB::JSAPIPtr &	New JSAPIPtr
+        /// @param  inner   const FB::JSAPIPtr &    New JSAPIPtr
         /// @since 1.4a3
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         void changeObject(const FB::JSAPIPtr &inner);
@@ -112,7 +112,7 @@ namespace FB
         ///
         /// @brief  Changes the wrapped JSAPIWeakPtr to the given one
         ///
-        /// @param  inner	FB::JSAPIWeakPtr &	    New JSAPIWeakPtr
+        /// @param  inner   FB::JSAPIWeakPtr &      New JSAPIWeakPtr
         /// @since 1.4a3
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         void changeObject(const FB::JSAPIWeakPtr &inner);
@@ -141,19 +141,23 @@ namespace FB
         virtual bool HasProperty(const std::string& propertyName) const;
         virtual bool HasProperty(int idx) const;
 
-        virtual bool HasEvent(const std::string& eventName) const;
-        virtual bool HasEvent(const std::wstring& eventName) const;
-
         virtual variant GetProperty(const std::wstring& propertyName);
         virtual variant GetProperty(const std::string& propertyName);
 
         virtual void SetProperty(const std::wstring& propertyName, const variant& value);
         virtual void SetProperty(const std::string& propertyName, const variant& value);
 
+        virtual void RemoveProperty(const std::wstring& propertyName);
+        virtual void RemoveProperty(const std::string& propertyName);
+        
         virtual variant GetProperty(int idx);
         virtual void SetProperty(int idx, const variant& value);
+        virtual void RemoveProperty(int idx);
+
         virtual variant Invoke(const std::wstring& methodName, const std::vector<variant>& args);
         virtual variant Invoke(const std::string& methodName, const std::vector<variant>& args);
+
+        virtual variant Construct(const std::vector<variant>& args);
     };
 
 };

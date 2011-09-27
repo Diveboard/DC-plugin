@@ -186,6 +186,7 @@ if (NOT TARGET_ALREADY_EXISTS)
     set (log4cplus_all_sources ${log4cplus_sources} ${log4cplus_headers})
 
     add_library (log4cplus STATIC ${log4cplus_all_sources})
+    set_target_properties(log4cplus PROPERTIES FOLDER "Libraries")
     #add_library (log4cplus SHARED ${log4cplus_all_sources})
     target_link_libraries (log4cplus ${CMAKE_THREAD_LIBS_INIT})
 
@@ -207,7 +208,6 @@ endif()
 #add_subdirectory (tests)
 
 if (FIREBREATH)
-    include(${CMAKE_DIR}/common.cmake)
     LIST(APPEND FBLIB_LIBRARIES log4cplus)
     LIST(APPEND FBLIB_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
     export_project_dependencies()

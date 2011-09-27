@@ -76,7 +76,7 @@ void DiveBoard::onPluginReady()
 FB::JSAPIPtr DiveBoard::createJSAPI()
 {
     // m_host is the BrowserHost
-    return FB::JSAPIPtr(new DiveBoardAPI(FB::ptr_cast<DiveBoard>(shared_ptr()), m_host));
+    return boost::make_shared<DiveBoardAPI>(FB::ptr_cast<DiveBoard>(shared_from_this()), m_host);
 }
 
 bool DiveBoard::onMouseDown(FB::MouseDownEvent *evt, FB::PluginWindow *)

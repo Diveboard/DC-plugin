@@ -19,6 +19,7 @@ Copyright 2010 Georg Fritzsche, Firebreath development team
 #include <boost/algorithm/string.hpp>
 
 #include "PluginInfo.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 namespace {
     bool nameParsed = false;
@@ -50,10 +51,6 @@ std::string FB::getPluginName(const std::string& mimetype)
 
 std::string FB::getPluginDescription(const std::string& mimetype)
 {
-    if (mimetype.empty()) {
-        // If no mimetype is supplied, return the first description
-        return FBSTRING_FileDescription0;
-    }
     initPluginMetadata();
 
     try {

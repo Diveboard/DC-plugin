@@ -1,4 +1,4 @@
-/**********************************************************\ 
+/**********************************************************\
 Original Author: Richard Bateman (taxilian)
 
 Created:    Dec 7, 2009
@@ -46,14 +46,21 @@ namespace FB {
         enum MouseButton {
             MouseButton_Left,
             MouseButton_Right,
-            MouseButton_Middle
+            MouseButton_Middle,
+            MouseButton_None
         };
-        MouseButtonEvent(MouseButton btn, int x, int y) : m_Btn(btn), m_x(x), m_y(y) { }
+		enum ModifierState {
+			ModifierState_Shift = 1,
+			ModifierState_Control = 2,
+			ModifierState_Menu = 4
+		};
+        MouseButtonEvent(MouseButton btn, int x, int y, unsigned int state) : m_Btn(btn), m_x(x), m_y(y), m_state(state) { }
 
     public:
         MouseButton m_Btn;
         int m_x;
         int m_y;
+		unsigned int m_state;
     };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +71,18 @@ namespace FB {
     class MouseDownEvent : public MouseButtonEvent
     {
     public:
-        MouseDownEvent(MouseButton btn, int x, int y) : MouseButtonEvent(btn, x, y) { }
+        MouseDownEvent(MouseButton btn, int x, int y, unsigned int state) : MouseButtonEvent(btn, x, y, state) { }
+    };
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @class  MouseDoubleClickEvent
+    ///
+    /// @brief  Fired when a mouse double click event occurs
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    class MouseDoubleClickEvent : public MouseButtonEvent
+    {
+    public:
+        MouseDoubleClickEvent(MouseButton btn, int x, int y, unsigned int state) : MouseButtonEvent(btn, x, y, state) { }
     };
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,9 +93,47 @@ namespace FB {
     class MouseUpEvent : public MouseButtonEvent
     {
     public:
-        MouseUpEvent(MouseButton btn, int x, int y) : MouseButtonEvent(btn, x, y) { }
+        MouseUpEvent(MouseButton btn, int x, int y, unsigned int state) : MouseButtonEvent(btn, x, y, state) { }
     };
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @class  MouseScrollEvent
+    ///
+    /// @brief  Fired when the user moves the scrollwheel
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    class MouseScrollEvent : public PluginEvent
+    {
+    public:
+        MouseScrollEvent(int x, int y, double dx, double dy) : m_x(x), m_y(y), m_dx(dx), m_dy(dy) { }
+
+    public:
+        int m_x;
+        int m_y;
+        double m_dx;
+        double m_dy;
+    };
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @class  MouseEnteredEvent
+    ///
+    /// @brief  Fired when the user moves mouse over the plugin
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    class MouseEnteredEvent : public MouseMoveEvent
+    {
+    public:
+        MouseEnteredEvent(int x, int y) : MouseMoveEvent(x,y) { }
+    };
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @class  MouseExitedEvent
+    ///
+    /// @brief  Fired when the user moves mouse away from the plugin
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    class MouseExitedEvent : public MouseMoveEvent
+    {
+    public:
+        MouseExitedEvent(int x, int y) : MouseMoveEvent(x,y) { }
+    };
 };
 
 #endif // H_FB_PLUGINEVENTS_MOUSEEVENTS

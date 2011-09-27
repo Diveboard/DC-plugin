@@ -16,10 +16,7 @@
 cmake_minimum_required (VERSION 2.6)
 set (CMAKE_BACKWARDS_COMPATIBILITY 2.6)
 
-include(${CMAKE_DIR}/common.cmake)
-
-set (PROJNAME PluginCore)
-Project (${PROJNAME})
+Project (PluginCore)
 if (VERBOSE)
     message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
 endif()
@@ -27,13 +24,13 @@ endif()
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${GTK_INCLUDE_DIRS}
-    ${SCRIPTINGCORE_SOURCE_DIR}
-    ${PLUGINAUTO_SOURCE_DIR}
-    ${NPAPICORE_SOURCE_DIR}
-    ${ACTIVEXCORE_SOURCE_DIR}
+    ${FB_SCRIPTINGCORE_SOURCE_DIR}
+    ${FB_PLUGINAUTO_SOURCE_DIR}
+    ${FB_NPAPICORE_SOURCE_DIR}
+    ${FB_ACTIVEXCORE_SOURCE_DIR}
     ${Boost_INCLUDE_DIRS}
     ${ATL_INCLUDE_DIRS}
-    ${CONFIG_DIR}
+    ${FB_CONFIG_DIR}
     )
 
 file (GLOB EVENTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -45,6 +42,12 @@ file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     [^.]*.cpp
     [^.]*.h
     )
+
+file (GLOB PCH_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    precompiled_headers.*
+    )
+
+list(REMOVE_ITEM GENERAL ${PCH_FILES})
 
 source_group(PluginEvents FILES ${EVENTS})
 
@@ -90,4 +93,16 @@ set (SOURCES
     ${X11_SOURCES}
     )
 
-add_library(${PROJNAME} STATIC ${SOURCES})
+ADD_PRECOMPILED_HEADER(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_headers.h" "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_headers.cpp" SOURCES)
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "FireBreath Core")
+
+export(TARGETS PluginCore APPEND FILE ${FB_EXPORT_FILE})
+
+if (FB_RELEASE)
+    install (TARGETS PluginCore
+        EXPORT FireBreath_Exports
+        DESTINATION bin/\${BUILD_TYPE}
+        COMPONENT FBCORE
+        )
+endif()

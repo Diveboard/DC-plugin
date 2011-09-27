@@ -77,7 +77,7 @@ namespace FB {
             typedef CFBControl<pFbCLSID,pMT,ICurObjInterface,piid,plibid> CFBControlX;
 
         protected:
-            FB::PluginWindow *pluginWin;
+            boost::scoped_ptr<FB::PluginWindow> pluginWin;
             CComQIPtr<IServiceProvider> m_serviceProvider;
             CComQIPtr<IWebBrowser2> m_webBrowser;
             const std::string m_mimetype;
@@ -92,9 +92,8 @@ namespace FB {
             // The methods in this class are positioned in this file in the
             // rough order that they will be called in.
             CFBControl() : JSAPI_IDispatchEx<CFBControlX, ICurObjInterface, piid>(pMT), FB::BrowserPlugin(pMT),
-                pluginWin(NULL), m_mimetype(pMT)
+                m_mimetype(pMT)
             {
-                FB::PluginCore::setPlatform("Windows", "IE");
                 setFSPath(g_dllPath);
             }
 
@@ -124,9 +123,14 @@ namespace FB {
 
             STDMETHOD(SetObjectRects)(LPCRECT prcPos, LPCRECT prcClip);
             STDMETHOD(InPlaceActivate)(LONG iVerb, const RECT* prcPosRect);
-	
+    
             // Called when the control is deactivated when it's time to shut down
             STDMETHOD(InPlaceDeactivate)(void);
+
+            STDMETHOD(Close)(DWORD dwSaveOption) {
+                shutdown();
+                return IOleObjectImpl<CFBControlX>::Close(dwSaveOption);
+            }
 
             /* IPersistPropertyBag calls */
             // This will be called once when the browser initializes the property bag (PARAM tags) 
@@ -146,7 +150,7 @@ namespace FB {
             // ever get called
             STDMETHOD(Save)(IPropertyBag *pPropBag, BOOL fClearDirty, BOOL fSaveAllProperties);
 
-        	virtual HRESULT OnDraw(ATL_DRAWINFO& di);
+            virtual HRESULT OnDraw(ATL_DRAWINFO& di);
 
             void invalidateWindow( uint32_t left, uint32_t top, uint32_t right, uint32_t bottom );
         public:
@@ -216,17 +220,12 @@ namespace FB {
         HRESULT FB::ActiveX::CFBControl<pFbCLSID, pMT, ICurObjInterface, piid, plibid>::OnDraw( ATL_DRAWINFO& di )
         {
             if (pluginWin && m_bWndLess && FB::pluginGuiEnabled()) {
-                HRESULT lRes(0);
-                PluginWindowlessWin* win = static_cast<PluginWindowlessWin*>(pluginWin);
-                win->setWindowPosition(
-                    di.prcBounds->left,
-                    di.prcBounds->top,
-                    di.prcBounds->right-di.prcBounds->left,
-                    di.prcBounds->bottom-di.prcBounds->top
-                    );
-                win->HandleEvent(WM_PAINT, reinterpret_cast<uint32_t>(di.hdcDraw), NULL, lRes);
+                LRESULT lRes(0);
+                PluginWindowlessWin* win = static_cast<PluginWindowlessWin*>(pluginWin.get());
+                FB::Rect bounds = { di.prcBounds->top, di.prcBounds->left, di.prcBounds->bottom, di.prcBounds->right };
+                win->HandleDraw(di.hdcDraw, bounds);
             }
-    		return S_OK;
+            return S_OK;
         }
 
         template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
@@ -236,9 +235,8 @@ namespace FB {
                 boost::shared_ptr<FB::ShareableReference<CFBControlX> > ref(boost::make_shared<FB::ShareableReference<CFBControlX> >(this));
                 m_host->ScheduleOnMainThread(ref, boost::bind(&CFBControlX::invalidateWindow, this, left, top, right, bottom));
             } else {
-                RECT r = { left, top, right, bottom };
                 if (m_spInPlaceSite)
-                    m_spInPlaceSite->InvalidateRect(&r, TRUE);
+                    m_spInPlaceSite->InvalidateRect(NULL, TRUE);
             }
         }
 
@@ -254,17 +252,14 @@ namespace FB {
         {
             HRESULT hr = IObjectWithSiteImpl<CFBControl<pFbCLSID,pMT,ICurObjInterface,piid,plibid> >::SetSite(pUnkSite);
             if (!pUnkSite || !pluginMain) {
-                m_webBrowser.Release();
-                m_serviceProvider.Release();
-                if (m_host)
-                    m_host->shutdown();
-                m_host.reset();
+                shutdown();
                 return hr;
             }
             m_serviceProvider = pUnkSite;
             if (!m_serviceProvider)
                 return E_FAIL;
             m_serviceProvider->QueryService(SID_SWebBrowserApp, IID_IWebBrowser2, reinterpret_cast<void**>(&m_webBrowser));
+            m_serviceProvider.Release();
 
             if (m_webBrowser) {
                 m_propNotify = m_spClientSite;
@@ -272,6 +267,7 @@ namespace FB {
 
             // There will be no window this time!
             clientSiteSet();
+            pluginMain->setScriptingOnly(true);
             setReady();
             return S_OK;
         }
@@ -281,11 +277,7 @@ namespace FB {
         {
             HRESULT hr = IOleObjectImpl<CFBControlX>::SetClientSite (pClientSite);
             if (!pClientSite || !pluginMain) {
-                m_webBrowser.Release();
-                m_serviceProvider.Release();
-                if (m_host)
-                    m_host->shutdown();
-                m_host.reset();
+                shutdown();
                 return hr;
             }
 
@@ -293,6 +285,7 @@ namespace FB {
             if (!m_serviceProvider)
                 return E_FAIL;
             m_serviceProvider->QueryService(SID_SWebBrowserApp, IID_IWebBrowser2, reinterpret_cast<void**>(&m_webBrowser));
+            m_serviceProvider.Release();
 
             if (m_webBrowser) {
                 m_propNotify = m_spClientSite;
@@ -306,10 +299,16 @@ namespace FB {
         template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
         STDMETHODIMP CFBControl<pFbCLSID, pMT,ICurObjInterface,piid,plibid>::SetObjectRects(LPCRECT prcPos, LPCRECT prcClip)
         {
+            if (!pluginMain->isWindowless())
+            {
+                m_bWndLess = false;
+                m_bWasOnceWindowless = false;
+            }
+            
             HRESULT hr = IOleInPlaceObjectWindowlessImpl<CFBControlX>::SetObjectRects(prcPos, prcClip);
 
             if (m_bWndLess && pluginWin) {
-                FB::PluginWindowlessWin* ptr(static_cast<FB::PluginWindowlessWin*>(pluginWin));
+                FB::PluginWindowlessWin* ptr(static_cast<FB::PluginWindowlessWin*>(pluginWin.get()));
                 ptr->setWindowClipping(prcClip->top, prcClip->left, prcClip->bottom, prcClip->right);
                 ptr->setWindowPosition(prcPos->left, prcPos->top, prcPos->right-prcPos->left, prcPos->bottom-prcPos->top);
             }
@@ -321,6 +320,9 @@ namespace FB {
         {
             HRESULT hr = CComControl<CFBControlX>::InPlaceActivate(iVerb, prcPosRect);
 
+            if (m_host)
+                m_host->resume(m_webBrowser, m_spClientSite);
+            
             if (hr != S_OK)
                 return hr;
 
@@ -329,14 +331,21 @@ namespace FB {
                 return hr;
             }
             if (m_bWndLess) {
-                pluginWin = getFactoryInstance()->createPluginWindowless(FB::WindowContextWindowless(NULL));
-                static_cast<FB::PluginWindowlessWin*>(pluginWin)
-                    ->setInvalidateWindowFunc(boost::bind(&CFBControlX::invalidateWindow, this, _1, _2, _3, _4));
+                pluginWin.swap(boost::scoped_ptr<PluginWindow>(getFactoryInstance()->createPluginWindowless(FB::WindowContextWindowless(NULL))));
+                FB::PluginWindowlessWin* ptr(static_cast<FB::PluginWindowlessWin*>(pluginWin.get()));
+                ptr->setInvalidateWindowFunc(boost::bind(&CFBControlX::invalidateWindow, this, _1, _2, _3, _4));
+                if (m_spInPlaceSite) {
+                    HWND hwnd = 0;
+					HRESULT hr2 = m_spInPlaceSite->GetWindow(&hwnd);
+                    if (SUCCEEDED(hr2)) {
+                        ptr->setHWND(hwnd);
+                    }
+                }
             } else {
-                pluginWin = getFactoryInstance()->createPluginWindowWin(FB::WindowContextWin(m_hWnd));
-                static_cast<PluginWindowWin*>(pluginWin)->setCallOldWinProc(true);
+                pluginWin.swap(boost::scoped_ptr<PluginWindow>(getFactoryInstance()->createPluginWindowWin(FB::WindowContextWin(m_hWnd))));
+                static_cast<PluginWindowWin*>(pluginWin.get())->setCallOldWinProc(true);
             }
-            pluginMain->SetWindow(pluginWin);
+            pluginMain->SetWindow(pluginWin.get());
 
             return hr;
         }
@@ -344,7 +353,18 @@ namespace FB {
         template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
         STDMETHODIMP CFBControl<pFbCLSID, pMT,ICurObjInterface,piid,plibid>::InPlaceDeactivate( void )
         {
-            shutdown();
+            if (pluginMain) {
+                pluginMain->ClearWindow();
+                pluginWin.reset();
+            }
+            // We have to release all event handlers and other held objects at this point, because
+            // if we don't the plugin won't shut down properly; normally it isn't an issue to do
+            // so, but note that this gets called if you move the plugin around in the DOM!
+            if (m_host) {
+                m_host->ReleaseAllHeldObjects();
+                m_connPtMap.clear();
+                m_host->suspend();
+            }
             HRESULT hr = IOleInPlaceObjectWindowlessImpl<CFBControlX>::InPlaceDeactivate();
             return hr;
         }
@@ -425,15 +445,20 @@ namespace FB {
         template <const GUID* pFbCLSID, const char* pMT, class ICurObjInterface, const IID* piid, const GUID* plibid>
         void CFBControl<pFbCLSID, pMT,ICurObjInterface,piid,plibid>::shutdown()
         {
-            if (pluginMain)
-                pluginMain->ClearWindow();
-            if (pluginWin) {
-                delete pluginWin; pluginWin = NULL;
-            }
-            m_api.reset(); // Once we release this, pluginMain releasing should free it
             // the host must be shut down before the rest to prevent deadlocks on async calls
             if (m_host)
                 m_host->shutdown();
+
+            if (pluginMain) {
+                pluginMain->ClearWindow(); //Already done during InPlaceDeactivate
+                pluginMain->shutdown();
+            }
+
+            if (pluginWin) {
+                pluginWin.reset();
+            }
+
+            m_api.reset(); // Once we release this, pluginMain releasing should free it
             pluginMain.reset(); // This should delete the plugin object
             m_propNotify.Release();
             m_webBrowser.Release();
@@ -501,19 +526,33 @@ namespace FB {
             switch(dwMsgMapID)
             {
             case 0: {
-                // WM_CREATE is the only message we handle here
+                // Set Focus & Capture whenever a button is pushed inside of the plugin instance.
                 switch(uMsg)
                 {
+                case WM_LBUTTONDOWN:
+                case WM_MBUTTONDOWN:
+                case WM_RBUTTONDOWN:
+                    if (m_bNegotiatedWnd && m_bWndLess && m_spInPlaceSite) {
+                        m_spInPlaceSite->SetFocus(true);
+                        m_spInPlaceSite->SetCapture(true);
+                    }
+                    break;
+                case WM_LBUTTONUP:
+                case WM_MBUTTONUP:
+                case WM_RBUTTONUP:
+                    if (m_bNegotiatedWnd && m_bWndLess && m_spInPlaceSite) {
+                        m_spInPlaceSite->SetCapture(false);
+                    }
+                    break;
                 case WM_MOUSEACTIVATE:
                     break;
                     //lResult = ::DefWindowProc(hWnd, uMsg, wParam, lParam);
                     //return TRUE;
-
                 }
 
                 if (bHandled)
                     return TRUE;
-                else if (m_bWndLess && pluginWin && static_cast<PluginWindowlessWin*>(pluginWin)->HandleEvent(uMsg, wParam, lParam, lResult))
+                else if (m_bWndLess && pluginWin && static_cast<PluginWindowlessWin*>(pluginWin.get())->HandleEvent(uMsg, wParam, lParam, lResult))
                     return TRUE;
                 else if(CComControl<CFBControlX>::ProcessWindowMessage(hWnd, uMsg, wParam, lParam, lResult))
                     return TRUE;

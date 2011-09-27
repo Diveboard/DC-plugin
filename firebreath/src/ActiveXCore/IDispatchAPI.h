@@ -34,15 +34,29 @@ namespace FB { namespace ActiveX {
         public FB::JSObject
     {
     public:
-		static boost::shared_ptr<IDispatchAPI> create(IDispatch *, const ActiveXBrowserHostPtr&);
+        static boost::shared_ptr<IDispatchAPI> create(IDispatch *, const ActiveXBrowserHostPtr&);
         virtual ~IDispatchAPI(void);
 
-        void *getEventId() const { return (void*)m_obj; }
+        void *getEventId() const
+        {
+            IDispatchSRef sref(m_obj.lock());
+            if (sref) return (void*)sref->getPtr();
+            else return NULL;
+        }
         void *getEventContext() const {
             if (m_browser.expired()) return NULL;
             else return getHost()->getContextID();
         };
-        IDispatch *getIDispatch() const { return m_obj; }
+        IDispatch* getIDispatch() const {
+            IDispatchSRef sref(m_obj);
+            return sref->getPtr();
+        }
+        bool isValid() { return !m_obj.expired() && !m_browser.expired(); }
+        virtual bool supportsOptimizedCalls() const { return true; }
+        virtual void callMultipleFunctions(const std::string& name, const FB::VariantList& args,
+                                           const std::vector<JSObjectPtr>& direct,
+                                           const std::vector<JSObjectPtr>& ifaces);
+        void invalidate() { m_obj.reset(); }
 
         // Enumerate members
         void getMemberNames(std::vector<std::string> &nameVector) const;
@@ -57,7 +71,7 @@ namespace FB { namespace ActiveX {
             return ptr;
         }
         ActiveXBrowserHostWeakPtr m_browser;
-        IDispatch* m_obj;
+        IDispatchWRef m_obj;
         bool is_JSAPI;
         FB::JSAPIWeakPtr inner;
 
@@ -70,22 +84,21 @@ namespace FB { namespace ActiveX {
         bool HasProperty(const std::string& propertyName) const;
         bool HasProperty(const std::wstring& propertyName) const;
         bool HasProperty(int idx) const;
-        bool HasEvent(const std::string& eventName) const;
-        bool HasEvent(const std::wstring& eventName) const;
 
         FB::variant GetProperty(const std::string& propertyName);
         void SetProperty(const std::string& propertyName, const FB::variant& value);
+        void RemoveProperty(const std::string& propertyName);
         FB::variant GetProperty(int idx);
         void SetProperty(int idx, const FB::variant& value);
+        void RemoveProperty(int idx);
 
         FB::variant Invoke(const std::string& methodName, const FB::VariantList& args);
-        FB::JSObjectPtr Construct(const std::string& memberName, const FB::VariantList& args);
+        FB::variant Construct(const FB::VariantList& args);
 
     public:
         virtual FB::JSAPIPtr getJSAPI() const;
 
-	private:
-		friend boost::shared_ptr<IDispatchAPI> boost::make_shared<IDispatchAPI>(IDispatch * const &, const ActiveXBrowserHostPtr&);
+    private:
         IDispatchAPI(IDispatch *, const ActiveXBrowserHostPtr&);
     };
 } }

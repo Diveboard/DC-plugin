@@ -66,6 +66,15 @@ namespace FB
         virtual void *getEventId() const { return NULL; }
         virtual void *getEventContext() const { return NULL; }
 
+        virtual bool supportsOptimizedCalls() const { return false; }
+        virtual void callMultipleFunctions(const std::string& name, const FB::VariantList& args,
+                                           const std::vector<JSObjectPtr>& direct,
+                                           const std::vector<JSObjectPtr>& ifaces) {};
+        virtual bool isValid() = 0;
+
+        JSObjectPtr shared_from_this() { return boost::static_pointer_cast<JSObject>(JSAPI::shared_from_this()); }
+        boost::shared_ptr<const JSObject> shared_from_this() const { return boost::static_pointer_cast<const JSObject>(JSAPI::shared_from_this()); }
+
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void InvokeAsync(const std::string& methodName, const std::vector<variant>& args)
         ///
@@ -81,9 +90,17 @@ namespace FB
             if (m_host.expired()) {
                 throw std::runtime_error("Cannot invoke asynchronously");
             }
-            getHost()->ScheduleOnMainThread(shared_ptr(), boost::bind((FB::InvokeType)&JSAPI::Invoke, this, methodName, args));
+            
+            getHost()->ScheduleOnMainThread(shared_from_this(), boost::bind(&JSObject::_invokeAsync, this, args, methodName));
         }
 
+    private:
+        virtual void _invokeAsync(const std::vector<variant>& args, const std::string& methodName)
+        {
+            getHost()->delayedInvoke(0, shared_from_this(), args, methodName);
+        }
+    public:
+        
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void SetPropertyAsync(const std::string& propertyName, const variant& value)
         ///
@@ -98,11 +115,8 @@ namespace FB
             if (m_host.expired()) {
                 throw std::runtime_error("Cannot invoke asynchronously");
             }
-            getHost()->ScheduleOnMainThread(shared_ptr(), boost::bind((FB::SetPropertyType)&JSAPI::SetProperty, this, propertyName, value));
+            getHost()->ScheduleOnMainThread(shared_from_this(), boost::bind((FB::SetPropertyType)&JSAPI::SetProperty, this, propertyName, value));
         }
-
-        //virtual FB::JSObjectPtr Construct(const std::wstring& memberName, const std::vector<variant>& args);
-        //virtual FB::JSObjectPtr Construct(const std::string& memberName, const std::vector<variant>& args) = 0;
     public:
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn template<class Cont> static void GetArrayValues(const FB::JSObjectPtr& src, Cont& dst)
@@ -144,6 +158,9 @@ namespace FB
     template<class Cont>
     void JSObject::GetArrayValues(const FB::JSObjectPtr& src, Cont& dst)
     {
+        if (!src) {
+            return;
+        }
         try {
             FB::variant tmp = src->GetProperty("length");
             long length = tmp.convert_cast<long>();
@@ -166,6 +183,7 @@ namespace FB
         typedef std::pair<KeyType, MappedType> PairType;
         typedef std::vector<std::string> StringVec;
 
+        if (!src) return;
         try {
             StringVec fields;
             src->getMemberNames(fields);

@@ -43,6 +43,7 @@ namespace FB { namespace Npapi {
         NpapiBrowserHostWeakPtr m_browser;
         bool m_valid;
         bool m_autoRelease;
+        boost::shared_ptr<FB::ShareableReference< NPJavascriptObject > > m_sharedRef;
 
     public:
         static NPJavascriptObject *NewObject(const NpapiBrowserHostPtr& host, const FB::JSAPIWeakPtr& api, bool auto_release = false);
@@ -54,8 +55,13 @@ namespace FB { namespace Npapi {
                 throw std::bad_cast();
             return ptr;
         }
+        const boost::shared_ptr<FB::ShareableReference< NPJavascriptObject > > getWeakReference() { return m_sharedRef; }
 
         virtual ~NPJavascriptObject(void);
+
+        bool isValid() {
+            return m_valid && !m_api.expired() && !m_browser.expired();
+        }
 
     private:
         NPJavascriptObject(NPP npp);
@@ -74,7 +80,7 @@ namespace FB { namespace Npapi {
 
     public:
         // Static methods referenced in the NPClass
-        static NPObject *Allocate(NPP npp, NPClass *aClass);
+        static NPObject *_Allocate(NPP npp, NPClass *aClass);
         static void _Deallocate(NPObject *npobj);
         static void _Invalidate(NPObject *npobj);
         static bool _HasMethod(NPObject *npobj, NPIdentifier name);

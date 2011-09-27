@@ -18,20 +18,16 @@ Copyright 2009 Dan Weatherford, Facebook inc
 #define H_FB_UTF8
 
 #include <string>
+#include "../3rdParty/utf8/utf8.h"
 
 namespace FB {
-
-#ifdef _WIN32
-    std::string lastError(const char* fnname);
-    void throw_GetLastError(const char* fnname);
-#endif
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @fn std::string wstring_to_utf8(const std::wstring& src)
     ///
     /// @brief  Accepts a std::wstring and returns a UTF8-encoded std::string
     ///
-    /// @param  src Source string 
+    /// @param  src Source string
     ///
     /// @return UTF8-encoded std::string
     ////////////////////////////////////////////////////////////////////////////////////////////////////

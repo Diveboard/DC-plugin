@@ -14,6 +14,7 @@ Copyright 2010 Richard Bateman, Firebreath development team
 
 #include "NpapiPlugin.h"
 #include "NpapiStream.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 #undef min
 
 using namespace FB::Npapi;
@@ -146,7 +147,7 @@ void FB::Npapi::NpapiStream::setCreated()
 {
     // We hold the reference here until NPP_DestroyStream is called so that the
     // object can't be deleted out from under the browser
-    m_selfReference = FB::ptr_cast<NpapiStream>(shared_ptr());
+    m_selfReference = FB::ptr_cast<NpapiStream>(shared_from_this());
 }
 
 void FB::Npapi::NpapiStream::setDestroyed()

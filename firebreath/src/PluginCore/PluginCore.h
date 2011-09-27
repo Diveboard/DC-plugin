@@ -29,8 +29,9 @@ namespace FB {
 
     class PluginWindow;
     class PluginEvent;
-    class JSAPI;
-    class BrowserHost;
+    FB_FORWARD_PTR(PluginCore);
+    FB_FORWARD_PTR(JSAPI);
+    FB_FORWARD_PTR(BrowserHost);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  PluginCore
@@ -142,6 +143,30 @@ namespace FB {
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual public void FB::PluginCore::setScriptingOnly(const bool so)
+        ///
+        /// @brief  Called by the browser to indicate that there is no DOM element associated
+        ///         with this object
+        ///
+        /// @returns void
+        /// @since 1.6
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void setScriptingOnly(const bool so = true)
+        {
+            m_scriptingOnly = so;
+        }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual public bool FB::PluginCore::isScriptingOnly()
+        ///
+        /// @brief  Returns true if there is no DOM element associated with the plugin
+        ///
+        /// @returns bool
+        /// @since 1.6
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual bool isScriptingOnly() const { return m_scriptingOnly; }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void PluginCore::SetWindow(PluginWindow *)
         ///
         /// @brief  Called by the browser to set the window.  The default implementation fires the 
@@ -166,7 +191,7 @@ namespace FB {
         ///         plugin is now ready to interact with the Browser via Javascript.  This may or may not
         ///         occur before the Window (if any) is set.
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        virtual void setReady();
+        virtual bool setReady();
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual void PluginCore::onPluginReady()
@@ -180,6 +205,18 @@ namespace FB {
         /// @since 1.3 RC2 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void onPluginReady() {};
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual void PluginCore::shutdown()
+        ///
+        /// @brief  This is called when the plugin needs to shut down to give it a chance to stop all
+        ///         threads; the destructor would be too late for thread shutdown
+        ///         
+        /// This should occur after the detachedEvent is fired. When this function returns there should be
+        /// no shared_ptr references to the plugin object other than ones held by FireBreath core
+        ///
+        /// @since 1.5
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual void shutdown() {};
 
     protected:
 
@@ -280,6 +317,8 @@ namespace FB {
         ////////////////////////////////////////////////////////////////////////////////////////////////////
 
         virtual void setParams(const FB::VariantMap& inParams);
+        
+        virtual boost::optional<std::string> getParam(const std::string& key);
 
     protected:
         /// The BrowserHost object for the current session
@@ -296,6 +335,7 @@ namespace FB {
         /// Don't use directly; use getRootJSAPI()
         JSAPIPtr m_api;
         boost::tribool m_windowLessParam;
+        bool m_scriptingOnly;
     };
 };
 

@@ -126,7 +126,7 @@ namespace FB
         bad_variant_cast(const std::type_info& src, const std::type_info& dest)
             : from(src.name()), to(dest.name())
         { }
-        virtual const char* what() { 
+        virtual const char* what() const throw() { 
             return "bad cast"; 
         }
         const char* from;
@@ -710,10 +710,10 @@ namespace FB
                     return variant();
             }
 
-			inline variant make_variant(const FB::JSAPIWeakPtr& ptr) {
-				return variant(ptr, true);
-			}
-			
+            inline variant make_variant(const FB::JSAPIWeakPtr& ptr) {
+                return variant(ptr, true);
+            }
+            
             variant make_variant(const boost::tribool& val);
             boost::tribool convert_variant( const FB::variant& var, const type_spec<boost::tribool>& );
 

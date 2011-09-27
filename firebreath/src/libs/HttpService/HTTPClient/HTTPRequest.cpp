@@ -14,6 +14,7 @@ Copyright 2010 Dan Weatherford and Facebook, Inc
 
 #ifdef _WIN32
 #include "win_targetver.h"
+#include <boost/asio.hpp>
 #include "../Platform/windows_defs.h"
 #endif
 
@@ -23,7 +24,6 @@ Copyright 2010 Dan Weatherford and Facebook, Inc
 #include <cassert>
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
-#include <boost/asio.hpp>
 #include <curl/curl.h>
 #include "../HTTPService/BasicService.h"
 #include "../HTTPCommon/Utils.h"
@@ -72,8 +72,6 @@ static void asyncrequest_status_handler(HTTPRequest* req, HTTP::Status status) {
   req->onStatusChanged(boost::bind(asyncrequest_status_handler, req, _1));
   req->startRequest(data);
 }
-
-#ifdef _WIN32
 
 // The cert chain that we're looking for looks like:
 // Entrust Secure Server Certification Authority (this cert)
@@ -129,50 +127,67 @@ static void asyncrequest_status_handler(HTTPRequest* req, HTTP::Status status) {
                 0
 
 */
-static const char* certdata_Entrust_Secure_Server_CA =
-"-----BEGIN CERTIFICATE-----\n"
-"MIIE2DCCBEGgAwIBAgIEN0rSQzANBgkqhkiG9w0BAQUFADCBwzELMAkGA1UE\n"
-"BhMCVVMxFDASBgNVBAoTC0VudHJ1c3QubmV0MTswOQYDVQQLEzJ3d3cuZW50\n"
-"cnVzdC5uZXQvQ1BTIGluY29ycC4gYnkgcmVmLiAobGltaXRzIGxpYWIuKTEl\n"
-"MCMGA1UECxMcKGMpIDE5OTkgRW50cnVzdC5uZXQgTGltaXRlZDE6MDgGA1UE\n"
-"AxMxRW50cnVzdC5uZXQgU2VjdXJlIFNlcnZlciBDZXJ0aWZpY2F0aW9uIEF1\n"
-"dGhvcml0eTAeFw05OTA1MjUxNjA5NDBaFw0xOTA1MjUxNjM5NDBaMIHDMQsw\n"
-"CQYDVQQGEwJVUzEUMBIGA1UEChMLRW50cnVzdC5uZXQxOzA5BgNVBAsTMnd3\n"
-"dy5lbnRydXN0Lm5ldC9DUFMgaW5jb3JwLiBieSByZWYuIChsaW1pdHMgbGlh\n"
-"Yi4pMSUwIwYDVQQLExwoYykgMTk5OSBFbnRydXN0Lm5ldCBMaW1pdGVkMTow\n"
-"OAYDVQQDEzFFbnRydXN0Lm5ldCBTZWN1cmUgU2VydmVyIENlcnRpZmljYXRp\n"
-"b24gQXV0aG9yaXR5MIGdMA0GCSqGSIb3DQEBAQUAA4GLADCBhwKBgQDNKIM0\n"
-"VBuJ8w+vN5Ex/68xYMmo6LIQaO2f55M28Qpku0f1BBc/I0dNxScZgSYMVHIN\n"
-"iC3ZH5oSn7yzcdOAGT9HZnuMNSjSuQrfJNqc1lB5gXpa0zf3wkrYKZImZNHk\n"
-"mGw6AIr1NJtl+O3jEP/9uElY3KDegjlrgbEWGWG5VLbmQwIBA6OCAdcwggHT\n"
-"MBEGCWCGSAGG+EIBAQQEAwIABzCCARkGA1UdHwSCARAwggEMMIHeoIHboIHY\n"
-"pIHVMIHSMQswCQYDVQQGEwJVUzEUMBIGA1UEChMLRW50cnVzdC5uZXQxOzA5\n"
-"BgNVBAsTMnd3dy5lbnRydXN0Lm5ldC9DUFMgaW5jb3JwLiBieSByZWYuIChs\n"
-"aW1pdHMgbGlhYi4pMSUwIwYDVQQLExwoYykgMTk5OSBFbnRydXN0Lm5ldCBM\n"
-"aW1pdGVkMTowOAYDVQQDEzFFbnRydXN0Lm5ldCBTZWN1cmUgU2VydmVyIENl\n"
-"cnRpZmljYXRpb24gQXV0aG9yaXR5MQ0wCwYDVQQDEwRDUkwxMCmgJ6AlhiNo\n"
-"dHRwOi8vd3d3LmVudHJ1c3QubmV0L0NSTC9uZXQxLmNybDArBgNVHRAEJDAi\n"
-"gA8xOTk5MDUyNTE2MDk0MFqBDzIwMTkwNTI1MTYwOTQwWjALBgNVHQ8EBAMC\n"
-"AQYwHwYDVR0jBBgwFoAU8BdiE1U9s/8KAGv7UISX8+1i0BowHQYDVR0OBBYE\n"
-"FPAXYhNVPbP/CgBr+1CEl/PtYtAaMAwGA1UdEwQFMAMBAf8wGQYJKoZIhvZ9\n"
-"B0EABAwwChsEVjQuMAMCBJAwDQYJKoZIhvcNAQEFBQADgYEAkNwwAvpkdMKn\n"
-"CqV8IY00F6j7Rw7/JXyNEwr75Ji174z4xRAN95K+8cPV1ZVqBLssziY2Zcgx\n"
-"xufuP+NXdYR6Ee9GTxj005i7qIcyunL2POI9n9cd2cNgQ4xYDiKWL2KjLB+6\n"
-"rQXvqzJ4h6BUcxm1XAX5Uj5tLUUL9wqT6u0G+bI=\n"
-"-----END CERTIFICATE-----\n";
+//static const char* certdata_Entrust_Secure_Server_CA =
+//"-----BEGIN CERTIFICATE-----\n"
+//"MIIE2DCCBEGgAwIBAgIEN0rSQzANBgkqhkiG9w0BAQUFADCBwzELMAkGA1UE\n"
+//"BhMCVVMxFDASBgNVBAoTC0VudHJ1c3QubmV0MTswOQYDVQQLEzJ3d3cuZW50\n"
+//"cnVzdC5uZXQvQ1BTIGluY29ycC4gYnkgcmVmLiAobGltaXRzIGxpYWIuKTEl\n"
+//"MCMGA1UECxMcKGMpIDE5OTkgRW50cnVzdC5uZXQgTGltaXRlZDE6MDgGA1UE\n"
+//"AxMxRW50cnVzdC5uZXQgU2VjdXJlIFNlcnZlciBDZXJ0aWZpY2F0aW9uIEF1\n"
+//"dGhvcml0eTAeFw05OTA1MjUxNjA5NDBaFw0xOTA1MjUxNjM5NDBaMIHDMQsw\n"
+//"CQYDVQQGEwJVUzEUMBIGA1UEChMLRW50cnVzdC5uZXQxOzA5BgNVBAsTMnd3\n"
+//"dy5lbnRydXN0Lm5ldC9DUFMgaW5jb3JwLiBieSByZWYuIChsaW1pdHMgbGlh\n"
+//"Yi4pMSUwIwYDVQQLExwoYykgMTk5OSBFbnRydXN0Lm5ldCBMaW1pdGVkMTow\n"
+//"OAYDVQQDEzFFbnRydXN0Lm5ldCBTZWN1cmUgU2VydmVyIENlcnRpZmljYXRp\n"
+//"b24gQXV0aG9yaXR5MIGdMA0GCSqGSIb3DQEBAQUAA4GLADCBhwKBgQDNKIM0\n"
+//"VBuJ8w+vN5Ex/68xYMmo6LIQaO2f55M28Qpku0f1BBc/I0dNxScZgSYMVHIN\n"
+//"iC3ZH5oSn7yzcdOAGT9HZnuMNSjSuQrfJNqc1lB5gXpa0zf3wkrYKZImZNHk\n"
+//"mGw6AIr1NJtl+O3jEP/9uElY3KDegjlrgbEWGWG5VLbmQwIBA6OCAdcwggHT\n"
+//"MBEGCWCGSAGG+EIBAQQEAwIABzCCARkGA1UdHwSCARAwggEMMIHeoIHboIHY\n"
+//"pIHVMIHSMQswCQYDVQQGEwJVUzEUMBIGA1UEChMLRW50cnVzdC5uZXQxOzA5\n"
+//"BgNVBAsTMnd3dy5lbnRydXN0Lm5ldC9DUFMgaW5jb3JwLiBieSByZWYuIChs\n"
+//"aW1pdHMgbGlhYi4pMSUwIwYDVQQLExwoYykgMTk5OSBFbnRydXN0Lm5ldCBM\n"
+//"aW1pdGVkMTowOAYDVQQDEzFFbnRydXN0Lm5ldCBTZWN1cmUgU2VydmVyIENl\n"
+//"cnRpZmljYXRpb24gQXV0aG9yaXR5MQ0wCwYDVQQDEwRDUkwxMCmgJ6AlhiNo\n"
+//"dHRwOi8vd3d3LmVudHJ1c3QubmV0L0NSTC9uZXQxLmNybDArBgNVHRAEJDAi\n"
+//"gA8xOTk5MDUyNTE2MDk0MFqBDzIwMTkwNTI1MTYwOTQwWjALBgNVHQ8EBAMC\n"
+//"AQYwHwYDVR0jBBgwFoAU8BdiE1U9s/8KAGv7UISX8+1i0BowHQYDVR0OBBYE\n"
+//"FPAXYhNVPbP/CgBr+1CEl/PtYtAaMAwGA1UdEwQFMAMBAf8wGQYJKoZIhvZ9\n"
+//"B0EABAwwChsEVjQuMAMCBJAwDQYJKoZIhvcNAQEFBQADgYEAkNwwAvpkdMKn\n"
+//"CqV8IY00F6j7Rw7/JXyNEwr75Ji174z4xRAN95K+8cPV1ZVqBLssziY2Zcgx\n"
+//"xufuP+NXdYR6Ee9GTxj005i7qIcyunL2POI9n9cd2cNgQ4xYDiKWL2KjLB+6\n"
+//"rQXvqzJ4h6BUcxm1XAX5Uj5tLUUL9wqT6u0G+bI=\n"
+//"-----END CERTIFICATE-----\n";
+
+static std::set<std::string> CA_certs;
+static bool clean_CAList(true);
+
+void HTTPRequest::registerCACert(const std::string& cert)
+{
+    CA_certs.insert(cert);
+}
 
 static CURLcode sslctx_function(CURL* curl, SSL_CTX* sslctx, void* param) {
-  BIO* mem = BIO_new_mem_buf(const_cast<char*>(certdata_Entrust_Secure_Server_CA), -1);
-  BIO_set_close(mem, BIO_NOCLOSE); // don't want BIO_free() to free the buffer, it's static
-  X509* Entrust_Secure_Server_CA = PEM_read_bio_X509_AUX(mem, NULL, NULL, NULL);
-  if (Entrust_Secure_Server_CA) {
-    X509_STORE* store = SSL_CTX_get_cert_store(sslctx);
-    X509_STORE_add_cert(store, Entrust_Secure_Server_CA);
-  }
-  BIO_free(mem);
-  return CURLE_OK;
+    X509_STORE* store;
+    if (clean_CAList) {
+        store = X509_STORE_new();
+        SSL_CTX_set_cert_store(sslctx, store);
+    } else {
+        store = SSL_CTX_get_cert_store(sslctx);
+    }
+    for(std::set<std::string>::iterator it=CA_certs.begin(); it != CA_certs.end(); ++it)
+    {
+        BIO* mem = BIO_new_mem_buf(const_cast<char*>(it->c_str()), -1);
+        BIO_set_close(mem, BIO_NOCLOSE); // don't want BIO_free() to free the buffer, it's a string
+        X509* current_CA = PEM_read_bio_X509_AUX(mem, NULL, NULL, NULL);
+        if (current_CA) {
+            X509_STORE_add_cert(store, current_CA);
+        }
+        BIO_free(mem);
+    }
+
+    return CURLE_OK;
 }
-#endif
 
 void HTTPRequest::_internal_threadSafeDestroy() {
   delete this;
@@ -265,15 +280,14 @@ void HTTPRequest::startRequest_thread() {
     curl_easy_setopt(req, CURLOPT_ERRORBUFFER, errorbuffer);
     curl_easy_setopt(req, CURLOPT_FAILONERROR, 1);
 
-#ifdef _WIN32
-    // We only need to add in the cert on windows, since we don't ship the trusted CA cert bundle there
-    // (it comes with curl on the mac and on linux)
-    // also touching the SSL_CTX on the mac tends to make things crash
     curl_easy_setopt(req, CURLOPT_SSL_CTX_FUNCTION, sslctx_function);
-#endif
 
     curl_easy_setopt(req, CURLOPT_SSL_VERIFYPEER, 1);
     curl_easy_setopt(req, CURLOPT_SSL_VERIFYHOST, 2);
+
+    // THESE ARE REALLY DANGEROUS!!!! DON'T LEAVE THEM ACTIVE!
+    //curl_easy_setopt(req, CURLOPT_SSL_VERIFYPEER, 0);
+    //curl_easy_setopt(req, CURLOPT_SSL_VERIFYHOST, 0);
    
     std::map<std::string, std::string> post_data = request_data->uri.query_data;    
 

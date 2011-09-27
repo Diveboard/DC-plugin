@@ -19,6 +19,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "NpapiTypes.h"
 #include "BrowserHost.h"
 #include "SafeQueue.h"
+#include "ShareableReference.h"
 #include <boost/thread.hpp>
 
 namespace FB { namespace Npapi {
@@ -26,7 +27,9 @@ namespace FB { namespace Npapi {
     FB_FORWARD_PTR(NpapiPluginModule);
     FB_FORWARD_PTR(NPObjectAPI);
     FB_FORWARD_PTR(NpapiBrowserHost);
+    FB_FORWARD_PTR(NPJavascriptObject);
     typedef boost::shared_ptr<NPObjectAPI> NPObjectAPIPtr;
+    typedef boost::weak_ptr<FB::ShareableReference<NPJavascriptObject> > NPObjectWeakRef;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// @class  NpapiBrowserHost
@@ -43,8 +46,12 @@ namespace FB { namespace Npapi {
         void setBrowserFuncs(NPNetscapeFuncs *pFuncs);
 
     public:
-        virtual BrowserStreamPtr _createStream(const std::string& url, const PluginEventSinkPtr& callback, 
-                                            bool cache = true, bool seekable = false, 
+        virtual BrowserStreamPtr _createStream(const std::string& url, const PluginEventSinkPtr& callback,
+                                            bool cache = true, bool seekable = false,
+                                            size_t internalBufferSize = 128 * 1024 ) const;
+
+        virtual BrowserStreamPtr _createPostStream(const std::string& url, const PluginEventSinkPtr& callback,
+                                            const std::string& postdata, bool cache = true, bool seekable = false,
                                             size_t internalBufferSize = 128 * 1024 ) const;
 
     public:
@@ -52,6 +59,7 @@ namespace FB { namespace Npapi {
         virtual void *getContextID() const { return (void *)m_npp; }
         virtual void deferred_release(NPObject* obj);
         virtual void DoDeferredRelease() const;
+        NPJavascriptObject* getJSAPIWrapper( const FB::JSAPIWeakPtr& api, bool autoRelease = false );
 
     public:
         FB::DOM::DocumentPtr getDOMDocument();
@@ -59,6 +67,13 @@ namespace FB { namespace Npapi {
         FB::DOM::ElementPtr getDOMElement();
         void evaluateJavaScript(const std::string &script);
         bool isSafari() const;
+        bool isFirefox() const;
+        bool isChrome() const;
+
+        virtual bool DetectProxySettings(std::map<std::string, std::string>& settingsMap, const std::string& url = "");
+
+    public:
+        void shutdown();
 
     public:
         FB::variant getVariant(const NPVariant *npVar);
@@ -73,6 +88,8 @@ namespace FB { namespace Npapi {
         NPObjectAPIPtr m_htmlWin;
         NPObjectAPIPtr m_htmlElement;
         mutable FB::SafeQueue<NPObject*> m_deferredObjects;
+        typedef std::map<void*, NPObjectWeakRef> NPObjectRefMap;
+        mutable NPObjectRefMap m_cachedNPObject;
 
     public:
         void* MemAlloc(uint32_t size) const;
@@ -111,6 +128,22 @@ namespace FB { namespace Npapi {
         void PushPopupsEnabledState(NPBool enabled) const;
         void PopPopupsEnabledState() const;
         void PluginThreadAsyncCall(void (*func) (void *), void *userData) const;
+
+        NPError GetValueForURL(NPNURLVariable variable,
+                               const char *url,
+                               char **value,
+                               uint32_t *len);
+        NPError SetValueForURL(NPNURLVariable variable,
+                               const char *url, const char *value,
+                               uint32_t len);
+        NPError GetAuthenticationInfo(const char *protocol,
+                                      const char *host, int32_t port,
+                                      const char *scheme,
+                                      const char *realm,
+                                      char **username, uint32_t *ulen,
+                                      char **password,
+                                      uint32_t *plen);
+
         /* npruntime.h definitions */
         NPObject *CreateObject(NPClass *aClass) const;
         bool Invoke(NPObject *npobj, NPIdentifier methodName, const NPVariant *args,

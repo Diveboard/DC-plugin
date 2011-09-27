@@ -15,11 +15,16 @@ Copyright 2010 Richard Bateman, Firebreath development team
 #include "axstream.h"
 #include "axstream_impl.h"
 #include "PluginEvents/StreamEvents.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 using namespace FB;
 using namespace FB::ActiveX;
 
 ActiveXStream::ActiveXStream( const std::string& url, bool cache, bool seekableRequested, size_t internalBufferSize ) : FB::BrowserStream( url, cache, seekableRequested, internalBufferSize ), closing(false)
+{
+}
+
+ActiveXStream::ActiveXStream( const std::string& url, bool cache, bool seekableRequested, size_t internalBufferSize, const std::string& verbdata ) : FB::BrowserStream( url, cache, seekableRequested, internalBufferSize ), closing(false), data(verbdata)
 {
 }
 
@@ -33,7 +38,7 @@ bool ActiveXStream::readRanges( const std::vector<Range>& ranges )
     if ( !isSeekable() || !isOpen() ) return false;
     if ( !ranges.size() ) return true;
 
-    addRequest( ActiveXStreamRequest( FB::ptr_cast<ActiveXStream>(shared_ptr()), ranges ) );
+    addRequest( ActiveXStreamRequest( FB::ptr_cast<ActiveXStream>(shared_from_this()), ranges ) );
     return true;
 }
 
@@ -67,7 +72,7 @@ bool ActiveXStream::close()
 bool ActiveXStream::init()
 {
     if ( isSeekable() ) return true;                            // if seekable, wait for the user to pull data ...
-    else return addRequest( ActiveXStreamRequest( FB::ptr_cast<ActiveXStream>(shared_ptr()) ) );     // ... otherwise start downloading the whole thing
+    else return addRequest( ActiveXStreamRequest( FB::ptr_cast<ActiveXStream>(shared_from_this()) ) );     // ... otherwise start downloading the whole thing
 }
 
 bool ActiveXStream::addRequest( const ActiveXStreamRequest& Request )
@@ -142,6 +147,11 @@ void ActiveXStream::signalCacheFilename(const std::wstring& cacheFilename)
 {
     setCacheFilename( cacheFilename );
 } 
+
+std::string ActiveXStream::getVerbData() const
+{
+    return data;
+}
 
 #if 0
 #ifdef USE_WINHTTP
@@ -264,7 +274,7 @@ void UseWinInet(const WCHAR* URL)
     /*HRESULT uoshr = URLOpenStream( 0, L"http://www.myurl.com/Resources.zip", 0, ibscb );
     ShowMessage( hwnd, "URLOpenStream: " + toString(uoshr) );*/
     IMoniker* FMoniker;
-    CreateURLMoniker(0, URL, &FMoniker);
+    CreateURLMonikerEx(0, URL, &FMoniker, URL_MK_UNIFORM );
 
     IBindCtx* FBindCtx;
     CreateAsyncBindCtx(0, ibscb, 0, &FBindCtx);

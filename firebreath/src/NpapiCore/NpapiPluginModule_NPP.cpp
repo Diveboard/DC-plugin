@@ -13,14 +13,15 @@ Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
 #include <cstdio>
-#include "NpapiPluginModule.h"
 #include "NpapiPlugin.h"
 #include "FactoryBase.h"
 #include "NpapiBrowserHost.h"
 #include <boost/shared_ptr.hpp>
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 #include "AsyncFunctionCall.h"
-#include "SafeQueue.h"
 #include "PluginInfo.h"
+#include "SafeQueue.h"
+#include "NpapiPluginModule.h"
 
 #if FB_WIN
 #  include "Win/NpapiBrowserHostAsyncWin.h"
@@ -34,19 +35,17 @@ namespace
 {
     bool needAsyncCallsWorkaround(NPP npp, NPNetscapeFuncs* funcs)
     {
+        bool result(false);
         // work-around detection here
-#ifdef _WINDOWS_
-#if 0
+#if FB_WIN
         const char* const cstrUserAgent = funcs->uagent(npp);
-        if(!cstrUserAgent) 
-            return false;
-        
-        const std::string userAgent(cstrUserAgent);        
-        const bool result = userAgent.find("Opera") != std::string::npos;
-        return result;
+        if(cstrUserAgent) {
+            const std::string userAgent(cstrUserAgent);
+            // Safari 5.1 NPN_PluginThreadAsyncCall doesn't seem to work anymore; use the workaround
+            result = userAgent.find("Safari") != std::string::npos;
+        }
 #endif
-#endif
-        return (funcs->version < NPVERS_HAS_PLUGIN_THREAD_ASYNC_CALL);
+        return result || (funcs->version < NPVERS_HAS_PLUGIN_THREAD_ASYNC_CALL);
     }
 
     bool asyncCallsWorkaround(NPP npp, NPNetscapeFuncs* funcs = 0)
@@ -64,7 +63,7 @@ namespace
 
             if(asyncCallsWorkaround(npp, &npnFuncs)) {
                 npnFuncs.pluginthreadasynccall = NULL;
-    #ifdef _WINDOWS_
+    #if FB_WIN
                 NpapiBrowserHostPtr host(boost::make_shared<NpapiBrowserHostAsyncWin>(module, npp));
                 return host;
     #else
@@ -194,19 +193,27 @@ NPError NpapiPluginModule::NPP_Destroy(NPP instance, NPSavedData** save)
     if (!validInstance(instance)) {
         return NPERR_INVALID_INSTANCE_ERROR;
     }
+    NpapiBrowserHostWeakPtr weakHost;
     
     if (NpapiPDataHolder* holder = getHolder(instance)) {
-        if (NpapiBrowserHostPtr host = holder->getHost())
+        NpapiBrowserHostPtr host(holder->getHost());
+        weakHost = host;
+        if (host)
             host->shutdown();
 
         if (NpapiPluginPtr plugin = holder->getPlugin())
             plugin->shutdown();
         
         instance->pdata = NULL;
-        delete holder;
+        delete holder; // Destroy plugin
+        // host should be destroyed when it goes out of scope here
     } else {    
         return NPERR_GENERIC_ERROR;
     }
+    // If this assertion fails, you probably have a circular reference
+    // to your BrowserHost object somewhere -- the host should be gone
+    // by this point. This assertion is warning you of a bug.
+    assert(weakHost.expired());
 
     return NPERR_NO_ERROR;
 }

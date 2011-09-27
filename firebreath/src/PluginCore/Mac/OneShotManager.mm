@@ -23,15 +23,20 @@
     FB::OneShotManager* m_manager;
 }
 
-@property (assign) FB::OneShotManager* manager;
-
 - (void)shoot:(id)object;
 
 @end
 
 @implementation OneShotManagerHelper
 
-@synthesize manager=m_manager;
+- (void)setManager:(FB::OneShotManager*) manager
+{
+	m_manager = manager;
+}
+- (FB::OneShotManager*)manager
+{
+	return m_manager;
+}
 
 - (void)shoot:(id)object {
     if (m_manager)
@@ -40,10 +45,10 @@
 
 @end
 
-FB::OneShotManager::OneShotManager() : m_helper(NULL), m_shot(false)
+FB::OneShotManager::OneShotManager() : m_helper(NULL), m_shots(0)
 {
     OneShotManagerHelper* mHelper = [OneShotManagerHelper new];
-    mHelper.manager = this;
+    [mHelper setManager:this];
     m_helper = mHelper;
 }
 
@@ -57,15 +62,16 @@ FB::OneShotManager::~OneShotManager()
 void FB::OneShotManager::npp_register(void* instance) {
     // If there isn't a deque for the instance, create it.
     boost::mutex::scoped_lock lock(m_mutex);
-	std::map<void*,SinkQueue*>::iterator sink = m_sinks.find(instance);
-	if (m_sinks.end() == sink)
+    std::map<void*,SinkQueue*>::iterator sink = m_sinks.find(instance);
+    if (m_sinks.end() == sink)
         m_sinks[instance] = new SinkQueue();
 }
 void FB::OneShotManager::npp_unregister(void* instance) {
     // If there is a deque for the instance, destroy it and all callbacks.
     boost::mutex::scoped_lock lock(m_mutex);
-	std::map<void*,SinkQueue*>::iterator sink = m_sinks.find(instance);
-	if (m_sinks.end() != sink) {
+    std::map<void*,SinkQueue*>::iterator sink = m_sinks.find(instance);
+    if (m_sinks.end() != sink) {
+        m_shots -= sink->second->size();
         delete sink->second;
         m_sinks.erase(sink);
     }
@@ -77,34 +83,37 @@ void FB::OneShotManager::npp_scheduleAsyncCallback(void* instance, OneShotCallba
     std::map<void*,SinkQueue*>::iterator sink = m_sinks.find(instance);
     if (m_sinks.end() != sink) {
         sink->second->push_back(std::make_pair(userData, func));
-        if (!m_shot) {
+        if (!m_shots) {
             OneShotManagerHelper* mHelper = (OneShotManagerHelper*) m_helper;
             [mHelper performSelectorOnMainThread:@selector(shoot:) withObject:NULL waitUntilDone:NO];
-             m_shot = true;
-       }
+        }
+        m_shots++;
     }
+}
+
+bool FB::OneShotManager::npp_nextCallback(SinkPair& callback) {
+    // return the next callback.
+    boost::mutex::scoped_lock lock(m_mutex);
+    std::map<void*,SinkQueue*>::iterator sink = m_sinks.begin();
+    while (m_sinks.end() != sink) {
+        SinkQueue::iterator call = sink->second->begin();
+        if (sink->second->end() != call) {
+            callback = *call;
+            sink->second->erase(call);
+            m_shots--;
+            return true;
+        }
+        sink++;
+    }
+    return false;
 }
 
 void FB::OneShotManager::npp_asyncCallback() {
     // Must be on main thread.
-    // Copy all callbacks to a tmp deque and clear the callbacks.
-    SinkQueue calls;
-    {
-        boost::mutex::scoped_lock lock(m_mutex);
-        std::map<void*,SinkQueue*>::iterator sink = m_sinks.begin();
-        while (m_sinks.end() != sink) {
-            calls.insert(calls.end(), sink->second->begin(), sink->second->end());
-            sink->second->clear();
-            sink++;
-        }
-        m_shot = false;
-    }
-    // Call all the callbacks.
-    SinkQueue::iterator call = calls.begin();
-    while (calls.end() != call) {
-        (*call).second((*call).first);
-        call++;
-    }
+    // This is done this way because Safari may call NPP_Destroy during the callback.
+    SinkPair callback;
+    while (npp_nextCallback(callback))
+        callback.second(callback.first);
 }
 
 FB::OneShotManager& FB::OneShotManager::getInstance()

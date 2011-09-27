@@ -1,5 +1,12 @@
-0/ Install prerequisites
+0.1/ Install prerequisites
 get Cmake : http://www.cmake.org/cmake/resources/software.html
+
+0.2/ Configure globally Xcode for mac
+
+- For mac, make sure that the build location can be configured on a project basis :
+  XCode > Preferences > Locations > Advanced > Build Location = Location Specified By Targets
+
+
 
 1/ Build the main plugin :
 

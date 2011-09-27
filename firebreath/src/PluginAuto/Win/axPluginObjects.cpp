@@ -13,6 +13,7 @@
 #include "Win/PluginWindowlessWin.h"
 
 #include "ActiveXFactoryDefinitions.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
 typedef FB::ActiveX::COMJavascriptObject<&CLSID_FBComJavascriptObject, IFBComJavascriptObject, &DIID_IFBComEventSource, &FB_LIBID> COMJSObject;
 
@@ -22,6 +23,13 @@ typedef FB::ActiveX::COMJavascriptObject<&CLSID_FBComJavascriptObject, IFBComJav
 IDispatchEx* _getCOMJSWrapper( const FB::BrowserHostPtr& host, const FB::JSAPIWeakPtr& api, bool autoRelease /*= false*/ )
 {
     return COMJSObject::NewObject(FB::ptr_cast<FB::ActiveX::ActiveXBrowserHost>(host), api, autoRelease);
+}
+const FB::WeakIDispatchExRef _getWeakRefFromCOMJSWrapper(IDispatchEx* wrapper)
+{
+    assert(wrapper != NULL);
+    COMJSObject* ptr(dynamic_cast<COMJSObject*>(wrapper));
+    assert(ptr != NULL); // If this assertion fails, the wrong type of object was passed in!
+    return ptr->getWeakReference();
 }
 
 HRESULT _updateRegistry( bool res ) {

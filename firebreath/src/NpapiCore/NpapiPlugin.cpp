@@ -12,13 +12,14 @@ License:    Dual license model; choose one of two:
 Copyright 2009 Richard Bateman, Firebreath development team
 \**********************************************************/
 
-#include "NpapiPlugin.h"
 #include "NpapiStream.h"
 #include "FactoryBase.h"
 #include "PluginCore.h"
 #include "PluginInfo.h"
 #include "BrowserHost.h"
+#include "precompiled_headers.h" // On windows, everything above this line in PCH
 
+#include "NpapiPlugin.h"
 using namespace FB::Npapi;
 
 NpapiPlugin::NpapiPlugin(const NpapiBrowserHostPtr& host, const std::string& mimetype)
@@ -31,7 +32,7 @@ NpapiPlugin::NpapiPlugin(const NpapiBrowserHostPtr& host, const std::string& mim
       m_pluginName(getFactoryInstance()->getPluginName(mimetype)),
       m_pluginDesc(getFactoryInstance()->getPluginDescription(mimetype))
 {
-    pluginMain->SetHost(ptr_cast<BrowserHost>(host));
+    pluginMain->SetHost(host);
 }
 
 NpapiPlugin::~NpapiPlugin(void)
@@ -41,12 +42,12 @@ NpapiPlugin::~NpapiPlugin(void)
     }
 }
 
-void NpapiPlugin::setReady()
+bool NpapiPlugin::setReady()
 {
-    if (!m_isReady) {
-        pluginMain->setReady();
-        m_isReady = true;
-    }
+    bool rval = false;
+    if (!m_isReady)
+        rval = m_isReady = pluginMain->setReady();
+    return rval;
 }
 
 NPObject *NpapiPlugin::getScriptableObject()
@@ -68,6 +69,7 @@ NPObject *NpapiPlugin::getScriptableObject()
 void NpapiPlugin::shutdown(void)
 {
     pluginMain->ClearWindow();
+    pluginMain->shutdown();
 }
 
 void NpapiPlugin::init(NPMIMEType pluginType, int16_t argc, char* argn[], char *argv[])
@@ -97,7 +99,6 @@ void NpapiPlugin::init(NPMIMEType pluginType, int16_t argc, char* argn[], char *
 
 NPError NpapiPlugin::SetWindow(NPWindow* window)
 {
-    setReady();
     return NPERR_NO_ERROR;
 }
 

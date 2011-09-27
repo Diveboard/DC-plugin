@@ -16,7 +16,7 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #ifndef H_FB_JSAPISIMPLE
 #define H_FB_JSAPISIMPLE
 
-#include "JSAPI.h"
+#include "JSAPIImpl.h"
 
 namespace FB {
     FB_FORWARD_PTR(JSAPISimple);
@@ -29,7 +29,7 @@ namespace FB {
     /// @see FB::JSAPIAuto
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     class JSAPISimple :
-        public FB::JSAPI
+        public FB::JSAPIImpl
     {
     public:
         JSAPISimple(void);
@@ -97,11 +97,14 @@ namespace FB {
         // Methods to manage properties on the API
         virtual variant GetProperty(const std::string& propertyName);
         virtual void SetProperty(const std::string& propertyName, const variant& value);
+        virtual void RemoveProperty(const std::string& propertyName);
         virtual variant GetProperty(int idx);
         virtual void SetProperty(int idx, const variant& value);
+        virtual void RemoveProperty(int idx);
 
         // Methods to manage methods on the API
         virtual variant Invoke(const std::string& methodName, const std::vector<variant>& args);
+        virtual variant Construct(const std::vector<variant>& args);
 
     public:
 
@@ -141,6 +144,7 @@ namespace FB {
     protected:
         MethodMap m_methodMap;
         PropertyMap m_propertyMap;
+        bool m_allowRemoveProperty;
     };
 
 };

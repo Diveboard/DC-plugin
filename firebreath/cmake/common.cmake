@@ -12,66 +12,67 @@
 #Copyright 2009 PacketPass, Inc and the Firebreath development team
 #\**********************************************************/
 
-get_filename_component (FB_ROOT_DIR "${CMAKE_DIR}/.." ABSOLUTE)
-get_filename_component (SOURCE_DIR "${CMAKE_DIR}/../src" ABSOLUTE)
-get_filename_component (TEST_DIR "${CMAKE_DIR}/../tests" ABSOLUTE)
+# Previously we included this file all over the place; we should never
+# do that anymore.
+if (NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${FB_ROOT}")
+    message("!!! WARNING! You generally should not include common.cmake from your plugin project!")
+endif()
 
-set (BIN_DIR "${CMAKE_BINARY_DIR}/bin")
-set (FB_BIN_DIR "${CMAKE_BINARY_DIR}/bin")
-set (FIREBREATH YES INTERNAL)
+get_filename_component (FB_ROOT_DIR "${FB_ROOT}/cmake/.." ABSOLUTE CACHE)
+get_filename_component (FB_SOURCE_DIR "${FB_ROOT}/cmake/../src" ABSOLUTE CACHE)
+get_filename_component (FB_TEST_DIR "${FB_ROOT}/cmake/../tests" ABSOLUTE CACHE)
+
+set (FB_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+set (FB_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/bin")
+set (FIREBREATH YES)
 
 if (WIN32)
-    set (PLATFORM_NAME "Win")
-    include(${CMAKE_DIR}/Win.cmake)
-    include(${CMAKE_DIR}/wix.cmake)
+    set (FB_PLATFORM_NAME "Win")
+    include(${FB_ROOT}/cmake/Win.cmake)
+    include(${FB_ROOT}/cmake/wix.cmake)
 elseif(APPLE)
-    set (PLATFORM_NAME "Mac")
-    include(${CMAKE_DIR}/Mac.cmake)
+    set (FB_PLATFORM_NAME "Mac")
+    include(${FB_ROOT}/cmake/Mac.cmake)
 elseif(UNIX)
-    set (PLATFORM_NAME "X11")
-    include(${CMAKE_DIR}/X11.cmake)
+    set (FB_PLATFORM_NAME "X11")
+    include(${FB_ROOT}/cmake/X11.cmake)
 endif()
 
 # include file with the crazy configure_template function
-include(${CMAKE_DIR}/configure_template.cmake)
+include(${FB_ROOT}/cmake/configure_template.cmake)
 
 # include file with build options
-include(${CMAKE_DIR}/options.cmake)
+include(${FB_ROOT}/cmake/options.cmake)
 
 # Get the project paths
-include(${CMAKE_DIR}/paths.cmake)
+include(${FB_ROOT}/cmake/paths.cmake)
 
-# include the build configuration
-include(${CMAKE_DIR}/buildconfig.cmake)
+# include the build configuration defaults
+include(${FB_ROOT}/cmake/buildconfig.cmake)
 
-if (NOT GEN_DIR)
-    get_filename_component (GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/../gen" ABSOLUTE)
-endif()
-
-if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/PluginConfig.cmake)
-    include(${CMAKE_DIR}/PluginConfigDefaults.cmake)
-    include (${CMAKE_CURRENT_SOURCE_DIR}/PluginConfig.cmake)
-endif()
+function (add_firebreath_plugin PROJECT_PATH PROJECT_NAME)
+    # This is a function so that the includes won't contaminate the parent
+    set (FB_CURRENT_PLUGIN_DIR "${PROJECT_PATH}")
+    include(${FB_ROOT}/cmake/PluginConfigDefaults.cmake)
+    include(${PROJECT_PATH}/PluginConfig.cmake)
+    include(${FB_ROOT}/cmake/CommonPluginConfig.cmake)
+    include(${FB_ROOT}/cmake/pluginProjects.cmake)
+    add_subdirectory(${PROJECT_PATH} ${FB_PROJECTS_BINARY_DIR}/${PLUGIN_NAME})
+endfunction(add_firebreath_plugin)
 
 macro (browserplugin_project PLUGIN_NAME)
 
+    message("browserplugin_project is deprecated; please use Project(${PLUGIN_NAME}) instead")
     Project (${PLUGIN_NAME})
-    message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
-
-    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_NAME}/projectDef.cmake)
-        set(CMAKE_CURRENT_PLUGIN_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-        include(${CMAKE_CURRENT_BINARY_DIR}/projectConfig.cmake)
-        include(${FB_ROOT_DIR}/pluginProjects.cmake)
-    endif()
 
 endmacro(browserplugin_project)
 
 macro (include_platform)
 
-    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_NAME}/projectDef.cmake)
-        include(${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_NAME}/projectDef.cmake)
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FB_PLATFORM_NAME}/projectDef.cmake)
+        include(${CMAKE_CURRENT_SOURCE_DIR}/${FB_PLATFORM_NAME}/projectDef.cmake)
     else()
-        message ("Could not find a ${PLATFORM_NAME} directory for the current project")
+        message ("Could not find a ${FB_PLATFORM_NAME} directory for the current project")
     endif()
 
 endmacro(include_platform)
@@ -88,13 +89,14 @@ macro (add_boost_library BOOST_LIB)
     if (WITH_SYSTEM_BOOST)
         find_package(Boost COMPONENTS ${BOOST_LIB} REQUIRED)
     else()
-        list(APPEND Boost_INCLUDE_DIRS ${BOOST_SOURCE_DIR})
+        list(APPEND Boost_INCLUDE_DIRS ${FB_BOOST_SOURCE_DIR})
         list(REMOVE_DUPLICATES Boost_INCLUDE_DIRS)
     
         list(APPEND Boost_LIBRARIES boost_${BOOST_LIB})
         list(REMOVE_DUPLICATES Boost_LIBRARIES)
-        if (NOT TARGET boost_${BOOST_LIB})
-            add_subdirectory(${BOOST_SOURCE_DIR}/libs/${BOOST_LIB} ${CMAKE_BINARY_DIR}/boost/libs/${BOOST_LIB})
+        get_target_property(_BL_EXISTS boost_${BOOST_LIB} TYPE)
+        if (NOT _BL_EXISTS)
+            add_subdirectory(${FB_BOOST_SOURCE_DIR}/libs/${BOOST_LIB} ${CMAKE_BINARY_DIR}/boost/libs/${BOOST_LIB})
         endif()
     endif()
 
@@ -124,6 +126,9 @@ macro (add_firebreath_library project_name)
             set (_FOUND_LIB 1)
         endif()
     endforeach()
+    if (NOT _FOUND_LIB)
+        message(FATAL "Could not find FireBreath Library ${project_name}")
+    endif()
     set (_LIB_KEY ${PLUGIN_NAME}_${project_name})
     set (${_LIB_KEY} YES)
     set (${_LIB_KEY} YES PARENT_SCOPE)
@@ -159,15 +164,39 @@ macro (export_project_dependencies)
     set (Boost_INCLUDE_DIRS ${Boost_INCLUDE_DIRS} PARENT_SCOPE)
 endmacro (export_project_dependencies)
 
-function (check_boost)
+# Warn if the http_proxy is set but not the https_proxy
+# Check for both uppercase (windows) and lowercase (linux) variants
+# CMake can't use the ENV function directly in conditional statements (so create temporary local variables to do the check)
+# http://marc.info/?l=cmake&m=119419263535736&w=2
+function(proxy_setup)
+    SET( HTTP_PROXY $ENV{HTTP_PROXY} )
+    SET( HTTPS_PROXY $ENV{HTTPS_PROXY} )
+    SET( http_proxy $ENV{http_proxy} )
+    SET( https_proxy $ENV{https_proxy} )
+    if(HTTP_PROXY AND NOT HTTPS_PROXY)
+        message("!!!! WARNING: HTTP_PROXY env var set, but we need HTTPS_PROXY. Attempting to use HTTP_PROXY FOR HTTPS_PROXY")
+        set(ENV{HTTPS_PROXY} ${HTTP_PROXY})
+    endif()
+    
+    if(http_proxy AND NOT https_proxy)
+        message("!!!! WARNING: http_proxy env var set, but we need https_proxy. Attempting to use http_proxy FOR https_proxy")
+        set(ENV{https_proxy} ${http_proxy})
+    endif()
+    #message($ENV{https_proxy})
+    #message($ENV{HTTPS_PROXY})
+endfunction(proxy_setup)
+
+function (fb_check_boost)
     if (NOT WITH_SYSTEM_BOOST)
-        if (NOT EXISTS ${BOOST_SOURCE_DIR})
-            file(MAKE_DIRECTORY ${BOOST_SOURCE_DIR})
+        if (NOT EXISTS ${FB_BOOST_SOURCE_DIR})
+            file(MAKE_DIRECTORY ${FB_BOOST_SOURCE_DIR})
         endif()
-        if (NOT EXISTS ${BOOST_SOURCE_DIR}/boost/)
+        if (NOT EXISTS ${FB_BOOST_SOURCE_DIR}/boost/)
             set (FB_URL "https://github.com/firebreath/firebreath-boost/tarball/master")
             message("Boost not found; downloading latest FireBreath-boost from GitHub (http://github.com/firebreath/firebreath-boost)")
-            find_program(GIT git NO_DEFAULT_PATHS)
+            find_program(GIT git
+                PATHS
+                )
             if (EXISTS ${FB_ROOT_DIR}/.git AND NOT ${GIT} MATCHES "GIT-NOTFOUND")
                 message("Using git")
                 if (${GIT} MATCHES "GIT-NOTFOUND")
@@ -180,12 +209,9 @@ function (check_boost)
             else()
                 message("Downloading...")
                 find_program(CURL curl)
-                find_program(WGET wget PATHS "${CMAKE_DIR}/")
+                find_program(WGET wget PATHS "${FB_ROOT}/cmake/")
+                proxy_setup()
                 if (NOT ${WGET} MATCHES "WGET-NOTFOUND")
-                    if (ENV{HTTP_PROXY} AND NOT ENV{HTTPS_PROXY})
-                        message("!!!! WARNING: HTTP_PROXY env var set, but we need HTTPS_PROXY. Attempting to use HTTP_PROXY FOR HTTPS_PROXY")
-                        set(ENV{HTTPS_PROXY} $ENV{HTTP_PROXY})
-                    endif()
                     execute_process(
                         COMMAND ${WGET}
                         --no-check-certificate
@@ -215,20 +241,20 @@ function (check_boost)
                 find_program(GZIP gzip NO_DEFAULT_PATHS)
                 if (WIN32)
                     message("Using 7-zip to extract the archive")
-                    find_program(SEVZIP 7za PATHS "${CMAKE_DIR}/")
+                    find_program(SEVZIP 7za PATHS "${FB_ROOT}/cmake/")
                     execute_process(
                         COMMAND ${SEVZIP}
                         e "${CMAKE_CURRENT_BINARY_DIR}/boost.tar.gz"
-                        WORKING_DIRECTORY "${BOOST_SOURCE_DIR}"
+                        WORKING_DIRECTORY "${FB_BOOST_SOURCE_DIR}"
                         OUTPUT_QUIET
                         )
                     file (GLOB TAR_FILE 
-                        ${BOOST_SOURCE_DIR}/*.tar
+                        ${FB_BOOST_SOURCE_DIR}/*.tar
                         )
                     execute_process(
                         COMMAND ${SEVZIP}
                         x "${TAR_FILE}"
-                        WORKING_DIRECTORY "${BOOST_SOURCE_DIR}"
+                        WORKING_DIRECTORY "${FB_BOOST_SOURCE_DIR}"
                         OUTPUT_QUIET
                         )
                     file(REMOVE ${TAR_FILE})
@@ -237,29 +263,59 @@ function (check_boost)
                     execute_process(
                         COMMAND ${TAR}
                         xzf "${CMAKE_CURRENT_BINARY_DIR}/boost.tar.gz"
-                        WORKING_DIRECTORY "${BOOST_SOURCE_DIR}"
+                        WORKING_DIRECTORY "${FB_BOOST_SOURCE_DIR}"
                         OUTPUT_QUIET
                         )
                 else()
                     message("Please extract ${CMAKE_CURRENT_BINARY_DIR}/boost.tar.gz and ")
                     message("move the boost/ and libs/ subdirectories ")
-                    message("to ${BOOST_SOURCE_DIR}/boost and ${BOOST_SOURCE_DIR}/libs")
+                    message("to ${FB_BOOST_SOURCE_DIR}/boost and ${FB_BOOST_SOURCE_DIR}/libs")
                     message(FATAL_ERROR "Firebreath-boost not installed! (follow above directions to resolve)")
                 endif()
                 #file(REMOVE ${CMAKE_CURRENT_BINARY_DIR}/boost.tar.gz)
                 message("Installing firebreath-boost...")
                 file (GLOB _BOOST_FILES
-                    ${BOOST_SOURCE_DIR}/firebreath-firebreath-boost*/*)
+                    ${FB_BOOST_SOURCE_DIR}/firebreath-firebreath-boost*/*)
                 foreach (_CUR_FILE ${_BOOST_FILES})
                     get_filename_component (_CUR_FILENAME ${_CUR_FILE} NAME)
-                    file(RENAME ${_CUR_FILE} ${BOOST_SOURCE_DIR}/${_CUR_FILENAME})
+                    file(RENAME ${_CUR_FILE} ${FB_BOOST_SOURCE_DIR}/${_CUR_FILENAME})
                 endforeach()
                 message("Cleaning up firebreath-boost temp install files...")
                 file (GLOB _BOOST_TMPFILES
-                    ${BOOST_SOURCE_DIR}/firebreath*
-                    ${BOOST_SOURCE_DIR}/pax*)
+                    ${FB_BOOST_SOURCE_DIR}/firebreath*
+                    ${FB_BOOST_SOURCE_DIR}/pax*)
                 file (REMOVE_RECURSE ${_BOOST_TMPFILES})
             endif()
         endif()
     endif()
 endfunction()
+
+MACRO(ADD_PRECOMPILED_HEADER PROJECT_NAME PrecompiledHeader PrecompiledSource SourcesVar)
+    IF(MSVC)
+        GET_FILENAME_COMPONENT(PrecompiledBasename ${PrecompiledHeader} NAME_WE)
+        SET(__PrecompiledBinary "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${PrecompiledBasename}.pch")
+
+        SET_SOURCE_FILES_PROPERTIES(${PrecompiledSource}
+            PROPERTIES COMPILE_FLAGS "/Yc\"${PrecompiledBasename}.h\" /Fp\"${__PrecompiledBinary}\" -Zm160"
+            OBJECT_OUTPUTS "${__PrecompiledBinary}")
+        foreach(CURFILE ${${SourcesVar}})
+
+            GET_FILENAME_COMPONENT(CURFILE_EXT ${CURFILE} EXT)
+            GET_FILENAME_COMPONENT(CURFILE_NAME ${CURFILE} NAME)
+            if (CURFILE_EXT STREQUAL ".cpp" AND NOT CURFILE_NAME STREQUAL PrecompiledBasename)
+                SET_SOURCE_FILES_PROPERTIES(${CURFILE}
+                    PROPERTIES COMPILE_FLAGS "/Yu\"${__PrecompiledBinary}\" /FI\"${__PrecompiledBinary}\" /Fp\"${__PrecompiledBinary}\" -Zm160"
+                    OBJECT_DEPENDS "${__PrecompiledBinary}")  
+            endif()
+
+        endforeach()
+        # Add precompiled header to SourcesVar
+        LIST(APPEND ${SourcesVar} ${PrecompiledSource})
+        LIST(APPEND ${SourcesVar} ${PrecompiledHeader})
+    elseif (APPLE)
+        # My tests aren't showing any advantage to turning this on for mac
+        #message("Setting precompiled header ${PrecompiledHeader} on ${PROJECT_NAME}")
+        #SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES XCODE_ATTRIBUTE_GCC_PRECOMPILE_PREFIX_HEADER YES)
+        #SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES XCODE_ATTRIBUTE_GCC_PREFIX_HEADER "${PrecompiledHeader}")
+    endif()
+ENDMACRO(ADD_PRECOMPILED_HEADER)
