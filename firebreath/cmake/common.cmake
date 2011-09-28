@@ -24,6 +24,7 @@ get_filename_component (FB_TEST_DIR "${FB_ROOT}/cmake/../tests" ABSOLUTE CACHE)
 
 set (FB_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set (FB_BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}/bin")
+message("${FB_BIN_DIR}")
 set (FIREBREATH YES)
 
 if (WIN32)
