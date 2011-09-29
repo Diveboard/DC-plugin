@@ -15,9 +15,9 @@ www.diveboard.com
 
 %prep
 %ifarch x86_64
-%setup -n diveboard-plugin-1.1.0-alpha1-64
+%setup -n diveboard-plugin-1.1.0-alpha1-x86_64
 %else
-%setup -n diveboard-plugin-1.1.0-alpha1
+%setup -n diveboard-plugin-1.1.0-alpha1-i386
 %endif
 
 %install
