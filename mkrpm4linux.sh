@@ -62,6 +62,6 @@ rpmbuild -bc --short-circuit "$SPECFILE"
 rpmbuild -bi --short-circuit "$SPECFILE"
 rpmbuild -ba --short-circuit "$SPECFILE"
 
-cp ~/rpmbuild/RPMS/*/diveboard-plugin*.rpm $DIR/build/packages
+cp ~/rpmbuild/RPMS/*/diveboard-plugin-$VERSION*.rpm $DIR/build/packages
 
 rm -f "$SPECFILE"
