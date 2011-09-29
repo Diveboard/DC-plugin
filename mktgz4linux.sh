@@ -1,14 +1,15 @@
 #!/bin/bash
 
+DIR=$(dirname $(readlink -f $0))
+
 if [ `arch` == 'x86_64' ]; then
 ARCH=x86_64
 else
 ARCH=i386
 fi
 
-VERSION=1.1.0-alpha1
+VERSION=`cat "$DIR/VERSION"`
 
-DIR=$(dirname $(readlink -f $0))
 
 BUILDDIR=$DIR/build/projects/DiveBoard/diveboard-plugin-$VERSION-$ARCH
 OUTDIR=$DIR/build/packages

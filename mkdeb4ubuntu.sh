@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DIR=$(dirname $(readlink -f $0))
+
 if [ `arch` == 'x86_64' ]; then
 ARCH=x86_64
 ARCHITECTURE=amd64
@@ -8,10 +10,8 @@ ARCH=i386
 ARCHITECTURE=i386
 fi
 
+VERSION=`cat "$DIR/VERSION"`
 
-VERSION=1.1.0-alpha1
-
-DIR=$(dirname $(readlink -f $0))
 
 BUILDDIR=$DIR/build/projects/DiveBoard/ubuntu
 OUTDIR=$DIR/build/packages
