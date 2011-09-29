@@ -295,7 +295,7 @@ void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendly
 	while ((dirp = readdir(dp)) != NULL) {
 		//todo : a NULL can also mean an error....
 #if defined(__MACH__)
-		LOGINFO(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
+		LOGDEBUG(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
 		if (!strncmp("tty.", dirp->d_name, 4)) {
 #elif defined(__linux__)
 		if (!strncmp("ttyS", dirp->d_name, 4) || !strncmp("ttyUSB", dirp->d_name, 6)) {
@@ -348,6 +348,17 @@ std::string ComputerFactory::detectConnectedDevice(const std::string &computerTy
 					return(fileNames[i]);
 		}
 	}
+
+	LOGDEBUG("Checking if a computer without port is ok...");
+
+	//OK no real port found... but maybe we don't need one ?
+	for (unsigned int j=0; j<recognisedPorts[computerType].size(); j++)
+	{
+		LOGDEBUG("Checking '%s'", recognisedPorts[computerType][j].c_str());
+		if (!recognisedPorts[computerType][j].compare(NO_PORT_NEEDED))
+				return(NO_PORT_NEEDED);
+	}
+
 	
 	LOGINFO("No interesting port found !");
 	DBthrowError("Not found");
