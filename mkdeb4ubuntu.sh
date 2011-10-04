@@ -19,9 +19,9 @@ OUTDIR=$DIR/build/packages
 LIBDIVE=$DIR/libdivecomputer/src/.libs/libdivecomputer.so.0.0.0
 LIBDIVEBOARD=$DIR/build/bin/DiveBoard/npDiveBoard.so
 
-PKGNAME=diveboard-$VERSION-$ARCH.deb
+PKGNAME=diveboard-plugin-$VERSION-$ARCH.deb
 
-CONTROL="Package:diveboard
+CONTROL="Package:diveboard-plugin
 Version: $VERSION
 Section: web
 Priority: optional

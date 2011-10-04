@@ -17,7 +17,7 @@ OUTDIR=$DIR/build/packages
 LIBDIVE=$DIR/libdivecomputer/src/.libs/libdivecomputer.so.0.0.0
 LIBDIVEBOARD=$DIR/build/bin/DiveBoard/npDiveBoard.so
 
-PKGNAME=diveboard-$VERSION-$ARCH.tgz
+PKGNAME=diveboard-plugin-$VERSION-$ARCH.tgz
 
 #
 # Put the package together
