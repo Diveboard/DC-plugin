@@ -10,6 +10,7 @@ TMPDIR=/tmp
 
 PKGNAME=diveboard.pkg
 
+VERSION=`cat "$DIR/VERSION"`
 
 mkdir -p $OUTDIR
 
@@ -46,7 +47,7 @@ SIZE=$(($(du -ks build/packages/Diveboard.mpkg/ | sed 's/[^0-9].*//') + 500 ))
 
 # Creating a dmg image
 DMGFILE=/tmp/pack.temp.dmg
-DMGFINALFILE=$OUTDIR/diveboard.dmg
+DMGFINALFILE=$OUTDIR/diveboard-plugin-$VERSION.dmg
 hdiutil create -srcfolder "$OUTDIR/Diveboard.mpkg" -volname "Diveboard Plugin" -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW -size ${SIZE}k "$DMGFILE"
 
 # Mounting the image
@@ -85,8 +86,8 @@ hdiutil convert "$DMGFILE" -format UDZO -imagekey zlib-level=9 -o "${DMGFINALFIL
 rm -f "$DMGFILE"
 
 
-if [ -d "$DIR/../diveboard-web" ] 
-then
-  zip -j "$DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip" $DMGFINALFILE
-  echo "Zip file has been updated in $DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip"
-fi
+#if [ -d "$DIR/../diveboard-web" ] 
+#then
+#  zip -j "$DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip" $DMGFINALFILE
+#  echo "Zip file has been updated in $DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip"
+#fi
