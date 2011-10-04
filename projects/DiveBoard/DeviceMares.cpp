@@ -136,7 +136,7 @@ int DeviceMares::open()
 	/* Clear the line */
 	tcflush(hCom,TCIFLUSH);
 	
-	if(tcsetattr(hCom,TCSANOW,&options)!=-1) {
+	if(tcsetattr(hCom,(long)TCSANOW,&options)!=-1) {
 		//todo : should be in a try/catch ?
 		set_dtr(DTR_STATUS_ON);
 		set_rts(RTS_STATUS_OFF);
@@ -148,7 +148,10 @@ int DeviceMares::open()
 	}
 	
 	unsigned char b;
-	while(read_serial(&b,1,2)>0){}
+    try {
+        while(read_serial(&b,1,2)>0){}
+    } catch(DBException e) {
+    }
 	
 #else	
 #error Platform not supported
