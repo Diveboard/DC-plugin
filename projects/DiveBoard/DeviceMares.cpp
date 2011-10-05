@@ -76,9 +76,9 @@ int DeviceMares::open()
 	//  settings.
 	fSuccess = GetCommState(hCom, &dcb);
 	
-   	dcb.BaudRate = CBR_2400;
+   	dcb.BaudRate = CBR_9600;
 	dcb.ByteSize = 8;
-	dcb.Parity = ODDPARITY;
+	dcb.Parity = NOPARITY;
 	dcb.StopBits = ONESTOPBIT;
 	
 	dcb.fBinary=1; 
