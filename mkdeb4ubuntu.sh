@@ -1,8 +1,17 @@
 #!/bin/bash
 
-VERSION=1.1.0-alpha1
-
 DIR=$(dirname $(readlink -f $0))
+
+if [ `arch` == 'x86_64' ]; then
+ARCH=x86_64
+ARCHITECTURE=amd64
+else
+ARCH=i386
+ARCHITECTURE=i386
+fi
+
+VERSION=`cat "$DIR/VERSION"`
+
 
 BUILDDIR=$DIR/build/projects/DiveBoard/ubuntu
 OUTDIR=$DIR/build/packages
@@ -10,13 +19,13 @@ OUTDIR=$DIR/build/packages
 LIBDIVE=$DIR/libdivecomputer/src/.libs/libdivecomputer.so.0.0.0
 LIBDIVEBOARD=$DIR/build/bin/DiveBoard/npDiveBoard.so
 
-PKGNAME=diveboard-$VERSION.deb
+PKGNAME=diveboard-plugin-$VERSION-$ARCH.deb
 
-CONTROL="Package:diveboard
+CONTROL="Package:diveboard-plugin
 Version: $VERSION
 Section: web
 Priority: optional
-Architecture: i386
+Architecture: $ARCHITECTURE
 Depends: libc6 (>= 2.11)
 Maintainer: Diveboard <support@diveboard.com>
 Description: Web Browser plugin for DiveBoard:
