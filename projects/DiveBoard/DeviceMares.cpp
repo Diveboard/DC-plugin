@@ -121,13 +121,15 @@ int DeviceMares::open()
 	/* get the current options */
 	tcgetattr(hCom, &options);
 	
-	cfsetspeed(&options, B2400);
+	cfsetspeed(&options, B9600);
 	
 	/* set raw input, 1 second timeout */
-	options.c_cflag = CS8|CREAD|PARENB|PARODD|CLOCAL;
+	options.c_cflag = CS8|CREAD|CLOCAL;
+    options.c_cflag &= ~PARENB;
+    options.c_cflag &= ~PARODD;
 	options.c_iflag = IGNBRK; /* Ignore parity checking */
 	options.c_lflag=0;
-	options.c_oflag=0;
+	options.c_oflag=0; //OPOST
 	
 	/* Setup blocking, return on 1 character */
 	options.c_cc[VMIN] = 0;
@@ -213,7 +215,7 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 	
 	FD_ZERO(&fds);
 	FD_SET(hCom,&fds);
-	tv.tv_sec = timeoutmod;
+	tv.tv_sec = 0;
 	tv.tv_usec = TIMEOUT;
 	int cr = select(hCom+1,&fds,NULL,NULL,&tv);
 	if (cr <  0) DBthrowError("Error while reading Mares device");
@@ -241,12 +243,13 @@ int DeviceMares::write_serial(unsigned char *buffer,int len)
 	DWORD  out;
 	rc = WriteFile(hCom, buffer, len, &out, NULL);
 	FlushFileBuffers(hCom);
-	Sleep(200);
+	Sleep(300);
 	
 #elif defined(__MACH__) || defined(__linux__)
+	tcflush(hCom,TCIFLUSH);
 	rc = write(hCom,buffer,len);
 	tcdrain(hCom);
-	usleep(200000);
+	usleep(300000);
 	
 #else	
 #error Platform not supported
