@@ -166,6 +166,11 @@ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard"
 
 SectionEnd
 
+Section "Libdivecomputer" "libdivecomputer"
+SectionIn 1 RO
+SectionEnd
+
+
 
 #---  Low level drivers ---
 
@@ -200,6 +205,8 @@ SectionEnd
 
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${plugin} $(DESC_Plugin)
+  !insertmacro MUI_DESCRIPTION_TEXT ${libdivecomputer} $(DESC_libdive)
   !insertmacro MUI_DESCRIPTION_TEXT ${Driver1} $(DESC_Driver1)
   !insertmacro MUI_DESCRIPTION_TEXT ${Driver2} $(DESC_Driver2)
   !insertmacro MUI_DESCRIPTION_TEXT ${Driver3} $(DESC_Driver3)

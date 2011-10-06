@@ -198,7 +198,7 @@ int DeviceMares::read_serial(unsigned char * buff, unsigned int num, int timeout
 	COMMTIMEOUTS tTimeout;
 	tTimeout.ReadIntervalTimeout = MAXWORD; 
 	tTimeout.ReadTotalTimeoutMultiplier = 0; 
-	tTimeout.ReadTotalTimeoutConstant = 10000; // pas de time out = 0 
+	tTimeout.ReadTotalTimeoutConstant = 2000; // pas de time out = 0 
 	tTimeout.WriteTotalTimeoutMultiplier = 0; 
 	tTimeout.WriteTotalTimeoutConstant = 0; 
 	
