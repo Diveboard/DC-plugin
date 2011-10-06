@@ -130,53 +130,67 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
   crc = generate_crc(command+1,8);
   sprintf((char*)command, "<51%02X%02X%02X%02X>", (int)addr_low, (int)addr_high, len, (int)crc);
 
-  if(send_command(command,12)) {
-		LOGINFO("Reading from Mares");
-	
-		r = device->read_serial(reply, 13, 10);
-		if (r < 0) {
-			LOGINFO("Error reading (%d) - %s", r, data.c_str());
-			return(r);
-		}
+  LOGINFO("Reading from Mares");
+  int retry_count = 0;
+  while(retry_count < 5) {
+    try {
+      if(send_command(command,12)) {
 
-		for (int i=0;i<13;i++) 
-			data += str(boost::format(" %02X") % (int)reply[i]);
+            LOGDEBUG("Read attempt #%d", retry_count);
+            r = device->read_serial(reply, 13, 10);
+            if (r < 0) {
+                LOGINFO("Error reading (%d) - %s", r, data.c_str());
+                return(r);
+            }
 
-		if(!memcmp(command, reply, 12)) {
-		}
+            for (int i=0;i<13;i++) 
+                data += str(boost::format(" %02X") % (int)reply[i]);
 
-		rc = device->read_serial(retbuffer, len*2, 10);
-	  for (int i=0; i<len*2; i++) data += str(boost::format(" %02X") % (int)retbuffer[i]);
+            if(!memcmp(command, reply, 12)) {
+            }
+
+            rc = device->read_serial(retbuffer, len*2, 10);
+            for (int i=0; i<len*2; i++) data += str(boost::format(" %02X") % (int)retbuffer[i]);
 
 
-		r = device->read_serial(buffcrc, 2, 10);
-		if (r < 0) {
-			LOGINFO("Error reading (%d) - %s", r, data.c_str());
-			return(r);
-		}
-	  data += str(boost::format(" %02X %02X") % (int)buffcrc[0] % (int)buffcrc[1]);
+              r = device->read_serial(buffcrc, 2, 10);
+              if (r < 0) {
+                LOGINFO("Error reading (%d) - %s", r, data.c_str());
+                return(r);
+              }
+            data += str(boost::format(" %02X %02X") % (int)buffcrc[0] % (int)buffcrc[1]);
 
-		crc = generate_crc(retbuffer, 2*len);
-		readcrc = map[buffcrc[0]]*16 + map[buffcrc[1]];
+            crc = generate_crc(retbuffer, 2*len);
+            readcrc = map[buffcrc[0]]*16 + map[buffcrc[1]];
 
-		rc = device->read_serial(reply, 1);
-	  data += str(boost::format(" %02X") % (int)reply[0]);
+            rc = device->read_serial(reply, 1);
+            data += str(boost::format(" %02X") % (int)reply[0]);
 
-		if(crc==readcrc && rc >=0 ) 
-			rval=true;
-		else {
-			LOGINFO("CRC Error -- %s", data.c_str());
-			LOGINFO("CRC calculated : %02X - CRC read (string) : %.2s - CRC read (int) : %2X", (int)crc, buffcrc, (int)readcrc);
-			std::string out;
-			out.append((char*)retbuffer, 2*len);
-			LOGINFO("Text Data read -- %s", out.c_str());
-			return(SUUNTO_ERR_CRC);	
-		}
-		LOGINFO("Data read correctly -- %s", data.c_str());
-	  std::string out;
-	  out.append((char*)retbuffer, 2*len);
-		LOGINFO("Text Data read correctly -- %s", out.c_str());
-		return 0;
+            if(crc==readcrc && rc >=0 ) 
+                rval=true;
+            else {
+                LOGINFO("CRC Error -- %s", data.c_str());
+                LOGINFO("CRC calculated : %02X - CRC read (string) : %.2s - CRC read (int) : %2X", (int)crc, buffcrc, (int)readcrc);
+                std::string out;
+                out.append((char*)retbuffer, 2*len);
+                LOGINFO("Text Data read -- %s", out.c_str());
+                return(SUUNTO_ERR_CRC);	
+            }
+            LOGINFO("Data read correctly -- %s", data.c_str());
+            std::string out;
+            out.append((char*)retbuffer, 2*len);
+            LOGINFO("Text Data read correctly -- %s", out.c_str());
+            return 0;
+        }
+      } catch(DBException e) {
+          LOGDEBUG("Error while reading");
+          retry_count++;
+          if (retry_count >= 5) throw e;
+          else {
+              device->close();
+              device->open();
+          }
+      }
 	}
 		
 	return(-1);

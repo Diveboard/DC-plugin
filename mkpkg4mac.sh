@@ -15,6 +15,13 @@ VERSION=`cat "$DIR/VERSION"`
 mkdir -p $OUTDIR
 
 
+###
+### Rebuilds the software
+###
+#xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
+#xcodebuild -project $DIR/build/FireBreath.xcodeproj clean
+xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj build
+xcodebuild -project $DIR/build/FireBreath.xcodeproj build
 
 ####
 #### Create package of Diveboard.plugin directory
