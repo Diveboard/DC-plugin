@@ -100,6 +100,7 @@ int DeviceMares::open()
 		return (SUUNTO_ERR_SETCOMMSTATE);
 	}
 	
+	PurgeComm(hCom, PURGE_RXABORT|PURGE_RXCLEAR|PURGE_TXABORT|PURGE_TXCLEAR);
 	
 	try {
 		set_dtr(DTR_STATUS_ON);

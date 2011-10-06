@@ -53,6 +53,8 @@ RequestExecutionLevel admin
 # Languages
 #--------------------------------
 
+LangString DESC_Plugin  ${LANG_ENGLISH} "Web browser Plugin to upload your dives directly from your computer to Diveboard.com."
+LangString DESC_Libdive ${LANG_ENGLISH} "Libdivecomputer is a cross-platform and open source (LGPL) library for communication with dive computers from various manufacturers. divesoftware.org/libdc "
 LangString DESC_Driver1 ${LANG_ENGLISH} "Driver for Suunto and Oceanic. Usually this driver is not needed since Windows can automatically recognise the cable."
 LangString DESC_Driver2 ${LANG_ENGLISH} "Driver for Mares IRIS system and some Suunto computers. Usually this driver is not needed since Windows can automatically recognise the cable."
 LangString DESC_Driver3 ${LANG_ENGLISH} "Driver for Mares Nemo Sport, Cressi, Reefnet. Usually this driver is not needed since Windows can automatically recognise the cable."
@@ -97,13 +99,15 @@ Function checkRights
 	done:
 FunctionEnd
 
+
 #--------------------------------
 # Main Installation commands
 #--------------------------------
 
 #---  Main libraries ---
 
-Section
+Section "!Diveboard plugin" "plugin"
+SectionIn 1 RO
 
 SetShellVarContext all
 

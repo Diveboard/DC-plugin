@@ -53,9 +53,11 @@ RequestExecutionLevel admin
 # Languages
 #--------------------------------
 
-LangString DESC_Driver1 ${LANG_ENGLISH} "Description of section 1."
-LangString DESC_Driver2 ${LANG_ENGLISH} "Description of section 2."
-LangString DESC_Driver3 ${LANG_ENGLISH} "Description of section 3."
+LangString DESC_Plugin  ${LANG_ENGLISH} "Web browser Plugin to upload your dives directly from your computer to Diveboard.com."
+LangString DESC_Libdive ${LANG_ENGLISH} "Libdivecomputer is a cross-platform and open source (LGPL) library for communication with dive computers from various manufacturers. divesoftware.org/libdc "
+LangString DESC_Driver1 ${LANG_ENGLISH} "FTDI Driver for Suunto and Oceanic computers. Windows usually auto-detects these devices, so it should not be necessary to install this driver."
+LangString DESC_Driver2 ${LANG_ENGLISH} "Silicon driver for Mares IR device. Windows usually auto-detects these devices, so it should not be necessary to install this driver."
+LangString DESC_Driver3 ${LANG_ENGLISH} "Prolific driver for Reefnet, Cressi, Zeagle. Windows usually auto-detects these devices, so it should not be necessary to install this driver."
 
 
 
@@ -97,15 +99,59 @@ Function checkRights
 	done:
 FunctionEnd
 
+
 #--------------------------------
 # Main Installation commands
 #--------------------------------
 
 #---  Main libraries ---
 
-Section
+Section "!Diveboard plugin" "plugin"
+SectionIn 1 RO
 
 SetShellVarContext all
+
+
+Var /GLOBAL PREINSTALL
+
+ClearErrors
+ReadRegStr $PREINSTALL HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "InstallLocation"
+IfErrors FoundInstalled 0
+
+RMDll1:
+ClearErrors
+Delete $PREINSTALL\npDiveBoard.dll
+IfErrors 0 NoError1
+  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
+  Goto RMDll1
+NoError1:
+
+RMDll2:
+ClearErrors
+Delete $PREINSTALL\libdivecomputer.dll
+IfErrors 0 NoError2
+  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
+  Goto RMDll2
+NoError2:
+
+FoundInstalled:
+
+RMDll3:
+ClearErrors
+Delete $INSTDIR\npDiveBoard.dll
+IfErrors 0 NoError3
+  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
+  Goto RMDll3
+NoError3:
+
+RMDll4:
+ClearErrors
+Delete $INSTDIR\libdivecomputer.dll
+IfErrors 0 NoError4
+  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
+  Goto RMDll4
+NoError4:
+
 CreateDirectory "$INSTDIR"
 !insertmacro InstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_LibDiveComputer} $INSTDIR\libdivecomputer.dll $INSTDIR
 !insertmacro InstallLib REGDLL    NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_DiveBoardPlugin} $INSTDIR\npDiveBoard.dll $INSTDIR
@@ -120,9 +166,14 @@ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard"
 SectionEnd
 
 
+Section "Libdivecomputer" "libdivecomputer"
+SectionIn 1 RO
+SectionEnd
+
+
 #---  Low level drivers ---
 
-Section "FTDI" Driver1
+Section /o "FTDI" Driver1
         SetOutPath $TEMP\DB_FTDI
 	File /r "..\..\drivers\ftdi_win"
 	ExecWait 'rundll32 syssetup,SetupInfObjectInstallAction DefaultInstall 128 "$TEMP\DB_FTDI\ftdi_win\ftdibus.inf"' $0
@@ -131,7 +182,7 @@ Section "FTDI" Driver1
 	Delete "$TEMP\DB_FTDI"
 SectionEnd
 
-Section "SiliconLabs CP210x" Driver2
+Section /o "SiliconLabs CP210x" Driver2
         SetOutPath $TEMP\DB_SILABS
 	File /r "..\..\drivers\Silabs_windows"
 	ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210x_VCP_Win2K.exe"' $0
@@ -141,7 +192,7 @@ Section "SiliconLabs CP210x" Driver2
 	Delete "$TEMP\DB_SILABS"
 SectionEnd
 
-Section "Prolific" Driver3
+Section /o "Prolific" Driver3
         SetOutPath $TEMP\DB_PROLIFIC
 	File /r "..\..\drivers\prolific_win"
 	ExecWait '"$TEMP\DB_PROLIFIC\prolific_win\PL2303_Prolific_DriverInstaller_v130.exe"' $0
@@ -153,6 +204,8 @@ SectionEnd
 
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${plugin} $(DESC_Plugin)
+  !insertmacro MUI_DESCRIPTION_TEXT ${libdivecomputer} $(DESC_libdive)
   !insertmacro MUI_DESCRIPTION_TEXT ${Driver1} $(DESC_Driver1)
   !insertmacro MUI_DESCRIPTION_TEXT ${Driver2} $(DESC_Driver2)
   !insertmacro MUI_DESCRIPTION_TEXT ${Driver3} $(DESC_Driver3)
