@@ -27,6 +27,7 @@ Section: web
 Priority: optional
 Architecture: $ARCHITECTURE
 Depends: libc6 (>= 2.11)
+Replaces: diveboard (<= 1.1.1)
 Maintainer: Diveboard <support@diveboard.com>
 Description: Web Browser plugin for DiveBoard:
  http://www.diveboard.com
