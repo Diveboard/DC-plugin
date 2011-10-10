@@ -125,20 +125,12 @@ int DeviceMares::open()
 	cfsetspeed(&options, B9600);
 	
 	/* set raw input, 1 second timeout */
-#if defined(__MACH__)
-	options.c_cflag = CS8|CREAD|CLOCAL;
-	options.c_cflag &= ~PARENB;
-	options.c_cflag &= ~PARODD;
-	options.c_iflag = IGNBRK; /* Ignore parity checking */
-	options.c_lflag=0;
-	options.c_oflag=0; //OPOST
-#else
-        options.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | ICRNL);
-        options.c_oflag &= ~(OPOST);
-        options.c_lflag &= ~(ICANON | ECHO | ISIG | IEXTEN);
+	options.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | ICRNL);
+	options.c_oflag &= ~(OPOST);
+	options.c_lflag &= ~(ICANON | ECHO | ISIG | IEXTEN);
 
-        options.c_cflag &= ~(PARENB | PARODD);
-        options.c_iflag &= ~(IGNPAR | PARMRK | INPCK);
+	options.c_cflag &= ~(PARENB | PARODD);
+	options.c_iflag &= ~(IGNPAR | PARMRK | INPCK);
 	options.c_iflag |= IGNPAR;
 	options.c_cflag &= ~CSTOPB;
 	options.c_cflag &= ~CRTSCTS;
@@ -146,7 +138,6 @@ int DeviceMares::open()
 
 	options.c_cflag &= ~CSIZE;
 	options.c_cflag |= CS8|CREAD|CLOCAL;
-#endif
 	
 	/* Setup blocking, return on 1 character */
 	options.c_cc[VMIN] = 0;
