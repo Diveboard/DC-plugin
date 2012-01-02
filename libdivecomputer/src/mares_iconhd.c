@@ -21,7 +21,6 @@
 
 #include <string.h> // memcpy, memcmp
 #include <stdlib.h> // malloc, free
-#include <assert.h> // assert
 
 #include "device-private.h"
 #include "mares_iconhd.h"
@@ -34,11 +33,11 @@
 	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
 )
 
-#ifdef _WIN32
-#define BAUDRATE 256000
-#else
-#define BAUDRATE 230400
-#endif
+#define ICONHD    0x14
+#define ICONHDNET 0x15
+
+#define ACK 0xAA
+#define EOF 0xEA
 
 #define RB_PROFILE_BEGIN 0xA000
 #define RB_PROFILE_END   MARES_ICONHD_MEMORY_SIZE
@@ -47,9 +46,11 @@ typedef struct mares_iconhd_device_t {
 	device_t base;
 	serial_t *port;
 	unsigned char fingerprint[10];
+	unsigned char version[140];
 } mares_iconhd_device_t;
 
 static device_status_t mares_iconhd_device_set_fingerprint (device_t *abstract, const unsigned char data[], unsigned int size);
+static device_status_t mares_iconhd_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
 static device_status_t mares_iconhd_device_dump (device_t *abstract, dc_buffer_t *buffer);
 static device_status_t mares_iconhd_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata);
 static device_status_t mares_iconhd_device_close (device_t *abstract);
@@ -58,7 +59,7 @@ static const device_backend_t mares_iconhd_device_backend = {
 	DEVICE_TYPE_MARES_ICONHD,
 	mares_iconhd_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* version */
-	NULL, /* read */
+	mares_iconhd_device_read, /* read */
 	NULL, /* write */
 	mares_iconhd_device_dump, /* dump */
 	mares_iconhd_device_foreach, /* foreach */
@@ -72,6 +73,128 @@ device_is_mares_iconhd (device_t *abstract)
 		return 0;
 
     return abstract->backend == &mares_iconhd_device_backend;
+}
+
+
+static device_status_t
+mares_iconhd_get_model (mares_iconhd_device_t *device, unsigned int model)
+{
+	// Try to correct an invalid model code using the version packet.
+	if (model == 0xFF) {
+		WARNING("Invalid model code detected!");
+		const unsigned char iconhdnet[] = "Icon AIR";
+		if (device && memcmp (device->version + 0x46, iconhdnet, sizeof (iconhdnet) - 1) == 0)
+			model = ICONHDNET;
+	}
+
+	return model;
+}
+
+static device_status_t
+mares_iconhd_transfer (mares_iconhd_device_t *device,
+	const unsigned char command[], unsigned int csize,
+	unsigned char answer[], unsigned int asize,
+	unsigned int events)
+{
+	device_t *abstract = (device_t *) device;
+
+	// Enable progress notifications.
+	device_progress_t progress = DEVICE_PROGRESS_INITIALIZER;
+	if (events) {
+		progress.maximum = asize;
+		device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	}
+
+	// Send the command to the dive computer.
+	int n = serial_write (device->port, command, csize);
+	if (n != csize) {
+		WARNING ("Failed to send the command.");
+		return EXITCODE (n);
+	}
+
+	// Receive the header byte.
+	unsigned char header[1] = {0};
+	n = serial_read (device->port, header, sizeof (header));
+	if (n != sizeof (header)) {
+		WARNING ("Failed to receive the answer.");
+		return EXITCODE (n);
+	}
+
+	// Verify the header byte.
+	if (header[0] != ACK) {
+		WARNING ("Unexpected answer byte.");
+		return DEVICE_STATUS_PROTOCOL;
+	}
+
+	unsigned int nbytes = 0;
+	while (nbytes < asize) {
+		// Set the minimum packet size.
+		unsigned int len = 1024;
+
+		// Increase the packet size if more data is immediately available.
+		int available = serial_get_received (device->port);
+		if (available > len)
+			len = available;
+
+		// Limit the packet size to the total size.
+		if (nbytes + len > asize)
+			len = asize - nbytes;
+
+		// Read the packet.
+		n = serial_read (device->port, answer + nbytes, len);
+		if (n != len) {
+			WARNING ("Failed to receive the answer.");
+			return EXITCODE (n);
+		}
+
+		// Update and emit a progress event.
+		if (events) {
+			progress.current += len;
+			device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+		}
+
+		nbytes += len;
+	}
+
+	// Receive the trailer byte.
+	unsigned char trailer[1] = {0};
+	n = serial_read (device->port, trailer, sizeof (trailer));
+	if (n != sizeof (trailer)) {
+		WARNING ("Failed to receive the answer.");
+		return EXITCODE (n);
+	}
+
+	// Verify the trailer byte.
+	if (trailer[0] != EOF) {
+		WARNING ("Unexpected answer byte.");
+		return DEVICE_STATUS_PROTOCOL;
+	}
+
+	return DEVICE_STATUS_SUCCESS;
+}
+
+
+static device_status_t
+mares_iconhd_version (mares_iconhd_device_t *device, unsigned char data[], unsigned int size)
+{
+	unsigned char command[] = {0xC2, 0x67};
+	return mares_iconhd_transfer (device, command, sizeof (command), data, size, 0);
+}
+
+
+static device_status_t
+mares_iconhd_read (mares_iconhd_device_t *device, unsigned int address, unsigned char data[], unsigned int size, int events)
+{
+	unsigned char command[] = {0xE7, 0x42,
+				(address      ) & 0xFF,
+				(address >>  8) & 0xFF,
+				(address >> 16) & 0xFF,
+				(address >> 24) & 0xFF,
+				(size      ) & 0xFF,
+				(size >>  8) & 0xFF,
+				(size >> 16) & 0xFF,
+				(size >> 24) & 0xFF};
+	return mares_iconhd_transfer (device, command, sizeof (command), data, size, events);
 }
 
 
@@ -93,6 +216,8 @@ mares_iconhd_device_open (device_t **out, const char* name)
 
 	// Set the default values.
 	device->port = NULL;
+	memset (device->fingerprint, 0, sizeof (device->fingerprint));
+	memset (device->version, 0, sizeof (device->version));
 
 	// Open the device.
 	int rc = serial_open (&device->port, name);
@@ -103,7 +228,7 @@ mares_iconhd_device_open (device_t **out, const char* name)
 	}
 
 	// Set the serial communication protocol (256000 8N1).
-	rc = serial_configure (device->port, BAUDRATE, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
+	rc = serial_configure (device->port, 256000, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
 	if (rc == -1) {
 		WARNING ("Failed to set the terminal attributes.");
 		serial_close (device->port);
@@ -131,6 +256,14 @@ mares_iconhd_device_open (device_t **out, const char* name)
 
 	// Make sure everything is in a sane state.
 	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+
+	// Send the version command.
+	device_status_t status = mares_iconhd_version (device, device->version, sizeof (device->version));
+	if (status != DEVICE_STATUS_SUCCESS) {
+		serial_close (device->port);
+		free (device);
+		return status;
+	}
 
 	*out = (device_t *) device;
 
@@ -177,25 +310,11 @@ mares_iconhd_device_set_fingerprint (device_t *abstract, const unsigned char dat
 
 
 static device_status_t
-mares_iconhd_init (mares_iconhd_device_t *device)
+mares_iconhd_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
-	// Send the command to the dive computer.
-	unsigned char command[2] = {0xE7, 0x42};
-	int n = serial_write (device->port, command, sizeof (command));
-	if (n != sizeof (command)) {
-		WARNING ("Failed to send the command.");
-		return EXITCODE (n);
-	}
+	mares_iconhd_device_t *device = (mares_iconhd_device_t *) abstract;
 
-	// Receive the answer of the dive computer.
-	unsigned char answer[1] = {0};
-	n = serial_read (device->port, answer, sizeof (answer));
-	if (n != sizeof (answer)) {
-		WARNING ("Failed to receive the answer.");
-		return EXITCODE (n);
-	}
-
-	return DEVICE_STATUS_SUCCESS;
+	return mares_iconhd_read (device, address, data, size, 0);
 }
 
 
@@ -211,75 +330,16 @@ mares_iconhd_device_dump (device_t *abstract, dc_buffer_t *buffer)
 		return DEVICE_STATUS_MEMORY;
 	}
 
-	// Enable progress notifications.
-	device_progress_t progress = DEVICE_PROGRESS_INITIALIZER;
-	progress.maximum = MARES_ICONHD_MEMORY_SIZE;
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
-
-	// Send the init command.
-	device_status_t rc = mares_iconhd_init (device);
-	if (rc != DEVICE_STATUS_SUCCESS)
-		return rc;
-
-	// Send the command to the dive computer.
-	unsigned char command[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00};
-	int n = serial_write (device->port, command, sizeof (command));
-	if (n != sizeof (command)) {
-		WARNING ("Failed to send the command.");
-		return EXITCODE (n);
-	}
-
-	unsigned char *data = dc_buffer_get_data (buffer);
-
-	unsigned int nbytes = 0;
-	while (nbytes < MARES_ICONHD_MEMORY_SIZE) {
-		// Set the minimum packet size.
-		unsigned int len = 1024;
-
-		// Increase the packet size if more data is immediately available.
-		int available = serial_get_received (device->port);
-		if (available > len)
-			len = available;
-
-		// Limit the packet size to the total size.
-		if (nbytes + len > MARES_ICONHD_MEMORY_SIZE)
-			len = MARES_ICONHD_MEMORY_SIZE - nbytes;
-
-		// Read the packet.
-		n = serial_read (device->port, data + nbytes, len);
-		if (n != len) {
-			WARNING ("Failed to receive the answer.");
-			return EXITCODE (n);
-		}
-
-		// Update and emit a progress event.
-		progress.current += len;
-		device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
-
-		nbytes += len;
-	}
-
-	// Receive the last byte.
-	unsigned char answer[1] = {0};
-	n = serial_read (device->port, answer, sizeof (answer));
-	if (n != sizeof (answer)) {
-		WARNING ("Failed to receive the answer.");
-		return EXITCODE (n);
-	}
-
-	// Verify the last byte.
-	if (answer[0] != 0xEA) {
-		WARNING ("Unexpected answer byte.");
-		return DEVICE_STATUS_PROTOCOL;
-	}
-
-	return DEVICE_STATUS_SUCCESS;
+	return mares_iconhd_read (device, 0, dc_buffer_get_data (buffer),
+		dc_buffer_get_size (buffer), 1);
 }
 
 
 static device_status_t
 mares_iconhd_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata)
 {
+	mares_iconhd_device_t *device = (mares_iconhd_device_t *) abstract;
+
 	dc_buffer_t *buffer = dc_buffer_new (MARES_ICONHD_MEMORY_SIZE);
 	if (buffer == NULL)
 		return DEVICE_STATUS_MEMORY;
@@ -293,7 +353,7 @@ mares_iconhd_device_foreach (device_t *abstract, dive_callback_t callback, void 
 	// Emit a device info event.
 	unsigned char *data = dc_buffer_get_data (buffer);
 	device_devinfo_t devinfo;
-	devinfo.model = 0;
+	devinfo.model = mares_iconhd_get_model (device, data[0]);
 	devinfo.firmware = 0;
 	devinfo.serial = array_uint16_le (data + 12);
 	device_event_emit (abstract, DEVICE_EVENT_DEVINFO, &devinfo);
@@ -318,8 +378,22 @@ mares_iconhd_extract_dives (device_t *abstract, const unsigned char data[], unsi
 	if (size < MARES_ICONHD_MEMORY_SIZE)
 		return DEVICE_STATUS_ERROR;
 
+	// Get the model code.
+	unsigned int model = mares_iconhd_get_model (device, data[0]);
+
+	// Get the corresponding dive header size.
+	unsigned int header = 0x5C;
+	if (model == ICONHDNET)
+		header = 0x80;
+
 	// Get the end of the profile ring buffer.
-	unsigned int eop = array_uint32_le (data + 0x2001);
+	unsigned int eop = 0;
+	const unsigned int config[] = {0x2001, 0x3001};
+	for (unsigned int i = 0; i < sizeof (config) / sizeof (*config); ++i) {
+		eop = array_uint32_le (data + config[i]);
+		if (eop != 0xFFFFFFFF)
+			break;
+	}
 	if (eop < RB_PROFILE_BEGIN || eop >= RB_PROFILE_END) {
 		WARNING ("Ringbuffer pointer out of range.");
 		return DEVICE_STATUS_ERROR;
@@ -336,15 +410,21 @@ mares_iconhd_extract_dives (device_t *abstract, const unsigned char data[], unsi
 	memcpy (buffer + RB_PROFILE_END - eop, data + RB_PROFILE_BEGIN, eop - RB_PROFILE_BEGIN);
 
 	unsigned int offset = RB_PROFILE_END - RB_PROFILE_BEGIN;
-	while (offset >= 0x60) {
+	while (offset >= header + 4) {
 		// Get the number of samples in the profile data.
-		unsigned int nsamples = array_uint16_le (buffer + offset - 0x5A);
+		unsigned int nsamples = array_uint16_le (buffer + offset - header + 2);
+		if (nsamples == 0xFFFF)
+			break;
 
 		// Calculate the total number of bytes for this dive.
 		// If the buffer does not contain that much bytes, we reached the
 		// end of the ringbuffer. The current dive is incomplete (partially
 		// overwritten with newer data), and processing should stop.
-		unsigned int nbytes = nsamples * 8 + 0x60;
+		unsigned int nbytes = 4 + header;
+		if (model == ICONHDNET)
+			nbytes += nsamples * 12 + (nsamples / 4) * 8;
+		else
+			nbytes += nsamples * 8;
 		if (offset < nbytes)
 			break;
 
@@ -355,13 +435,15 @@ mares_iconhd_extract_dives (device_t *abstract, const unsigned char data[], unsi
 		// equals the calculated length. If both values are different,
 		// something is wrong and an error is returned.
 		unsigned int length = array_uint32_le (buffer + offset);
+		if (length == 0)
+			break;
 		if (length != nbytes) {
 			WARNING ("Calculated and stored size are not equal.");
 			free (buffer);
 			return DEVICE_STATUS_ERROR;
 		}
 
-		unsigned char *fp = buffer + offset + length - 0x56;
+		unsigned char *fp = buffer + offset + length - header + 6;
 		if (device && memcmp (fp, device->fingerprint, sizeof (device->fingerprint)) == 0) {
 			free (buffer);
 			return DEVICE_STATUS_SUCCESS;

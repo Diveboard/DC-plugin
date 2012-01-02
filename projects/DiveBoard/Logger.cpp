@@ -132,6 +132,26 @@ void Logger::appendL(int line, const char*file, const char *level, const char *p
     append(str);
 }
 
+void Logger::appendF(int line, const char*file, const char * level, std::string filename)
+{
+    char buff[2048];
+    size_t len = 0;
+    FILE *fp = std::fopen(filename.c_str(), "r");
+    if (!fp) return;
+    while(std::fgets(buff, sizeof(buff), fp)) {
+        // strip trailing '\n' if it exists
+        int len = strlen(buff)-1;
+        if(buff[len] == '\n' || buff[len] == '\r') 
+            buff[len] = 0;
+        if(buff[len-1] == '\n' || buff[len-1] == '\r') 
+            buff[len-1] = 0;
+        Logger::appendL(line, file, level, "|LDC| %s", buff);
+    }
+    std::fclose(fp);
+    std::remove(filename.c_str());
+}
+
+
 std::vector<std::string> Logger::logs;
 std::vector<BinaryData> Logger::binData;
 std::string Logger::logLevel;

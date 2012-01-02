@@ -20,7 +20,6 @@
  */
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include "hw_ostc.h"
 #include "parser-private.h"
@@ -42,6 +41,7 @@ typedef struct hw_ostc_sample_info_t {
 
 static parser_status_t hw_ostc_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
 static parser_status_t hw_ostc_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
+static parser_status_t hw_ostc_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
 static parser_status_t hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
 static parser_status_t hw_ostc_parser_destroy (parser_t *abstract);
 
@@ -49,6 +49,7 @@ static const parser_backend_t hw_ostc_parser_backend = {
 	PARSER_TYPE_HW_OSTC,
 	hw_ostc_parser_set_data, /* set_data */
 	hw_ostc_parser_get_datetime, /* datetime */
+	hw_ostc_parser_get_field, /* fields */
 	hw_ostc_parser_samples_foreach, /* samples_foreach */
 	hw_ostc_parser_destroy /* destroy */
 };
@@ -129,6 +130,58 @@ hw_ostc_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
 	return PARSER_STATUS_SUCCESS;
 }
 
+static parser_status_t
+hw_ostc_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+{
+	const unsigned char *data = abstract->data;
+	unsigned int size = abstract->size;
+
+	if (size < 3)
+		return PARSER_STATUS_ERROR;
+
+	// Check the profile version
+	unsigned int version = data[2];
+	unsigned int header = 0;
+	switch (version) {
+	case 0x20:
+		header = 47;
+		break;
+	case 0x21:
+		header = 57;
+		break;
+	default:
+		return PARSER_STATUS_ERROR;
+	}
+
+	if (size < header)
+		return PARSER_STATUS_ERROR;
+
+	gasmix_t *gasmix = (gasmix_t *) value;
+
+	if (value) {
+		switch (type) {
+		case FIELD_TYPE_DIVETIME:
+			*((unsigned int *) value) = array_uint16_le (data + 10) * 60 + data[12];
+			break;
+		case FIELD_TYPE_MAXDEPTH:
+			*((double *) value) = array_uint16_le (data + 8) / 100.0;
+			break;
+		case FIELD_TYPE_GASMIX_COUNT:
+			*((unsigned int *) value) = 6;
+			break;
+		case FIELD_TYPE_GASMIX:
+			gasmix->oxygen = data[19 + 2 * flags] / 100.0;
+			gasmix->helium = data[20 + 2 * flags] / 100.0;
+			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
+			break;
+		default:
+			return PARSER_STATUS_UNSUPPORTED;
+		}
+	}
+
+	return PARSER_STATUS_SUCCESS;
+}
+
 
 static parser_status_t
 hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
@@ -139,8 +192,24 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
+	if (size < 3)
+		return PARSER_STATUS_ERROR;
+
 	// Check the profile version
-	if (size < 47 || data[2] != 0x20)
+	unsigned int version = data[2];
+	unsigned int header = 0;
+	switch (version) {
+	case 0x20:
+		header = 47;
+		break;
+	case 0x21:
+		header = 57;
+		break;
+	default:
+		return PARSER_STATUS_ERROR;
+	}
+
+	if (size < header)
 		return PARSER_STATUS_ERROR;
 
 	// Get the sample rate.
@@ -151,12 +220,20 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 	for (unsigned int i = 0; i < NINFO; ++i) {
 		info[i].divisor = (data[37 + i] & 0x0F);
 		info[i].size    = (data[37 + i] & 0xF0) >> 4;
+		switch (i) {
+		case 0: // Temperature
+			if (info[i].size != 2)
+				return PARSER_STATUS_ERROR;
+			break;
+		default: // Not yet used.
+			break;
+		}
 	}
 
 	unsigned int time = 0;
 	unsigned int nsamples = 0;
 
-	unsigned int offset = 47;
+	unsigned int offset = header;
 	while (offset + 3 <= size) {
 		parser_sample_value_t sample = {0};
 
@@ -182,33 +259,32 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 		if (offset + length > size)
 			return PARSER_STATUS_ERROR;
 
-		// Events.
+		// Get the event byte.
 		if (events) {
-			// Get the event byte.
-			unsigned int value = data[offset++];
+			events = data[offset++];
+		}
 
-			// Alarms
-			switch (value & 0x0F) {
-			case 0: // No Alarm
-			case 1: // Slow
-			case 2: // Deco Stop missed
-			case 3: // Deep Stop missed
-			case 4: // ppO2 Low Warning
-			case 5: // ppO2 High Warning
-			case 6: // Manual Marker
-			case 7: // Low Battery
-				break;
-			}
+		// Alarms
+		switch (events & 0x0F) {
+		case 0: // No Alarm
+		case 1: // Slow
+		case 2: // Deco Stop missed
+		case 3: // Deep Stop missed
+		case 4: // ppO2 Low Warning
+		case 5: // ppO2 High Warning
+		case 6: // Manual Marker
+		case 7: // Low Battery
+			break;
+		}
 
-			// Manual Gas Set
-			if (value & 0x10) {
-				offset += 2;
-			}
+		// Manual Gas Set
+		if (events & 0x10) {
+			offset += 2;
+		}
 
-			// Gas Change
-			if (value & 0x20) {
-				offset++;
-			}
+		// Gas Change
+		if (events & 0x20) {
+			offset++;
 		}
 
 		// Extended sample info.
@@ -217,21 +293,9 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 				unsigned int value = 0;
 				switch (i) {
 				case 0: // Temperature (0.1 °C).
-					assert (info[i].size == 2);
 					value = array_uint16_le (data + offset);
 					sample.temperature = value / 10.0;
 					if (callback) callback (SAMPLE_TYPE_TEMPERATURE, sample, userdata);
-					break;
-				case 1: // Deco/NDL Status
-					break;
-				case 2: // Tank pressure
-					assert (info[i].size == 2);
-					value = array_uint16_le (data + offset);
-					sample.pressure.tank = 0;
-					sample.pressure.value = value;
-					if (callback) callback (SAMPLE_TYPE_PRESSURE, sample, userdata);
-					break;
-				case 3: // ppO2 Sensor Values
 					break;
 				default: // Not yet used.
 					break;
@@ -240,9 +304,15 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 				offset += info[i].size;
 			}
 		}
+
+		// SetPoint Change
+		if (events & 0x40) {
+			offset++;
+		}
 	}
 
-	assert (data[offset] == 0xFD && data[offset + 1] == 0xFD);
+	if (data[offset] != 0xFD || data[offset + 1] != 0xFD)
+		return PARSER_STATUS_ERROR;
 
 	return PARSER_STATUS_SUCCESS;
 }

@@ -51,6 +51,7 @@ typedef struct cressi_edy_device_t {
 	device_t base;
 	serial_t *port;
 	unsigned char fingerprint[PAGESIZE / 2];
+	unsigned int model;
 } cressi_edy_device_t;
 
 static device_status_t cressi_edy_device_set_fingerprint (device_t *abstract, const unsigned char data[], unsigned int size);
@@ -138,7 +139,13 @@ cressi_edy_init2 (cressi_edy_device_t *device)
 	unsigned char command[1] = {0x44};
 	unsigned char answer[2] = {0};
 
-	return cressi_edy_transfer (device, command, sizeof (command), answer, sizeof (answer), 0);
+	device_status_t rc = cressi_edy_transfer (device, command, sizeof (command), answer, sizeof (answer), 0);
+	if (rc != DEVICE_STATUS_SUCCESS)
+		return rc;
+
+	device->model = answer[1];
+
+	return DEVICE_STATUS_SUCCESS;
 }
 
 
@@ -180,6 +187,7 @@ cressi_edy_device_open (device_t **out, const char* name)
 
 	// Set the default values.
 	device->port = NULL;
+	device->model = 0;
 
 	// Open the device.
 	int rc = serial_open (&device->port, name);
@@ -267,8 +275,9 @@ cressi_edy_device_read (device_t *abstract, unsigned int address, unsigned char 
 	if (! device_is_cressi_edy (abstract))
 		return DEVICE_STATUS_TYPE_MISMATCH;
 
-	assert (address % (CRESSI_EDY_PACKET_SIZE / 4)== 0);
-	assert (size    % CRESSI_EDY_PACKET_SIZE == 0);
+	if ((address % (CRESSI_EDY_PACKET_SIZE / 4) != 0) ||
+		(size    % CRESSI_EDY_PACKET_SIZE != 0))
+		return DEVICE_STATUS_ERROR;
 
 	// The data transmission is split in packages
 	// of maximum $CRESSI_EDY_PACKET_SIZE bytes.
@@ -342,6 +351,13 @@ cressi_edy_device_foreach (device_t *abstract, dive_callback_t callback, void *u
 		(RB_PROFILE_END - RB_PROFILE_BEGIN);
 	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
 
+	// Emit a device info event.
+	device_devinfo_t devinfo;
+	devinfo.model = device->model;
+	devinfo.firmware = 0;
+	devinfo.serial = 0;
+	device_event_emit (abstract, DEVICE_EVENT_DEVINFO, &devinfo);
+
 	// Read the configuration data.
 	unsigned char config[CRESSI_EDY_PACKET_SIZE] = {0};
 	device_status_t rc = cressi_edy_device_read (abstract, 0x7F80, config, sizeof (config));
@@ -357,12 +373,23 @@ cressi_edy_device_foreach (device_t *abstract, dive_callback_t callback, void *u
 	// Get the logbook pointers.
 	unsigned int last  = config[0x7C];
 	unsigned int first = config[0x7D];
+	if (first < RB_LOGBOOK_BEGIN || first >= RB_LOGBOOK_END ||
+		last < RB_LOGBOOK_BEGIN || last >= RB_LOGBOOK_END) {
+		if (last == 0xFF)
+			return DEVICE_STATUS_SUCCESS;
+		WARNING ("Invalid ringbuffer pointer detected.");
+		return DEVICE_STATUS_ERROR;
+	}
 
 	// Get the number of logbook items.
 	unsigned int count = ringbuffer_distance (first, last, 0, RB_LOGBOOK_BEGIN, RB_LOGBOOK_END) + 1;
 
 	// Get the profile pointer.
 	unsigned int eop = array_uint16_le (config + 0x7E) * PAGESIZE + BASE;
+	if (eop < RB_PROFILE_BEGIN || eop >= RB_PROFILE_END) {
+		WARNING ("Invalid ringbuffer pointer detected.");
+		return DEVICE_STATUS_ERROR;
+	}
 
 	// Memory buffer for the profile data.
 	unsigned char buffer[RB_PROFILE_END - RB_PROFILE_BEGIN] = {0};
@@ -377,6 +404,10 @@ cressi_edy_device_foreach (device_t *abstract, dive_callback_t callback, void *u
 	for (unsigned int i = 0; i < count; ++i) {
 		// Get the pointer to the profile data.
 		unsigned int current = array_uint16_le (config + 2 * idx) * PAGESIZE + BASE;
+		if (current < RB_PROFILE_BEGIN || current >= RB_PROFILE_END) {
+			WARNING ("Invalid ringbuffer pointer detected.");
+			return DEVICE_STATUS_ERROR;
+		}
 
 		// Position the pointer at the start of the header.
 		if (current == RB_PROFILE_BEGIN)

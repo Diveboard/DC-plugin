@@ -21,7 +21,6 @@
 
 #include <string.h> // memcmp, memcpy
 #include <stdlib.h> // malloc, free
-#include <assert.h> // assert
 
 #include "suunto_common2.h"
 #include "suunto_vyper2.h"
@@ -55,6 +54,13 @@ static const suunto_common2_device_backend_t suunto_vyper2_device_backend = {
 		suunto_vyper2_device_close /* close */
 	},
 	suunto_vyper2_device_packet
+};
+
+static const suunto_common2_layout_t suunto_vyper2_layout = {
+	0x8000, /* memsize */
+	0x0023, /* serial */
+	0x019A, /* rb_profile_begin */
+	0x7FFE /* rb_profile_end */
 };
 
 static int
@@ -124,6 +130,9 @@ suunto_vyper2_device_open (device_t **out, const char* name)
 
 	// Make sure everything is in a sane state.
 	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+
+	// Override the base class values.
+	device->base.layout = &suunto_vyper2_layout;
 
 	*out = (device_t*) device;
 

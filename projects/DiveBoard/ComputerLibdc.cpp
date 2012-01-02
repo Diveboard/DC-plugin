@@ -253,6 +253,7 @@ static const backend_table_t g_backends[] = {
 	{"LDC vtpro",		DEVICE_TYPE_OCEANIC_VTPRO},
 	{"LDC veo250",		DEVICE_TYPE_OCEANIC_VEO250},
 	{"LDC atom2",		DEVICE_TYPE_OCEANIC_ATOM2},
+	{"LDC darwin",		DEVICE_TYPE_MARES_DARWIN},
 	{"LDC nemo",		DEVICE_TYPE_MARES_NEMO},
 	{"LDC puck",		DEVICE_TYPE_MARES_PUCK},
 	{"LDC ostc",		DEVICE_TYPE_HW_OSTC},
@@ -607,6 +608,11 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 			rc = create_parser2(&parser, devdata->devinfo.model);
 			//rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
 			break;
+        case DEVICE_TYPE_MARES_DARWIN:
+            create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "mares_darwin_parser_create");
+            rc = create_parser2(&parser, devdata->devinfo.model);
+            //rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
+            break;
 		case DEVICE_TYPE_HW_OSTC:
 			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "hw_ostc_parser_create");
 			rc = create_parser1(&parser);
@@ -856,6 +862,7 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 {
 	LOGINFO("Starting dowork");
 	device_status_t rc = DEVICE_STATUS_SUCCESS;
+    char ldc_logfile[L_tmpnam];
 
 	// Initialize the device data.
 	device_data_t devdata;
@@ -864,6 +871,7 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	//getting general pointers to functions of libDiveComputer
 	//todo factorize this in ComputerLibdc constructor
 	LOGDEBUG("LibDiveComputer DLL loaded");
+	LDCSETLOGFILE* ldc_setlogfile = reinterpret_cast<LDCSETLOGFILE*>(getDLLFunction(libdc, "message_set_logfile"));
 	LCDDEVFOREACH* device_foreach = reinterpret_cast<LCDDEVFOREACH*>(getDLLFunction(libdc, "device_foreach"));
 	LCDDEVCLOSE* device_close = reinterpret_cast<LCDDEVCLOSE*>(getDLLFunction(libdc, "device_close"));
 	LCDDCBUFFERFREE* dc_buffer_free = reinterpret_cast<LCDDCBUFFERFREE*>(getDLLFunction(libdc, "dc_buffer_free"));
@@ -877,6 +885,12 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
 	LOGDEBUG("General pointers to LibDiveComputer fetched");
 
+    //if (Logger::logLevel.compare("DEBUG") == 0) {
+        tmpnam(ldc_logfile);
+        ldc_setlogfile(ldc_logfile);
+        LOGDEBUG("Logging into %s", ldc_logfile);
+    //}
+        
 	// Open the device.
 	LOGINFO("Opening the device (%s, %s).", lookup_name (backend), devname.c_str());
 	device_t *device = NULL;
@@ -946,6 +960,10 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 		device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "mares_nemo_device_open");
 		//rc = mares_nemo_device_open (&device, devname.c_str());
 		break;	
+    case DEVICE_TYPE_MARES_DARWIN:
+        device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "mares_darwin_device_open");
+        //rc = mares_nemo_device_open (&device, devname.c_str());
+            break;
 	case DEVICE_TYPE_MARES_ICONHD:
 		device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "mares_iconhd_device_open");
 		//rc = mares_nemo_device_open (&device, devname.c_str());
@@ -963,17 +981,24 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 		//rc = cressi_edy_device_open (&device, devname.c_str());
 		break;
 	default:
+        ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 		DBthrowError("Error in getching DLL pointers to function : Type of device unrecognised (%d)", backend);
 	}
 
 	if (device_open2) rc = device_open2(&device, devname.c_str());
 	else if (device_open1) rc = device_open1(&device);
 	else {
+        ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 		DBthrowError("Error in getching DLL pointers to function");
 	}
 
-	if (rc != DEVICE_STATUS_SUCCESS)
+	if (rc != DEVICE_STATUS_SUCCESS) {
+        ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 		DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
+    }
 
 	//Register the event handler.
 	LOGINFO("Registering the event handler.");
@@ -985,6 +1010,8 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		LOGDEBUG("Error registering the event handler.");
 		device_close (device);
+        ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 		DBthrowError("Error registering the event handler ");
 	}
 
@@ -994,6 +1021,8 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	if (rc != DEVICE_STATUS_SUCCESS) {
 		LOGINFO("Error registering the cancellation handler.");
 		device_close (device);
+        ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 		DBthrowError("Error registering the cancellation handler ");
 	}
 
@@ -1049,6 +1078,8 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 		LOGDEBUG("Error downloading the dives.");
 		dc_buffer_free (divedata.fingerprint);
 		device_close (device);
+        ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 		DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
 	}
 
@@ -1067,6 +1098,9 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	rc = device_close (device);
 	if (rc != DEVICE_STATUS_SUCCESS)
 		LOGWARNING("Error closing the device. %s", errmsg(rc));
+
+    ldc_setlogfile(NULL);
+    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 }
 
 

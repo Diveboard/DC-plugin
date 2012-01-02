@@ -21,7 +21,6 @@
 
 #include <stdlib.h>
 #include <string.h>	// memcmp
-#include <assert.h>
 
 #include "suunto_d9.h"
 #include "parser-private.h"
@@ -29,6 +28,19 @@
 #include "array.h"
 
 #define SKIP 4
+#define MAXPARAMS 3
+
+#define D9       0x0E
+#define D6       0x0F
+#define VYPER2   0x10
+#define COBRA2   0x11
+#define D4       0x12
+#define VYPERAIR 0x13
+#define COBRA3   0x14
+#define HELO2    0x15
+#define D4i      0x19
+#define D6i      0x1A
+#define D9tx     0x1B
 
 typedef struct suunto_d9_parser_t suunto_d9_parser_t;
 
@@ -37,8 +49,16 @@ struct suunto_d9_parser_t {
 	unsigned int model;
 };
 
+typedef struct sample_info_t {
+	unsigned int type;
+	unsigned int size;
+	unsigned int interval;
+	unsigned int divisor;
+} sample_info_t;
+
 static parser_status_t suunto_d9_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
 static parser_status_t suunto_d9_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
+static parser_status_t suunto_d9_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
 static parser_status_t suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
 static parser_status_t suunto_d9_parser_destroy (parser_t *abstract);
 
@@ -46,6 +66,7 @@ static const parser_backend_t suunto_d9_parser_backend = {
 	PARSER_TYPE_SUUNTO_D9,
 	suunto_d9_parser_set_data, /* set_data */
 	suunto_d9_parser_get_datetime, /* datetime */
+	suunto_d9_parser_get_field, /* fields */
 	suunto_d9_parser_samples_foreach, /* samples_foreach */
 	suunto_d9_parser_destroy /* destroy */
 };
@@ -114,9 +135,11 @@ suunto_d9_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
 {
 	suunto_d9_parser_t *parser = (suunto_d9_parser_t*) abstract;
 
-	unsigned int offset = 0x15 - 4;
-	if (parser->model == 0x15)
-		offset += 6; // HelO2
+	unsigned int offset = 0x15 - SKIP;
+	if (parser->model == HELO2)
+		offset += 6;
+	if (parser->model == D4i || parser->model == D6i || parser->model == D9tx)
+		offset = 0x13;
 
 	if (abstract->size < offset + 7)
 		return PARSER_STATUS_ERROR;
@@ -124,12 +147,90 @@ suunto_d9_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
 	const unsigned char *p = abstract->data + offset;
 
 	if (datetime) {
-		datetime->hour   = p[0];
-		datetime->minute = p[1];
-		datetime->second = p[2];
-		datetime->year   = p[3] + (p[4] << 8);
-		datetime->month  = p[5];
-		datetime->day    = p[6];
+		if (parser->model == D4i || parser->model == D6i || parser->model == D9tx) {
+			datetime->year   = p[0] + (p[1] << 8);
+			datetime->month  = p[2];
+			datetime->day    = p[3];
+			datetime->hour   = p[4];
+			datetime->minute = p[5];
+			datetime->second = p[6];
+		} else {
+			datetime->hour   = p[0];
+			datetime->minute = p[1];
+			datetime->second = p[2];
+			datetime->year   = p[3] + (p[4] << 8);
+			datetime->month  = p[5];
+			datetime->day    = p[6];
+		}
+	}
+
+	return PARSER_STATUS_SUCCESS;
+}
+
+
+static parser_status_t
+suunto_d9_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+{
+	suunto_d9_parser_t *parser = (suunto_d9_parser_t*) abstract;
+
+	const unsigned char *data = abstract->data;
+	unsigned int size = abstract->size;
+
+	// Offset to the configuration data.
+	unsigned int config = 0x3E - SKIP;
+	if (parser->model == D4)
+		config += 1;
+	if (parser->model == HELO2)
+		config += 74;
+	if (size < config)
+		return PARSER_STATUS_ERROR;
+
+	gasmix_t *gasmix = (gasmix_t *) value;
+
+	if (value) {
+		switch (type) {
+		case FIELD_TYPE_DIVETIME:
+			if (parser->model == D4)
+				*((unsigned int *) value) = array_uint16_le (data + 0x0F - SKIP);
+			else if (parser->model == D4i || parser->model == D6i || parser->model == D9tx)
+				*((unsigned int *) value) = array_uint16_le (data + 0x0D);
+			else if (parser->model == HELO2)
+				*((unsigned int *) value) = array_uint16_le (data + 0x0F - SKIP + 2) * 60;
+			else
+				*((unsigned int *) value) = array_uint16_le (data + 0x0F - SKIP) * 60;
+			break;
+		case FIELD_TYPE_MAXDEPTH:
+			*((double *) value) = array_uint16_le (data + 0x0D - SKIP) / 100.0;
+			break;
+		case FIELD_TYPE_GASMIX_COUNT:
+			if (parser->model == HELO2) {
+				*((unsigned int *) value) = 8;
+			} else if (parser->model == D9tx) {
+				*((unsigned int *) value) = 8;
+			} else if (parser->model == D6i) {
+				*((unsigned int *) value) = 2;
+			} else if (parser->model == D4i) {
+				*((unsigned int *) value) = 1;
+			} else {
+				*((unsigned int *) value) = 3;
+			}
+			break;
+		case FIELD_TYPE_GASMIX:
+			if (parser->model == HELO2) {
+				gasmix->helium = data[0x58 - SKIP + 6 * flags + 2] / 100.0;
+				gasmix->oxygen = data[0x58 - SKIP + 6 * flags + 1] / 100.0;
+			} else if (parser->model == D4i || parser->model == D6i || parser->model == D9tx) {
+				gasmix->helium = data[0x5F + 6 * flags + 2] / 100.0;
+				gasmix->oxygen = data[0x5F + 6 * flags + 1] / 100.0;
+			} else {
+				gasmix->helium = 0.0;
+				gasmix->oxygen = data[0x25 - SKIP + flags] / 100.0;
+			}
+			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
+			break;
+		default:
+			return PARSER_STATUS_UNSUPPORTED;
+		}
 	}
 
 	return PARSER_STATUS_SUCCESS;
@@ -149,31 +250,68 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 
 	// Offset to the configuration data.
 	unsigned int config = 0x3E - SKIP;
-	if (parser->model == 0x12)
-		config += 1; // D4
-	if (parser->model == 0x15)
-		config += 74; // HelO2
-	assert (config + 1 <= size);
+	if (parser->model == D4)
+		config += 1;
+	if (parser->model == HELO2)
+		config += 74;
+	if (parser->model == D4i)
+		config = 0x65;
+	if (parser->model == D6i)
+		config = 0x6B;
+	if (parser->model == D9tx)
+		config = 0xB7;
+	if (config + 1 > size)
+		return PARSER_STATUS_ERROR;
 
 	// Number of parameters in the configuration data.
 	unsigned int nparams = data[config];
+	if (nparams > MAXPARAMS)
+		return PARSER_STATUS_ERROR;
+
+	// Available divisor values.
+	const unsigned int divisors[] = {1, 2, 4, 5, 10, 50, 100, 1000};
+
+	// Get the sample configuration.
+	sample_info_t info[MAXPARAMS] = {{0}};
+	for (unsigned int i = 0; i < nparams; ++i) {
+		unsigned int idx = config + 2 + i * 3;
+		info[i].type     = data[idx + 0];
+		info[i].interval = data[idx + 1];
+		info[i].divisor  = divisors[(data[idx + 2] & 0x1C) >> 2];
+		switch (info[i].type) {
+		case 0x64: // Depth
+		case 0x68: // Pressure
+			info[i].size = 2;
+			break;
+		case 0x74: // Temperature
+			info[i].size = 1;
+			break;
+		default: // Unknown sample type
+			return PARSER_STATUS_ERROR;
+		}
+	}
 
 	// Offset to the profile data.
 	unsigned int profile = config + 2 + nparams * 3;
-	if (parser->model == 0x15)
-		profile += 12; // HelO2
-	assert (profile + 5 <= size);
+	if (profile + 5 > size)
+		return PARSER_STATUS_ERROR;
+
+	// HelO2 dives can have an additional data block.
+	const unsigned char sequence[] = {0x01, 0x00, 0x00};
+	if (parser->model == HELO2 && memcmp (data + profile, sequence, sizeof (sequence)) != 0)
+		profile += 12;
+	if (profile + 5 > size)
+		return PARSER_STATUS_ERROR;
 
 	// Sample recording interval.
 	unsigned int interval_sample_offset = 0x1C - SKIP;
-	if (parser->model == 0x15)
-		interval_sample_offset += 6; // HelO2
+	if (parser->model == HELO2)
+		interval_sample_offset += 6;
+	if (parser->model == D4i || parser->model == D6i || parser->model == D9tx)
+		interval_sample_offset = 0x1E;
 	unsigned int interval_sample = data[interval_sample_offset];
-	assert (interval_sample > 0);
-
-	// Temperature recording interval.
-	unsigned int interval_temperature = data[config + 2 + (nparams - 1) * 3 + 1];
-	assert (interval_temperature > 0);
+	if (interval_sample == 0)
+		return PARSER_STATUS_ERROR;
 
 	// Offset to the first marker position.
 	unsigned int marker = array_uint16_le (data + profile + 3);
@@ -181,37 +319,44 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 	unsigned int time = 0;
 	unsigned int nsamples = 0;
 	unsigned int offset = profile + 5;
-	while (offset + 2 <= size) {
+	while (offset < size) {
 		parser_sample_value_t sample = {0};
 
 		// Time (seconds).
 		sample.time = time;
 		if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
 
-		// Depth (cm).
-		unsigned int depth = array_uint16_le (data + offset);
-		sample.depth = depth / 100.0;
-		if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
-		offset += 2;
+		// Sample data.
+		for (unsigned int i = 0; i < nparams; ++i) {
+			if (info[i].interval && (nsamples % info[i].interval) == 0) {
+				if (offset + info[i].size > size)
+					return PARSER_STATUS_ERROR;
 
-		// Tank pressure (1/100 bar).
-		if (nparams == 3) {
-			assert (offset + 2 <= size);
-			unsigned int pressure = array_uint16_le (data + offset);
-			if (pressure != 0xFFFF) {
-				sample.pressure.tank = 0;
-				sample.pressure.value = pressure / 100.0;
-				if (callback) callback (SAMPLE_TYPE_PRESSURE, sample, userdata);
+				unsigned int value = 0;
+				switch (info[i].type) {
+				case 0x64: // Depth
+					value = array_uint16_le (data + offset);
+					sample.depth = value / (double) info[i].divisor;
+					if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+					break;
+				case 0x68: // Pressure
+					value = array_uint16_le (data + offset);
+					if (value != 0xFFFF) {
+						sample.pressure.tank = 0;
+						sample.pressure.value = value / (double) info[i].divisor;
+						if (callback) callback (SAMPLE_TYPE_PRESSURE, sample, userdata);
+					}
+					break;
+				case 0x74: // Temperature
+					sample.temperature = (signed char) data[offset] / (double) info[i].divisor;
+					if (callback) callback (SAMPLE_TYPE_TEMPERATURE, sample, userdata);
+					break;
+				default: // Unknown sample type
+					return PARSER_STATUS_ERROR;
+				}
+
+				offset += info[i].size;
 			}
-			offset += 2;
-		}
-
-		// Temperature (degrees celcius).
-		if (nsamples % interval_temperature == 0) {
-			assert (offset + 1 <= size);
-			sample.temperature = (signed char) data[offset];
-			if (callback) callback (SAMPLE_TYPE_TEMPERATURE, sample, userdata);
-			offset += 1;
 		}
 
 		// Events
@@ -226,15 +371,18 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 				sample.event.value = 0;
 				switch (event) {
 				case 0x01: // Next Event Marker
-					assert (offset + 4 <= size);
+					if (offset + 4 > size)
+						return PARSER_STATUS_ERROR;
 					current = array_uint16_le (data + offset + 0);
 					next    = array_uint16_le (data + offset + 2);
-					assert (marker == current);
+					if (marker != current)
+						return PARSER_STATUS_ERROR;
 					marker += next;
 					offset += 4;
 					break;
 				case 0x02: // Surfaced
-					assert (offset + 2 <= size);
+					if (offset + 2 > size)
+						return PARSER_STATUS_ERROR;
 					unknown = data[offset + 0];
 					seconds = data[offset + 1];
 					sample.event.type = SAMPLE_EVENT_SURFACE;
@@ -243,7 +391,8 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 					offset += 2;
 					break;
 				case 0x03: // Event
-					assert (offset + 2 <= size);
+					if (offset + 2 > size)
+						return PARSER_STATUS_ERROR;
 					type    = data[offset + 0];
 					seconds = data[offset + 1];
 					switch (type & 0x7F) {
@@ -321,7 +470,8 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 					offset += 2;
 					break;
 				case 0x04: // Bookmark/Heading
-					assert (offset + 4 <= size);
+					if (offset + 4 > size)
+						return PARSER_STATUS_ERROR;
 					unknown = data[offset + 0];
 					seconds = data[offset + 1];
 					heading = array_uint16_le (data + offset + 2);
@@ -337,7 +487,8 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 					offset += 4;
 					break;
 				case 0x05: // Gas Change
-					assert (offset + 2 <= size);
+					if (offset + 2 > size)
+						return PARSER_STATUS_ERROR;
 					percentage = data[offset + 0];
 					seconds = data[offset + 1];
 					sample.event.type = SAMPLE_EVENT_GASCHANGE;
@@ -347,7 +498,8 @@ suunto_d9_parser_samples_foreach (parser_t *abstract, sample_callback_t callback
 					offset += 2;
 					break;
 				case 0x06: // Gas Change
-					assert (offset + 4 <= size);
+					if (offset + 4 > size)
+						return PARSER_STATUS_ERROR;
 					unknown = data[offset + 0];
 					unknown = data[offset + 1];
 					percentage = data[offset + 2];

@@ -21,13 +21,13 @@
 
 #include <string.h> // memcpy
 #include <stdlib.h> // malloc, free
-#include <assert.h> // assert
 
 #include "device-private.h"
 #include "oceanic_common.h"
 #include "oceanic_atom2.h"
 #include "serial.h"
 #include "utils.h"
+#include "array.h"
 #include "ringbuffer.h"
 #include "checksum.h"
 
@@ -63,12 +63,21 @@ static const device_backend_t oceanic_atom2_device_backend = {
 	oceanic_atom2_device_close /* close */
 };
 
+static const unsigned char aeris_atmosai_version[] = "ATMOSAI R\0\0 512K";
+static const unsigned char aeris_epic_version[]  = "2M EPIC r\0\0 512K";
 static const unsigned char oceanic_proplus2_version[] = "PROPLUS2 \0\0 512K";
-static const unsigned char oceanic_wisdom2_version[] = "WISDOM R\0\0  512K";
+static const unsigned char oceanic_atom1_version[] = "ATOM rev\0\0  256K";
 static const unsigned char oceanic_atom2_version[] = "2M ATOM r\0\0 512K";
-static const unsigned char oceanic_epic_version[]  = "2M EPIC r\0\0 512K";
+static const unsigned char oceanic_atom3_version[] = "OCEATOM3 \0\0 1024";
+static const unsigned char oceanic_vt4_version[]   = "OCEANVT4 \0\0 1024";
 static const unsigned char oceanic_geo2_version[]  = "OCEGEO20 \0\0 512K";
 static const unsigned char oceanic_oc1_version[]   = "OCWATCH R\0\0 1024";
+static const unsigned char oceanic_veo2_version[]  = "OCEVEO20 \0\0 512K";
+static const unsigned char oceanic_veo3_version[]  = "OCEVEO30 \0\0 512K";
+static const unsigned char sherwood_insight_version[] = "INSIGHT2 \0\0 512K";
+static const unsigned char sherwood_wisdom2_version[] = "WISDOM R\0\0  512K";
+static const unsigned char tusa_element2_version[] = "ELEMENT2 \0\0 512K";
+static const unsigned char tusa_zen_version[]      = "TUSAZEN \0\0  512K";
 static const unsigned char tusa_zenair_version[]   = "TUZENAIR \0\0 512K";
 
 static const oceanic_common_layout_t oceanic_default_layout = {
@@ -83,7 +92,43 @@ static const oceanic_common_layout_t oceanic_default_layout = {
 	0 /* pt_mode_logbook */
 };
 
-static const oceanic_common_layout_t oceanic_atom2_layout = {
+static const oceanic_common_layout_t oceanic_atom1_layout = {
+	0x8000, /* memsize */
+	0x0000, /* cf_devinfo */
+	0x0040, /* cf_pointers */
+	0x0240, /* rb_logbook_begin */
+	0x0A40, /* rb_logbook_end */
+	0x0A40, /* rb_profile_begin */
+	0x8000, /* rb_profile_end */
+	0, /* pt_mode_global */
+	0 /* pt_mode_logbook */
+};
+
+static const oceanic_common_layout_t oceanic_atom2a_layout = {
+	0xFFF0, /* memsize */
+	0x0000, /* cf_devinfo */
+	0x0040, /* cf_pointers */
+	0x0240, /* rb_logbook_begin */
+	0x0A40, /* rb_logbook_end */
+	0x0A40, /* rb_profile_begin */
+	0xFE00, /* rb_profile_end */
+	0, /* pt_mode_global */
+	0 /* pt_mode_logbook */
+};
+
+static const oceanic_common_layout_t oceanic_atom2b_layout = {
+	0x10000, /* memsize */
+	0x0000, /* cf_devinfo */
+	0x0040, /* cf_pointers */
+	0x0240, /* rb_logbook_begin */
+	0x0A40, /* rb_logbook_end */
+	0x0A40, /* rb_profile_begin */
+	0xFE00, /* rb_profile_end */
+	0, /* pt_mode_global */
+	0 /* pt_mode_logbook */
+};
+
+static const oceanic_common_layout_t oceanic_atom2c_layout = {
 	0xFFF0, /* memsize */
 	0x0000, /* cf_devinfo */
 	0x0040, /* cf_pointers */
@@ -114,7 +159,7 @@ static const oceanic_common_layout_t oceanic_oc1_layout = {
 	0x0240, /* rb_logbook_begin */
 	0x0A40, /* rb_logbook_end */
 	0x0A40, /* rb_profile_begin */
-	0x20000, /* rb_profile_end */
+	0x1FE00, /* rb_profile_end */
 	0, /* pt_mode_global */
 	1 /* pt_mode_logbook */
 };
@@ -209,22 +254,6 @@ oceanic_atom2_transfer (oceanic_atom2_device_t *device, const unsigned char comm
 
 
 static device_status_t
-oceanic_atom2_init (oceanic_atom2_device_t *device)
-{
-	// Send the command to the dive computer.
-	unsigned char command[3] = {0xA8, 0x99, 0x00};
-	device_status_t rc = oceanic_atom2_send (device, command, sizeof (command), NAK);
-	if (rc != DEVICE_STATUS_SUCCESS)
-		return rc;
-
-	// Discard all additional bytes (if there are any)
-	serial_flush (device->port, SERIAL_QUEUE_INPUT);
-
-	return DEVICE_STATUS_SUCCESS;
-}
-
-
-static device_status_t
 oceanic_atom2_quit (oceanic_atom2_device_t *device)
 {
 	// Send the command to the dive computer.
@@ -288,18 +317,10 @@ oceanic_atom2_device_open (device_t **out, const char* name)
 	// Make sure everything is in a sane state.
 	serial_flush (device->port, SERIAL_QUEUE_BOTH);
 
-	// Send the init command.
-	device_status_t status = oceanic_atom2_init (device);
-	if (status != DEVICE_STATUS_SUCCESS) {
-		serial_close (device->port);
-		free (device);
-		return status;
-	}
-
 	// Switch the device from surface mode into download mode. Before sending
 	// this command, the device needs to be in PC mode (automatically activated
 	// by connecting the device), or already in download mode.
-	status = oceanic_atom2_device_version ((device_t *) device, device->version, sizeof (device->version));
+	device_status_t status = oceanic_atom2_device_version ((device_t *) device, device->version, sizeof (device->version));
 	if (status != DEVICE_STATUS_SUCCESS) {
 		serial_close (device->port);
 		free (device);
@@ -307,16 +328,30 @@ oceanic_atom2_device_open (device_t **out, const char* name)
 	}
 
 	// Override the base class values.
-	if (oceanic_common_match (oceanic_oc1_version, device->version, sizeof (device->version)))
+	if (oceanic_common_match (oceanic_oc1_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_atom3_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_vt4_version, device->version, sizeof (device->version)))
 		device->base.layout = &oceanic_oc1_layout;
 	else if (oceanic_common_match (tusa_zenair_version, device->version, sizeof (device->version)))
 		device->base.layout = &tusa_zenair_layout;
-	else if (oceanic_common_match (oceanic_atom2_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_epic_version, device->version, sizeof (device->version)) ||
+	else if (oceanic_common_match (oceanic_atom1_version, device->version, sizeof (device->version)))
+		device->base.layout = &oceanic_atom1_layout;
+	else if (oceanic_common_match (sherwood_insight_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (sherwood_wisdom2_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (aeris_atmosai_version, device->version, sizeof (device->version)) ||
 		oceanic_common_match (oceanic_geo2_version, device->version, sizeof (device->version)) ||
 		oceanic_common_match (oceanic_proplus2_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_wisdom2_version, device->version, sizeof (device->version)))
-		device->base.layout = &oceanic_atom2_layout;
+		(oceanic_common_match (oceanic_atom2_version, device->version, sizeof (device->version)) &&
+		 array_uint16_be (device->version + 0x09) >= 0x3349))
+		device->base.layout = &oceanic_atom2a_layout;
+	else if (oceanic_common_match (oceanic_veo2_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_veo3_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (tusa_element2_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (tusa_zen_version, device->version, sizeof (device->version)))
+		device->base.layout = &oceanic_atom2b_layout;
+	else if (oceanic_common_match (aeris_epic_version, device->version, sizeof (device->version)) ||
+		oceanic_common_match (oceanic_atom2_version, device->version, sizeof (device->version)))
+		device->base.layout = &oceanic_atom2c_layout;
 	else
 		device->base.layout = &oceanic_default_layout;
 
@@ -399,8 +434,9 @@ oceanic_atom2_device_read (device_t *abstract, unsigned int address, unsigned ch
 	if (! device_is_oceanic_atom2 (abstract))
 		return DEVICE_STATUS_TYPE_MISMATCH;
 
-	assert (address % PAGESIZE == 0);
-	assert (size    % PAGESIZE == 0);
+	if ((address % PAGESIZE != 0) ||
+		(size    % PAGESIZE != 0))
+		return DEVICE_STATUS_ERROR;
 	
 	// The data transmission is split in packages
 	// of maximum $PAGESIZE bytes.
@@ -437,8 +473,9 @@ oceanic_atom2_device_write (device_t *abstract, unsigned int address, const unsi
 	if (! device_is_oceanic_atom2 (abstract))
 		return DEVICE_STATUS_TYPE_MISMATCH;
 
-	assert (address % PAGESIZE == 0);
-	assert (size    % PAGESIZE == 0);
+	if ((address % PAGESIZE != 0) ||
+		(size    % PAGESIZE != 0))
+		return DEVICE_STATUS_ERROR;
 
 	// The data transmission is split in packages
 	// of maximum $PAGESIZE bytes.

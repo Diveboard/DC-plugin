@@ -42,7 +42,10 @@
 #include <hw.h>
 #include <cressi.h>
 #include <zeagle.h>
+#include <atomics.h>
 #include <utils.h>
+
+#include "common.h"
 
 static const char *g_cachedir = NULL;
 static int g_cachedir_read = 1;
@@ -87,10 +90,12 @@ static const backend_table_t g_backends[] = {
 	{"atom2",		DEVICE_TYPE_OCEANIC_ATOM2},
 	{"nemo",		DEVICE_TYPE_MARES_NEMO},
 	{"puck",		DEVICE_TYPE_MARES_PUCK},
+	{"darwinair",	DEVICE_TYPE_MARES_DARWINAIR},
 	{"iconhd",		DEVICE_TYPE_MARES_ICONHD},
 	{"ostc",		DEVICE_TYPE_HW_OSTC},
 	{"edy",			DEVICE_TYPE_CRESSI_EDY},
-	{"n2ition3",	DEVICE_TYPE_ZEAGLE_N2ITION3}
+	{"n2ition3",	DEVICE_TYPE_ZEAGLE_N2ITION3},
+	{"cobalt",		DEVICE_TYPE_ATOMICS_COBALT}
 };
 
 static device_type_t
@@ -330,15 +335,21 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	case DEVICE_TYPE_MARES_PUCK:
 		rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
 		break;
+	case DEVICE_TYPE_MARES_DARWINAIR:
+		rc = mares_darwinair_parser_create (&parser);
+		break;
 	case DEVICE_TYPE_MARES_ICONHD:
-		rc = mares_iconhd_parser_create (&parser);
+		rc = mares_iconhd_parser_create (&parser, devdata->devinfo.model);
 		break;
 	case DEVICE_TYPE_HW_OSTC:
 		rc = hw_ostc_parser_create (&parser);
 		break;
 	case DEVICE_TYPE_CRESSI_EDY:
 	case DEVICE_TYPE_ZEAGLE_N2ITION3:
-		rc = cressi_edy_parser_create (&parser);
+		rc = cressi_edy_parser_create (&parser, devdata->devinfo.model);
+		break;
+	case DEVICE_TYPE_ATOMICS_COBALT:
+		rc = atomics_cobalt_parser_create (&parser);
 		break;
 	default:
 		rc = PARSER_STATUS_ERROR;
@@ -371,6 +382,62 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	fprintf (fp, "<datetime>%04i-%02i-%02i %02i:%02i:%02i</datetime>\n",
 		dt.year, dt.month, dt.day,
 		dt.hour, dt.minute, dt.second);
+
+	// Parse the divetime.
+	message ("Parsing the divetime.\n");
+	unsigned int divetime = 0;
+	rc = parser_get_field (parser, FIELD_TYPE_DIVETIME, 0, &divetime);
+	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+		WARNING ("Error parsing the divetime.");
+		parser_destroy (parser);
+		return rc;
+	}
+
+	fprintf (fp, "<divetime>%02u:%02u</divetime>\n",
+		divetime / 60, divetime % 60);
+
+	// Parse the maxdepth.
+	message ("Parsing the maxdepth.\n");
+	double maxdepth = 0.0;
+	rc = parser_get_field (parser, FIELD_TYPE_MAXDEPTH, 0, &maxdepth);
+	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+		WARNING ("Error parsing the maxdepth.");
+		parser_destroy (parser);
+		return rc;
+	}
+
+	fprintf (fp, "<maxdepth>%.2f</maxdepth>\n",
+		maxdepth);
+
+	// Parse the gas mixes.
+	message ("Parsing the gas mixes.\n");
+	unsigned int ngases = 0;
+	rc = parser_get_field (parser, FIELD_TYPE_GASMIX_COUNT, 0, &ngases);
+	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+		WARNING ("Error parsing the gas mix count.");
+		parser_destroy (parser);
+		return rc;
+	}
+
+	for (unsigned int i = 0; i < ngases; ++i) {
+		gasmix_t gasmix = {0};
+		rc = parser_get_field (parser, FIELD_TYPE_GASMIX, i, &gasmix);
+		if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+			WARNING ("Error parsing the gas mix.");
+			parser_destroy (parser);
+			return rc;
+		}
+
+		fprintf (fp,
+			"<gasmix>\n"
+			"   <he>%.1f</he>\n"
+			"   <o2>%.1f</o2>\n"
+			"   <n2>%.1f</n2>\n"
+			"</gasmix>\n",
+			gasmix.helium * 100.0,
+			gasmix.oxygen * 100.0,
+			gasmix.nitrogen * 100.0);
+	}
 
 	// Initialize the sample data.
 	sample_data_t sampledata = {0};
@@ -474,33 +541,6 @@ dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fing
 }
 
 
-static const char*
-errmsg (device_status_t rc)
-{
-	switch (rc) {
-	case DEVICE_STATUS_SUCCESS:
-		return "Success";
-	case DEVICE_STATUS_UNSUPPORTED:
-		return "Unsupported operation";
-	case DEVICE_STATUS_TYPE_MISMATCH:
-		return "Device type mismatch";
-	case DEVICE_STATUS_ERROR:
-		return "Generic error";
-	case DEVICE_STATUS_IO:
-		return "Input/output error";
-	case DEVICE_STATUS_MEMORY:
-		return "Memory error";
-	case DEVICE_STATUS_PROTOCOL:
-		return "Protocol error";
-	case DEVICE_STATUS_TIMEOUT:
-		return "Timeout";
-	case DEVICE_STATUS_CANCELLED:
-		return "Cancelled";
-	default:
-		return "Unknown error";
-	}
-}
-
 static void
 usage (const char *filename)
 {
@@ -594,6 +634,9 @@ dowork (device_type_t backend, const char *devname, const char *rawfile, const c
 	case DEVICE_TYPE_MARES_PUCK:
 		rc = mares_puck_device_open (&device, devname);
 		break;
+	case DEVICE_TYPE_MARES_DARWINAIR:
+		rc = mares_darwinair_device_open (&device, devname);
+		break;
 	case DEVICE_TYPE_MARES_ICONHD:
 		rc = mares_iconhd_device_open (&device, devname);
 		break;
@@ -605,6 +648,9 @@ dowork (device_type_t backend, const char *devname, const char *rawfile, const c
 		break;
 	case DEVICE_TYPE_ZEAGLE_N2ITION3:
 		rc = zeagle_n2ition3_device_open (&device, devname);
+		break;
+	case DEVICE_TYPE_ATOMICS_COBALT:
+		rc = atomics_cobalt_device_open (&device);
 		break;
 	default:
 		rc = DEVICE_STATUS_ERROR;

@@ -46,6 +46,8 @@ struct parser_backend_t {
 
 	parser_status_t (*datetime) (parser_t *parser, dc_datetime_t *datetime);
 
+	parser_status_t (*field) (parser_t *parser, parser_field_type_t type, unsigned int flags, void *value);
+
 	parser_status_t (*samples_foreach) (parser_t *parser, sample_callback_t callback, void *userdata);
 
 	parser_status_t (*destroy) (parser_t *parser);
@@ -53,6 +55,16 @@ struct parser_backend_t {
 
 void
 parser_init (parser_t *parser, const parser_backend_t *backend);
+
+typedef struct sample_statistics_t {
+	unsigned int divetime;
+	double maxdepth;
+} sample_statistics_t;
+
+#define SAMPLE_STATISTICS_INITIALIZER {0, 0.0}
+
+void
+sample_statistics_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdata);
 
 #ifdef __cplusplus
 }

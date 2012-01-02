@@ -19,6 +19,7 @@ dc_datetime_gmtime
 parser_get_type
 parser_set_data
 parser_get_datetime
+parser_get_field
 parser_samples_foreach
 parser_destroy
 
@@ -35,12 +36,15 @@ suunto_solution_parser_create
 suunto_eon_parser_create
 suunto_d9_parser_create
 mares_nemo_parser_create
+mares_darwin_parser_create
 mares_iconhd_parser_create
 oceanic_vtpro_parser_create
 oceanic_veo250_parser_create
 oceanic_atom2_parser_create
 hw_ostc_parser_create
 cressi_edy_parser_create
+atomics_cobalt_parser_create
+atomics_cobalt_parser_set_calibration
 
 device_close
 device_dump
@@ -61,6 +65,8 @@ mares_nemo_device_open
 mares_nemo_extract_dives
 mares_puck_device_open
 mares_puck_extract_dives
+mares_darwin_device_open
+mares_darwin_extract_dives
 mares_iconhd_device_open
 mares_iconhd_extract_dives
 oceanic_atom2_device_open
@@ -111,5 +117,13 @@ uwatec_smart_device_open
 uwatec_smart_device_set_timestamp
 uwatec_smart_extract_dives
 hw_ostc_device_open
+hw_ostc_device_md2hash
+hw_ostc_device_clock
+hw_ostc_device_eeprom_read
+hw_ostc_device_eeprom_write
+hw_ostc_device_reset
+hw_ostc_device_screenshot
 hw_ostc_extract_dives
 zeagle_n2ition3_device_open
+atomics_cobalt_device_open
+atomics_cobalt_device_set_simulation

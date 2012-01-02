@@ -18,8 +18,11 @@ mkdir -p $OUTDIR
 ###
 ### Rebuilds the software
 ###
-#xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
-#xcodebuild -project $DIR/build/FireBreath.xcodeproj clean
+if [ "X$1" == "X--clean" ] 
+then
+  xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
+  xcodebuild -project $DIR/build/FireBreath.xcodeproj clean
+fi
 xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj build
 xcodebuild -project $DIR/build/FireBreath.xcodeproj build
 

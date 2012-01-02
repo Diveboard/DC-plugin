@@ -21,7 +21,6 @@
 
 #include <stdlib.h>
 #include <string.h>	// memcmp
-#include <assert.h>
 
 #include "reefnet_sensusultra.h"
 #include "parser-private.h"
@@ -39,10 +38,15 @@ struct reefnet_sensusultra_parser_t {
 	// Clock synchronization.
 	unsigned int devtime;
 	dc_ticks_t systime;
+	// Cached fields.
+	unsigned int cached;
+	unsigned int divetime;
+	unsigned int maxdepth;
 };
 
 static parser_status_t reefnet_sensusultra_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
 static parser_status_t reefnet_sensusultra_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
+static parser_status_t reefnet_sensusultra_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
 static parser_status_t reefnet_sensusultra_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
 static parser_status_t reefnet_sensusultra_parser_destroy (parser_t *abstract);
 
@@ -50,6 +54,7 @@ static const parser_backend_t reefnet_sensusultra_parser_backend = {
 	PARSER_TYPE_REEFNET_SENSUSULTRA,
 	reefnet_sensusultra_parser_set_data, /* set_data */
 	reefnet_sensusultra_parser_get_datetime, /* datetime */
+	reefnet_sensusultra_parser_get_field, /* fields */
 	reefnet_sensusultra_parser_samples_foreach, /* samples_foreach */
 	reefnet_sensusultra_parser_destroy /* destroy */
 };
@@ -86,6 +91,9 @@ reefnet_sensusultra_parser_create (parser_t **out, unsigned int devtime, dc_tick
 	parser->hydrostatic = 1025.0 * GRAVITY;
 	parser->devtime = devtime;
 	parser->systime = systime;
+	parser->cached = 0;
+	parser->divetime = 0;
+	parser->maxdepth = 0;
 
 	*out = (parser_t*) parser;
 
@@ -109,8 +117,15 @@ reefnet_sensusultra_parser_destroy (parser_t *abstract)
 static parser_status_t
 reefnet_sensusultra_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size)
 {
+	reefnet_sensusultra_parser_t *parser = (reefnet_sensusultra_parser_t*) abstract;
+
 	if (! parser_is_reefnet_sensusultra (abstract))
 		return PARSER_STATUS_TYPE_MISMATCH;
+
+	// Reset the cache.
+	parser->cached = 0;
+	parser->divetime = 0;
+	parser->maxdepth = 0;
 
 	return PARSER_STATUS_SUCCESS;
 }
@@ -151,6 +166,64 @@ reefnet_sensusultra_parser_get_datetime (parser_t *abstract, dc_datetime_t *date
 
 
 static parser_status_t
+reefnet_sensusultra_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+{
+	reefnet_sensusultra_parser_t *parser = (reefnet_sensusultra_parser_t *) abstract;
+
+	if (abstract->size < 20)
+		return PARSER_STATUS_ERROR;
+
+	if (!parser->cached) {
+		const unsigned char footer[4] = {0xFF, 0xFF, 0xFF, 0xFF};
+
+		const unsigned char *data = abstract->data;
+		unsigned int size = abstract->size;
+
+		unsigned int interval = array_uint16_le (data + 8);
+		unsigned int threshold = array_uint16_le (data + 10);
+
+		unsigned int maxdepth = 0;
+		unsigned int nsamples = 0;
+		unsigned int offset = 16;
+		while (offset + sizeof (footer) <= size &&
+			memcmp (data + offset, footer, sizeof (footer)) != 0)
+		{
+			unsigned int depth = array_uint16_le (data + offset + 2);
+			if (depth >= threshold) {
+				if (depth > maxdepth)
+					maxdepth = depth;
+				nsamples++;
+			}
+
+			offset += 4;
+		}
+
+		parser->cached = 1;
+		parser->divetime = nsamples * interval;
+		parser->maxdepth = maxdepth;
+	}
+
+	if (value) {
+		switch (type) {
+		case FIELD_TYPE_DIVETIME:
+			*((unsigned int *) value) = parser->divetime;
+			break;
+		case FIELD_TYPE_MAXDEPTH:
+			*((double *) value) = (parser->maxdepth * BAR / 1000.0 - parser->atmospheric) / parser->hydrostatic;
+			break;
+		case FIELD_TYPE_GASMIX_COUNT:
+			*((unsigned int *) value) = 0;
+			break;
+		default:
+			return PARSER_STATUS_UNSUPPORTED;
+		}
+	}
+
+	return PARSER_STATUS_SUCCESS;
+}
+
+
+static parser_status_t
 reefnet_sensusultra_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
 {
 	reefnet_sensusultra_parser_t *parser = (reefnet_sensusultra_parser_t*) abstract;
@@ -167,7 +240,8 @@ reefnet_sensusultra_parser_samples_foreach (parser_t *abstract, sample_callback_
 	unsigned int offset = 0;
 	while (offset + sizeof (header) <= size) {
 		if (memcmp (data + offset, header, sizeof (header)) == 0) {
-			assert (offset + 16 <= size);
+			if (offset + 16 > size)
+				return PARSER_STATUS_ERROR;
 
 			unsigned int time = 0;
 			unsigned int interval = array_uint16_le (data + offset + 8);
@@ -179,6 +253,7 @@ reefnet_sensusultra_parser_samples_foreach (parser_t *abstract, sample_callback_
 				parser_sample_value_t sample = {0};
 
 				// Time (seconds)
+				time += interval;
 				sample.time = time;
 				if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
 
@@ -192,7 +267,6 @@ reefnet_sensusultra_parser_samples_foreach (parser_t *abstract, sample_callback_
 				sample.depth = (depth * BAR / 1000.0 - parser->atmospheric) / parser->hydrostatic;
 				if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
 
-				time += interval;
 				offset += 4;
 			}
 			break;

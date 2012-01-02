@@ -129,7 +129,6 @@ zeagle_n2ition3_init (zeagle_n2ition3_device_t *device)
 {
 	unsigned char answer[6 + 13] = {0};
 	unsigned char command[6] = {0x02, 0x01, 0x00, 0x41, 0xBF, 0x03};
-	command[11] = ~checksum_add_uint8 (command + 3, 8, 0x00) + 1;
 
 	return zeagle_n2ition3_packet (device, command, sizeof (command), answer, sizeof (answer));
 }
@@ -309,12 +308,23 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 	// Get the logbook pointers.
 	unsigned int last  = config[0x7C];
 	unsigned int first = config[0x7D];
+	if (first < RB_LOGBOOK_BEGIN || first >= RB_LOGBOOK_END ||
+		last < RB_LOGBOOK_BEGIN || last >= RB_LOGBOOK_END) {
+		if (last == 0xFF)
+			return DEVICE_STATUS_SUCCESS;
+		WARNING ("Invalid ringbuffer pointer detected.");
+		return DEVICE_STATUS_ERROR;
+	}
 
 	// Get the number of logbook items.
 	unsigned int count = ringbuffer_distance (first, last, 0, RB_LOGBOOK_BEGIN, RB_LOGBOOK_END) + 1;
 
 	// Get the profile pointer.
 	unsigned int eop = array_uint16_le (config + 0x7E);
+	if (eop < RB_PROFILE_BEGIN || eop >= RB_PROFILE_END) {
+		WARNING ("Invalid ringbuffer pointer detected.");
+		return DEVICE_STATUS_ERROR;
+	}
 	
 	// The logbook ringbuffer can store at most 60 dives, even if the profile
 	// data could store more (e.g. many small dives). But it's also possible
@@ -326,6 +336,10 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 	for (unsigned int i = 0; i < count; ++i) {
 		// Get the pointer to the profile data.
 		unsigned int current = array_uint16_le (config + 2 * idx);
+		if (current < RB_PROFILE_BEGIN || current >= RB_PROFILE_END) {
+			WARNING ("Invalid ringbuffer pointer detected.");
+			return DEVICE_STATUS_ERROR;
+		}
 
 		// Get the profile length.
 		unsigned int length = ringbuffer_distance (current, previous, 1, RB_PROFILE_BEGIN, RB_PROFILE_END);

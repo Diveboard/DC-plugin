@@ -32,30 +32,30 @@ libdivecomputer_HEADERS = 	\
 	mares.h \
 	mares_nemo.h \
 	mares_puck.h \
+	mares_darwin.h \
 	mares_iconhd.h \
 	hw.h \
 	hw_ostc.h \
 	cressi.h \
 	cressi_edy.h \
 	zeagle.h \
-	zeagle_n2ition3.h
+	zeagle_n2ition3.h \
+	atomics.h \
+	atomics_cobalt.h
 
 #
 # Source files.
 #
 
+AM_CFLAGS = $(LIBUSB_CFLAGS)
+
 lib_LTLIBRARIES = libdivecomputer.la
 
+libdivecomputer_la_LIBADD = $(LIBUSB_LIBS)
 libdivecomputer_la_LDFLAGS = \
 	-version-info $(DC_VERSION_LIBTOOL) \
 	-no-undefined \
 	-export-symbols libdivecomputer.exp
-
-if OS_WIN32
-libdivecomputer_la_LDFLAGS += -Wl,--output-def,libdivecomputer.def
-defdir = $(libdir)
-dist_def_DATA = libdivecomputer.def
-endif
 
 libdivecomputer_la_SOURCES = \
 	version.c \
@@ -87,6 +87,7 @@ libdivecomputer_la_SOURCES = \
 	mares_common.h mares_common.c \
 	mares_nemo.h mares_nemo.c mares_nemo_parser.c \
 	mares_puck.h mares_puck.c \
+	mares_darwin.h mares_darwin.c mares_darwin_parser.c \
 	mares_iconhd.h mares_iconhd.c mares_iconhd_parser.c \
 	hw.h \
 	hw_ostc.h hw_ostc.c hw_ostc_parser.c \
@@ -94,6 +95,8 @@ libdivecomputer_la_SOURCES = \
 	cressi_edy.h cressi_edy.c cressi_edy_parser.c \
 	zeagle.h \
 	zeagle_n2ition3.h zeagle_n2ition3.c \
+	atomics.h \
+	atomics_cobalt.h atomics_cobalt.c atomics_cobalt_parser.c \
 	ringbuffer.h ringbuffer.c \
 	checksum.h checksum.c \
 	array.h array.c \
@@ -108,7 +111,7 @@ endif
 
 if IRDA
 if OS_WIN32
-libdivecomputer_la_LIBADD = -lws2_32
+libdivecomputer_la_LIBADD += -lws2_32
 endif
 libdivecomputer_la_SOURCES += irda.h irda.c
 else

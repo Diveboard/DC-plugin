@@ -23,10 +23,13 @@
 #define MARES_COMMON_H
 
 #include "device-private.h"
+#include "serial.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#define PACKETSIZE 0x20
 
 typedef struct mares_common_layout_t {
 	unsigned int memsize;
@@ -38,18 +41,19 @@ typedef struct mares_common_layout_t {
 
 typedef struct mares_common_device_t {
 	device_t base;
-	unsigned char fingerprint[5];
-	const mares_common_layout_t *layout;
+	serial_t *port;
+	unsigned int echo;
+	unsigned int delay;
 } mares_common_device_t;
 
 void
 mares_common_device_init (mares_common_device_t *device, const device_backend_t *backend);
 
 device_status_t
-mares_common_device_set_fingerprint (device_t *device, const unsigned char data[], unsigned int size);
+mares_common_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
 
 device_status_t
-mares_common_extract_dives (mares_common_device_t *device, const mares_common_layout_t *layout, const unsigned char data[], dive_callback_t callback, void *userdata);
+mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dive_callback_t callback, void *userdata);
 
 #ifdef __cplusplus
 }

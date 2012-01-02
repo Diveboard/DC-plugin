@@ -40,12 +40,14 @@ typedef enum parser_type_t {
 	PARSER_TYPE_UWATEC_MEMOMOUSE,
 	PARSER_TYPE_UWATEC_SMART,
 	PARSER_TYPE_MARES_NEMO,
+	PARSER_TYPE_MARES_DARWIN,
 	PARSER_TYPE_MARES_ICONHD,
 	PARSER_TYPE_OCEANIC_VTPRO,
 	PARSER_TYPE_OCEANIC_VEO250,
 	PARSER_TYPE_OCEANIC_ATOM2,
 	PARSER_TYPE_HW_OSTC,
-	PARSER_TYPE_CRESSI_EDY
+	PARSER_TYPE_CRESSI_EDY,
+	PARSER_TYPE_ATOMICS_COBALT
 } parser_type_t;
 
 typedef enum parser_status_t {
@@ -67,6 +69,14 @@ typedef enum parser_sample_type_t {
 	SAMPLE_TYPE_BEARING,
 	SAMPLE_TYPE_VENDOR
 } parser_sample_type_t;
+
+typedef enum parser_field_type_t {
+	FIELD_TYPE_DIVETIME,
+	FIELD_TYPE_MAXDEPTH,
+	FIELD_TYPE_AVGDEPTH,
+	FIELD_TYPE_GASMIX_COUNT,
+	FIELD_TYPE_GASMIX
+} parser_field_type_t;
 
 typedef enum parser_sample_event_t {
 	SAMPLE_EVENT_NONE,
@@ -111,6 +121,12 @@ typedef enum parser_sample_vendor_t {
 	SAMPLE_VENDOR_OCEANIC_ATOM2
 } parser_sample_vendor_t;
 
+typedef struct gasmix_t {
+	double helium;
+	double oxygen;
+	double nitrogen;
+} gasmix_t;
+
 typedef union parser_sample_value_t {
 	unsigned int time;
 	double depth;
@@ -147,6 +163,9 @@ parser_set_data (parser_t *parser, const unsigned char *data, unsigned int size)
 
 parser_status_t
 parser_get_datetime (parser_t *parser, dc_datetime_t *datetime);
+
+parser_status_t
+parser_get_field (parser_t *parser, parser_field_type_t type, unsigned int flags, void *value);
 
 parser_status_t
 parser_samples_foreach (parser_t *parser, sample_callback_t callback, void *userdata);

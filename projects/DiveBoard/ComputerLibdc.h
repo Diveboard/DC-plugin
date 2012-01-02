@@ -27,6 +27,7 @@ typedef struct device_data_t {
 
 
 //For DLL loading
+typedef void (__cdecl LDCSETLOGFILE)(const char* );
 typedef device_status_t (__cdecl LDCOPEN2)(device_t**, const char *);
 typedef device_status_t (__cdecl LDCOPEN1)(device_t**);
 typedef parser_status_t (__cdecl LDCPARSER)(parser_t**);

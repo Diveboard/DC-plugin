@@ -91,6 +91,19 @@ serial_open (serial_t **out, const char* name)
 	if (out == NULL)
 		return -1; // ERROR_INVALID_PARAMETER (The parameter is incorrect)
 
+	// Build the device name.
+	const char *devname = NULL;
+	char buffer[MAX_PATH] = "\\\\.\\";
+	if (name && strncmp (name, buffer, 4) != 0) {
+		size_t length = strlen (name) + 1;
+		if (length + 4 > sizeof (buffer))
+			return -1;
+		memcpy (buffer + 4, name, length);
+		devname = buffer;
+	} else {
+		devname = name;
+	}
+
 	// Allocate memory.
 	serial_t *device = (serial_t *) malloc (sizeof (serial_t));
 	if (device == NULL) {
@@ -99,7 +112,7 @@ serial_open (serial_t **out, const char* name)
 	}
 
 	// Open the device.
-	device->hFile = CreateFileA (name, 
+	device->hFile = CreateFileA (devname,
 			GENERIC_READ | GENERIC_WRITE, 0,
 			NULL, // No security attributes.
 			OPEN_EXISTING,
@@ -181,24 +194,7 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 	dcb.fAbortOnError = FALSE;
 
 	// Baudrate.
-	switch (baudrate) {
-	case 110: dcb.BaudRate = CBR_110; break;
-	case 300: dcb.BaudRate = CBR_300; break;
-	case 600: dcb.BaudRate = CBR_600; break;
-	case 1200: dcb.BaudRate = CBR_1200; break;
-	case 2400: dcb.BaudRate = CBR_2400; break;
-	case 4800: dcb.BaudRate = CBR_4800; break;
-	case 9600: dcb.BaudRate = CBR_9600; break;
-	case 14400: dcb.BaudRate = CBR_14400; break;
-	case 19200: dcb.BaudRate = CBR_19200; break;
-	case 38400: dcb.BaudRate = CBR_38400; break;
-	case 57600: dcb.BaudRate = CBR_57600; break;
-	case 115200: dcb.BaudRate = CBR_115200; break;
-	case 128000: dcb.BaudRate = CBR_128000; break;
-	case 256000: dcb.BaudRate = CBR_256000; break;
-	default:
-		return -1;
-	}
+	dcb.BaudRate = baudrate;
 
 	// Character size.
 	if (databits >= 5 && databits <= 8)

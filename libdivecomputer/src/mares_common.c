@@ -24,8 +24,16 @@
 #include <assert.h> // assert
 
 #include "mares_common.h"
+#include "checksum.h"
 #include "utils.h"
 #include "array.h"
+
+#define EXITCODE(rc) \
+( \
+	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
+)
+
+#define MAXRETRIES 4
 
 #define FP_OFFSET 8
 #define FP_SIZE   5
@@ -39,32 +47,206 @@ mares_common_device_init (mares_common_device_t *device, const device_backend_t 
 	device_init (&device->base, backend);
 
 	// Set the default values.
-	memset (device->fingerprint, 0, sizeof (device->fingerprint));
-	device->layout = NULL;
+	device->port = NULL;
+	device->echo = 0;
+	device->delay = 0;
+}
+
+
+static void
+mares_common_convert_binary_to_ascii (const unsigned char input[], unsigned int isize, unsigned char output[], unsigned int osize)
+{
+	assert (osize == 2 * isize);
+
+	const unsigned char ascii[] = {
+		'0', '1', '2', '3', '4', '5', '6', '7',
+		'8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+	for (unsigned int i = 0; i < isize; ++i) {
+		// Set the most-significant nibble.
+		unsigned char msn = (input[i] >> 4) & 0x0F;
+		output[i * 2 + 0] = ascii[msn];
+
+		// Set the least-significant nibble.
+		unsigned char lsn = input[i] & 0x0F;
+		output[i * 2 + 1] = ascii[lsn];
+	}
+}
+
+
+static void
+mares_common_convert_ascii_to_binary (const unsigned char input[], unsigned int isize, unsigned char output[], unsigned int osize)
+{
+	assert (isize == 2 * osize);
+
+	for (unsigned int i = 0; i < osize; ++i) {
+		unsigned char value = 0;
+		for (unsigned int j = 0; j < 2; ++j) {
+			unsigned char number = 0;
+			unsigned char ascii = input[i * 2 + j];
+			if (ascii >= '0' && ascii <= '9')
+				number = ascii - '0';
+			else if (ascii >= 'A' && ascii <= 'F')
+				number = 10 + ascii - 'A';
+			else if (ascii >= 'a' && ascii <= 'f')
+				number = 10 + ascii - 'a';
+			else
+				WARNING ("Invalid charachter.");
+
+			value <<= 4;
+			value += number;
+		}
+		output[i] = value;
+	}
+}
+
+
+static void
+mares_common_make_ascii (const unsigned char raw[], unsigned int rsize, unsigned char ascii[], unsigned int asize)
+{
+	assert (asize == 2 * (rsize + 2));
+
+	// Header
+	ascii[0] = '<';
+
+	// Data
+	mares_common_convert_binary_to_ascii (raw, rsize, ascii + 1, 2 * rsize);
+
+	// Checksum
+	unsigned char checksum = checksum_add_uint8 (ascii + 1, 2 * rsize, 0x00);
+	mares_common_convert_binary_to_ascii (&checksum, 1, ascii + 1 + 2 * rsize, 2);
+
+	// Trailer
+	ascii[asize - 1] = '>';
+}
+
+
+static device_status_t
+mares_common_packet (mares_common_device_t *device, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize)
+{
+	device_t *abstract = (device_t *) device;
+
+	if (device_is_cancelled (abstract))
+		return DEVICE_STATUS_CANCELLED;
+
+	if (device->delay) {
+		serial_sleep (device->delay);
+	}
+
+	// Send the command to the device.
+	int n = serial_write (device->port, command, csize);
+	if (n != csize) {
+		WARNING ("Failed to send the command.");
+		return EXITCODE (n);
+	}
+
+	if (device->echo) {
+		// Receive the echo of the command.
+		unsigned char echo[PACKETSIZE] = {0};
+		n = serial_read (device->port, echo, csize);
+		if (n != csize) {
+			WARNING ("Failed to receive the echo.");
+			return EXITCODE (n);
+		}
+
+		// Verify the echo.
+		if (memcmp (echo, command, csize) != 0) {
+			WARNING ("Unexpected echo.");
+			return DEVICE_STATUS_PROTOCOL;
+		}
+	}
+
+	// Receive the answer of the device.
+	n = serial_read (device->port, answer, asize);
+	if (n != asize) {
+		WARNING ("Failed to receive the answer.");
+		return EXITCODE (n);
+	}
+
+	// Verify the header and trailer of the packet.
+	if (answer[0] != '<' || answer[asize - 1] != '>') {
+		WARNING ("Unexpected answer header/trailer byte.");
+		return DEVICE_STATUS_PROTOCOL;
+	}
+
+	// Verify the checksum of the packet.
+	unsigned char crc = 0;
+	unsigned char ccrc = checksum_add_uint8 (answer + 1, asize - 4, 0x00);
+	mares_common_convert_ascii_to_binary (answer + asize - 3, 2, &crc, 1);
+	if (crc != ccrc) {
+		WARNING ("Unexpected answer CRC.");
+		return DEVICE_STATUS_PROTOCOL;
+	}
+
+	return DEVICE_STATUS_SUCCESS;
+}
+
+
+static device_status_t
+mares_common_transfer (mares_common_device_t *device, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize)
+{
+	unsigned int nretries = 0;
+	device_status_t rc = DEVICE_STATUS_SUCCESS;
+	while ((rc = mares_common_packet (device, command, csize, answer, asize)) != DEVICE_STATUS_SUCCESS) {
+		// Automatically discard a corrupted packet,
+		// and request a new one.
+		if (rc != DEVICE_STATUS_PROTOCOL && rc != DEVICE_STATUS_TIMEOUT)
+			return rc;
+
+		// Abort if the maximum number of retries is reached.
+		if (nretries++ >= MAXRETRIES)
+			return rc;
+	}
+
+	return rc;
 }
 
 
 device_status_t
-mares_common_device_set_fingerprint (device_t *abstract, const unsigned char data[], unsigned int size)
+mares_common_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
-	mares_common_device_t *device = (mares_common_device_t *) abstract;
+	mares_common_device_t *device = (mares_common_device_t*) abstract;
 
-	assert (device != NULL);
+	// The data transmission is split in packages
+	// of maximum $PACKETSIZE bytes.
 
-	if (size && size != sizeof (device->fingerprint))
-		return DEVICE_STATUS_ERROR;
+	unsigned int nbytes = 0;
+	while (nbytes < size) {
+		// Calculate the packet size.
+		unsigned int len = size - nbytes;
+		if (len > PACKETSIZE)
+			len = PACKETSIZE;
 
-	if (size)
-		memcpy (device->fingerprint, data, sizeof (device->fingerprint));
-	else
-		memset (device->fingerprint, 0, sizeof (device->fingerprint));
+		// Build the raw command.
+		unsigned char raw[] = {0x51,
+			(address     ) & 0xFF, // Low
+			(address >> 8) & 0xFF, // High
+			len}; // Count
+
+		// Build the ascii command.
+		unsigned char command[2 * (sizeof (raw) + 2)] = {0};
+		mares_common_make_ascii (raw, sizeof (raw), command, sizeof (command));
+
+		// Send the command and receive the answer.
+		unsigned char answer[2 * (PACKETSIZE + 2)] = {0};
+		device_status_t rc = mares_common_transfer (device, command, sizeof (command), answer, 2 * (len + 2));
+		if (rc != DEVICE_STATUS_SUCCESS)
+			return rc;
+
+		// Extract the raw data from the packet.
+		mares_common_convert_ascii_to_binary (answer + 1, 2 * len, data, len);
+
+		nbytes += len;
+		address += len;
+		data += len;
+	}
 
 	return DEVICE_STATUS_SUCCESS;
 }
 
 
 device_status_t
-mares_common_extract_dives (mares_common_device_t *device, const mares_common_layout_t *layout, const unsigned char data[], dive_callback_t callback, void *userdata)
+mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dive_callback_t callback, void *userdata)
 {
 	assert (layout != NULL);
 
@@ -191,7 +373,11 @@ mares_common_extract_dives (mares_common_device_t *device, const mares_common_la
 			// Verify that the number of freedive entries in the session
 			// equals the number of freedives in the profile data. If
 			// both values are different, the profile data is incomplete.
-			assert (count == nsamples);
+			if (count != nsamples) {
+				WARNING ("Unexpected number of freedive sessions.");
+				free (buffer);
+				return DEVICE_STATUS_ERROR;
+			}
 
 			// Append the profile data to the main logbook entry. The
 			// buffer is guaranteed to have enough space, and the dives
@@ -201,12 +387,12 @@ mares_common_extract_dives (mares_common_device_t *device, const mares_common_la
 		}
 
 		unsigned int fp_offset = offset + length - extra - FP_OFFSET;
-		if (device && memcmp (buffer + fp_offset, device->fingerprint, sizeof (device->fingerprint)) == 0) {
+		if (fingerprint && memcmp (buffer + fp_offset, fingerprint, FP_SIZE) == 0) {
 			free (buffer);
 			return DEVICE_STATUS_SUCCESS;
 		}
 
-		if (callback && !callback (buffer + offset, nbytes, buffer + fp_offset, sizeof (device->fingerprint), userdata)) {
+		if (callback && !callback (buffer + offset, nbytes, buffer + fp_offset, FP_SIZE, userdata)) {
 			free (buffer);
 			return DEVICE_STATUS_SUCCESS;
 		}

@@ -21,7 +21,6 @@
 
 #include <string.h> // memcpy
 #include <stdlib.h> // malloc, free
-#include <assert.h> // assert
 
 #include "device-private.h"
 #include "oceanic_common.h"
@@ -179,6 +178,8 @@ oceanic_veo250_init (oceanic_veo250_device_t *device)
 	n = serial_read (device->port, answer, sizeof (answer));
 	if (n != sizeof (answer)) {
 		WARNING ("Failed to receive the answer.");
+		if (n == 0)
+			return DEVICE_STATUS_SUCCESS;
 		return EXITCODE (n);
 	}
 
@@ -392,8 +393,9 @@ oceanic_veo250_device_read (device_t *abstract, unsigned int address, unsigned c
 	if (! device_is_oceanic_veo250 (abstract))
 		return DEVICE_STATUS_TYPE_MISMATCH;
 
-	assert (address % PAGESIZE == 0);
-	assert (size    % PAGESIZE == 0);
+	if ((address % PAGESIZE != 0) ||
+		(size    % PAGESIZE != 0))
+		return DEVICE_STATUS_ERROR;
 
 	// The data transmission is split in packages
 	// of maximum $PAGESIZE bytes.

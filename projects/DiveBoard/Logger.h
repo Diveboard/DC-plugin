@@ -14,6 +14,8 @@
 #define LOGWARNING(...) Logger::appendL(__LINE__, __THIS_FILE__, "WARNING", __VA_ARGS__)
 #define LOGINFO(...) Logger::appendL(__LINE__, __THIS_FILE__, "INFO", __VA_ARGS__)
 #define LOGDEBUG(...) Logger::appendL(__LINE__, __THIS_FILE__, "DEBUG", __VA_ARGS__)
+#define LOGFILE(...) Logger::appendF(__LINE__, __THIS_FILE__, "DEBUG", __VA_ARGS__)
+
 
 #define DBthrowError(...) Logger::addnthrow(__LINE__, __THIS_FILE__, "ERROR", __VA_ARGS__)
 
@@ -43,6 +45,7 @@ public:
 	static void append(const char *pstrFormat, ...);
 	static void appendL(int line, const char*file, const char * level, std::string s);
 	static void appendL(int line, const char*file, const char * level, const char *pstrFormat, ...);
+	static void appendF(int line, const char*file, const char * level, std::string filename);
 	static void addnthrow(int line, const char*file, const char * level, std::string s);
 	static void addnthrow(int line, const char*file, const char * level, const char *pstrFormat, ...);
 	static void binary(const std::string &type, unsigned char *data, unsigned int len);
