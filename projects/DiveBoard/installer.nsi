@@ -20,7 +20,7 @@ XPStyle on
 
 RequestExecutionLevel admin
 
-!define DLL_LibDiveComputer '"..\..\libdivecomputer\Release\libdivecomputer.dll"'
+!define DLL_LibDiveComputer '"..\..\libdivecomputer\msvc\Release\libdivecomputer.dll"'
 !define DLL_DiveBoardPlugin '"..\..\build\bin\DiveBoard\Release\npDiveBoard.dll"'
 
 
