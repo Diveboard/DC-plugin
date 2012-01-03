@@ -101,25 +101,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />
-    <None Include="res\libdivecomputer.rc2" />
-    <None Include="src\libdivecomputer.def" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h" />
     <ClInclude Include="revision.h" />
     <ClInclude Include="src\array.h" />
+    <ClInclude Include="src\atomics.h" />
+    <ClInclude Include="src\atomics_cobalt.h" />
     <ClInclude Include="src\buffer.h" />
     <ClInclude Include="src\checksum.h" />
     <ClInclude Include="src\cressi.h" />
     <ClInclude Include="src\cressi_edy.h" />
     <ClInclude Include="src\datetime.h" />
     <ClInclude Include="src\device-private.h" />
-    <ClInclude Include="src\deviceL.h" />
+    <ClInclude Include="src\device.h" />
     <ClInclude Include="src\hw.h" />
     <ClInclude Include="src\hw_ostc.h" />
     <ClInclude Include="src\irda.h" />
     <ClInclude Include="src\mares.h" />
     <ClInclude Include="src\mares_common.h" />
+    <ClInclude Include="src\mares_darwin.h" />
     <ClInclude Include="src\mares_iconhd.h" />
     <ClInclude Include="src\mares_nemo.h" />
     <ClInclude Include="src\mares_puck.h" />
@@ -160,16 +161,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\array.c" />
+    <ClCompile Include="src\atomics_cobalt.c" />
+    <ClCompile Include="src\atomics_cobalt_parser.c" />
     <ClCompile Include="src\buffer.c" />
     <ClCompile Include="src\checksum.c" />
     <ClCompile Include="src\cressi_edy.c" />
     <ClCompile Include="src\cressi_edy_parser.c" />
     <ClCompile Include="src\datetime.c" />
-    <ClCompile Include="src\deviceL.c" />
+    <ClCompile Include="src\device.c" />
     <ClCompile Include="src\hw_ostc.c" />
     <ClCompile Include="src\hw_ostc_parser.c" />
     <ClCompile Include="src\irda_dummy.c" />
     <ClCompile Include="src\mares_common.c" />
+    <ClCompile Include="src\mares_darwin.c" />
+    <ClCompile Include="src\mares_darwin_parser.c" />
     <ClCompile Include="src\mares_iconhd.c" />
     <ClCompile Include="src\mares_iconhd_parser.c" />
     <ClCompile Include="src\mares_nemo.c" />

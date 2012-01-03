@@ -201,6 +201,8 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
       //Did we find a serial port for this device
       BOOL bAdded = false;
 
+      LOGDEBUG("Getting informations for device %d", nIndex);
+
       //Get the registry key which stores the ports settings
       HKEY hDeviceKey = lpfnLPSETUPDIOPENDEVREGKEY(hDevInfoSet, &devInfo, DICS_FLAG_GLOBAL, 0, DIREG_DEV, KEY_QUERY_VALUE);
       if (hDeviceKey)
@@ -210,11 +212,18 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
         szPortName[0] = _T('\0');
         DWORD dwSize = sizeof(szPortName);
         DWORD dwType = 0;
-  	    if ((RegQueryValueEx(hDeviceKey, _T("PortName"), NULL, &dwType, reinterpret_cast<LPBYTE>(szPortName), &dwSize) == ERROR_SUCCESS) && (dwType == REG_SZ))
+
+		if ((RegQueryValueEx(hDeviceKey, _T("PortName"), NULL, &dwType, reinterpret_cast<LPBYTE>(szPortName), &dwSize) == ERROR_SUCCESS) && (dwType == REG_SZ))
         {
           //If it looks like "COMX" then
           //add it to the array which will be returned
           size_t nLen = _tcslen(szPortName);
+
+
+		  char tmp_port[2600];
+          char DefChar = ' ';
+          WideCharToMultiByte(CP_ACP,0,szPortName,-1, tmp_port,260,&DefChar, NULL);
+          LOGDEBUG("Port is named : '%s'", std::string(tmp_port).c_str());
           if (nLen > 3)
           {
             if ((_tcsnicmp(szPortName, _T("COM"), 3) == 0) && IsNumeric(&(szPortName[3]), false))
@@ -248,6 +257,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
 			//todo fix unicode support....
           friendlyNames.push_back("");
         }
+		LOGDEBUG("Port is friendly-named : '%s'", friendlyNames[friendlyNames.size()-1]);
       }
     }
 

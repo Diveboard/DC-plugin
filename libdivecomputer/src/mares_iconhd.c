@@ -87,7 +87,7 @@ mares_iconhd_get_model (mares_iconhd_device_t *device, unsigned int model)
 			model = ICONHDNET;
 	}
 
-	return model;
+	return (device_status_t)model;
 }
 
 static device_status_t

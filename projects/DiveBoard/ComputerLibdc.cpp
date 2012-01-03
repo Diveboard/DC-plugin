@@ -885,11 +885,11 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 	LDCPARSERSETDATA *parser_set_data = reinterpret_cast<LDCPARSERSETDATA*>(getDLLFunction(libdc, "parser_set_data"));
 	LOGDEBUG("General pointers to LibDiveComputer fetched");
 
-    //if (Logger::logLevel.compare("DEBUG") == 0) {
+    if (Logger::logLevel.compare("DEBUG") == 0) {
         tmpnam(ldc_logfile);
         ldc_setlogfile(ldc_logfile);
         LOGDEBUG("Logging into %s", ldc_logfile);
-    //}
+    }
         
 	// Open the device.
 	LOGINFO("Opening the device (%s, %s).", lookup_name (backend), devname.c_str());
@@ -1093,14 +1093,15 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 
 	diveXML.append("</REPGROUP></profile>");
 
+
+	ldc_setlogfile(NULL);
+    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+
 	// Close the device.
 	LOGINFO("Closing the device.");
 	rc = device_close (device);
 	if (rc != DEVICE_STATUS_SUCCESS)
 		LOGWARNING("Error closing the device. %s", errmsg(rc));
-
-    ldc_setlogfile(NULL);
-    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
 }
 
 
