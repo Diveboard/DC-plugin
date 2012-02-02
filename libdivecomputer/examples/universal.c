@@ -90,7 +90,7 @@ static const backend_table_t g_backends[] = {
 	{"atom2",		DEVICE_TYPE_OCEANIC_ATOM2},
 	{"nemo",		DEVICE_TYPE_MARES_NEMO},
 	{"puck",		DEVICE_TYPE_MARES_PUCK},
-	{"darwinair",	DEVICE_TYPE_MARES_DARWINAIR},
+	{"darwin",      DEVICE_TYPE_MARES_DARWIN},
 	{"iconhd",		DEVICE_TYPE_MARES_ICONHD},
 	{"ostc",		DEVICE_TYPE_HW_OSTC},
 	{"edy",			DEVICE_TYPE_CRESSI_EDY},
@@ -335,8 +335,8 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	case DEVICE_TYPE_MARES_PUCK:
 		rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
 		break;
-	case DEVICE_TYPE_MARES_DARWINAIR:
-		rc = mares_darwinair_parser_create (&parser);
+	case DEVICE_TYPE_MARES_DARWIN:
+		rc = mares_darwin_parser_create (&parser, devdata->devinfo.model);
 		break;
 	case DEVICE_TYPE_MARES_ICONHD:
 		rc = mares_iconhd_parser_create (&parser, devdata->devinfo.model);
@@ -549,6 +549,7 @@ usage (const char *filename)
 	fprintf (stderr, "   %s [options] devname\n\n", filename);
 	fprintf (stderr, "Options:\n\n");
 	fprintf (stderr, "   -b name        Set backend name (required).\n");
+	fprintf (stderr, "   -t model       Set model code.\n");
 	fprintf (stderr, "   -f hexdata     Set fingerprint data.\n");
 	fprintf (stderr, "   -l logfile     Set logfile.\n");
 	fprintf (stderr, "   -d filename    Download dives.\n");
@@ -573,7 +574,7 @@ usage (const char *filename)
 
 
 static device_status_t
-dowork (device_type_t backend, const char *devname, const char *rawfile, const char *xmlfile, int memory, int dives, dc_buffer_t *fingerprint)
+dowork (device_type_t backend, unsigned int model, const char *devname, const char *rawfile, const char *xmlfile, int memory, int dives, dc_buffer_t *fingerprint)
 {
 	device_status_t rc = DEVICE_STATUS_SUCCESS;
 
@@ -634,8 +635,8 @@ dowork (device_type_t backend, const char *devname, const char *rawfile, const c
 	case DEVICE_TYPE_MARES_PUCK:
 		rc = mares_puck_device_open (&device, devname);
 		break;
-	case DEVICE_TYPE_MARES_DARWINAIR:
-		rc = mares_darwinair_device_open (&device, devname);
+	case DEVICE_TYPE_MARES_DARWIN:
+		rc = mares_darwin_device_open (&device, devname, model);
 		break;
 	case DEVICE_TYPE_MARES_ICONHD:
 		rc = mares_iconhd_device_open (&device, devname);
@@ -771,15 +772,19 @@ main (int argc, char *argv[])
 	const char *xmlfile = "output.xml";
 	const char *devname = NULL;
 	const char *fingerprint = NULL;
+	unsigned int model = 0;
 	int memory = 0, dives = 0;
 
 #ifndef _MSC_VER
 	// Parse command-line options.
 	int opt = 0;
-	while ((opt = getopt (argc, argv, "b:f:l:m:d:c:h")) != -1) {
+	while ((opt = getopt (argc, argv, "b:t:f:l:m:d:c:h")) != -1) {
 		switch (opt) {
 		case 'b':
 			backend = lookup_type (optarg);
+			break;
+		case 't':
+			model = strtoul (optarg, NULL, 0);
 			break;
 		case 'f':
 			fingerprint = optarg;
@@ -834,7 +839,7 @@ main (int argc, char *argv[])
 	message_set_logfile (logfile);
 
 	dc_buffer_t *fp = fpconvert (fingerprint);
-	device_status_t rc = dowork (backend, devname, rawfile, xmlfile, memory, dives, fp);
+	device_status_t rc = dowork (backend, model, devname, rawfile, xmlfile, memory, dives, fp);
 	dc_buffer_free (fp);
 	message ("Result: %s\n", errmsg (rc));
 

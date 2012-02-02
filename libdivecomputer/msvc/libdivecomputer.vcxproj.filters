@@ -174,10 +174,10 @@
     <ClCompile Include="..\src\mares_iconhd_parser.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\zeagle_n2ition3.c">
+    <ClCompile Include="..\src\version.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\version.c">
+    <ClCompile Include="..\src\zeagle_n2ition3.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -311,18 +311,26 @@
     <ClInclude Include="..\src\atomics_cobalt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\mares.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\src\mares_darwin.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\mares_iconhd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\zeagle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\src\zeagle_n2ition3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\version.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\libdivecomputer.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\src\libdivecomputer.symbols">
