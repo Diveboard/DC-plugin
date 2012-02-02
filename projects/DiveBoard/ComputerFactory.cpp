@@ -50,6 +50,7 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["Mares M2"].push_back("CP210x USB to UART Bridge Controller");
 	recognisedPorts["LDC nemo"].push_back("Silicon Labs CP210x USB to UART Bridge");
 	recognisedPorts["LDC nemo"].push_back("CP210x USB to UART Bridge Controller");
+	recognisedPorts["LDC iconhd"].push_back("ICON HD COM");
 	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
@@ -171,7 +172,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
   
   //Now create a "device information set" which is required to enumerate all the ports
   GUID guid = GUID_DEVINTERFACE_COMPORT;
-  HDEVINFO hDevInfoSet = lpfnSETUPDIGETCLASSDEVS(&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+  HDEVINFO hDevInfoSet = lpfnSETUPDIGETCLASSDEVS(NULL, NULL, NULL, DIGCF_ALLCLASSES|DIGCF_PRESENT); //&guid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
   if (hDevInfoSet == INVALID_HANDLE_VALUE)
   {
 	  DWORD dwLastError;
@@ -257,7 +258,7 @@ void UsingSetupAPI1(std::vector<std::string>& ports, std::vector<std::string>& f
 			//todo fix unicode support....
           friendlyNames.push_back("");
         }
-		LOGDEBUG("Port is friendly-named : '%s'", friendlyNames[friendlyNames.size()-1]);
+		LOGDEBUG("Port is friendly-named : '%s'", friendlyNames[friendlyNames.size()-1].c_str());
       }
     }
 
