@@ -33,6 +33,12 @@
 	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
 )
 
+#if defined(_WIN32) || defined(__APPLE__)
+#define BAUDRATE 256000
+#else
+#define BAUDRATE 230400
+#endif
+
 #define ICONHD    0x14
 #define ICONHDNET 0x15
 
@@ -87,7 +93,7 @@ mares_iconhd_get_model (mares_iconhd_device_t *device, unsigned int model)
 			model = ICONHDNET;
 	}
 
-	return (device_status_t)model;
+	return model;
 }
 
 static device_status_t
@@ -201,6 +207,8 @@ mares_iconhd_read (mares_iconhd_device_t *device, unsigned int address, unsigned
 device_status_t
 mares_iconhd_device_open (device_t **out, const char* name)
 {
+	unsigned char *junk;
+
 	if (out == NULL)
 		return DEVICE_STATUS_ERROR;
 
@@ -228,7 +236,7 @@ mares_iconhd_device_open (device_t **out, const char* name)
 	}
 
 	// Set the serial communication protocol (256000 8N1).
-	rc = serial_configure (device->port, 256000, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
+	rc = serial_configure (device->port, BAUDRATE, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
 	if (rc == -1) {
 		WARNING ("Failed to set the terminal attributes.");
 		serial_close (device->port);
@@ -254,7 +262,11 @@ mares_iconhd_device_open (device_t **out, const char* name)
 		return DEVICE_STATUS_IO;
 	}
 
+
 	// Make sure everything is in a sane state.
+	junk = (unsigned char *) malloc (1024);
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+	while(serial_read (device->port, junk, 1024) > 0){};
 	serial_flush (device->port, SERIAL_QUEUE_BOTH);
 
 	// Send the version command.
@@ -262,8 +274,16 @@ mares_iconhd_device_open (device_t **out, const char* name)
 	if (status != DEVICE_STATUS_SUCCESS) {
 		serial_close (device->port);
 		free (device);
+		free (junk);
 		return status;
 	}
+
+	// Make sure everything is in a sane state.
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+	while(serial_read (device->port, junk, 1024) > 0){};
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+	free (junk);
+
 
 	*out = (device_t *) device;
 
@@ -278,6 +298,13 @@ mares_iconhd_device_close (device_t *abstract)
 
 	if (! device_is_mares_iconhd (abstract))
 		return DEVICE_STATUS_TYPE_MISMATCH;
+
+	// Make sure everything is in a sane state.
+	unsigned char *junk = (unsigned char *) malloc (1024);
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+	while(serial_read (device->port, junk, 1024) > 0){};
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
+	free(junk);
 
 	// Close the device.
 	if (serial_close (device->port) == -1) {

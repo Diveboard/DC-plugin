@@ -15,12 +15,12 @@ BEGIN
 		BEGIN
 			VALUE "CompanyName", "The libdivecomputer developers"
 			VALUE "FileDescription", "A library for communication with various dive computers."
-			VALUE "FileVersion", "0,0,0,0"
+			VALUE "FileVersion", "0.0.0"
 			VALUE "InternalName", "libdivecomputer"
 			VALUE "LegalCopyright", "Copyright © 2010 Jef Driesen"
 			VALUE "OriginalFilename", "libdivecomputer.dll"
 			VALUE "ProductName", "libdivecomputer"
-			VALUE "ProductVersion", "0,0,0,0"
+			VALUE "ProductVersion", "0.0.0"
 		END
 	END
 	BLOCK "VarFileInfo"
