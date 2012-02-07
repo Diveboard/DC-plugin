@@ -79,6 +79,7 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC iconhd"].push_back("tty.usbmodem01234561");
 							 
 #else
 #error Platform not supported

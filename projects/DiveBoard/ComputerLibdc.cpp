@@ -254,10 +254,12 @@ static const backend_table_t g_backends[] = {
 	{"LDC veo250",		DEVICE_TYPE_OCEANIC_VEO250},
 	{"LDC atom2",		DEVICE_TYPE_OCEANIC_ATOM2},
 	{"LDC darwin",		DEVICE_TYPE_MARES_DARWIN},
+	{"LDC darwin_air",	DEVICE_TYPE_MARES_DARWIN_AIR},
 	{"LDC nemo",		DEVICE_TYPE_MARES_NEMO},
 	{"LDC puck",		DEVICE_TYPE_MARES_PUCK},
-	{"LDC ostc",		DEVICE_TYPE_HW_OSTC},
+	{"LDC cobalt",		DEVICE_TYPE_ATOMICS_COBALT},
 	{"LDC iconhd",      DEVICE_TYPE_MARES_ICONHD},
+	{"LDC ostc",		DEVICE_TYPE_HW_OSTC},
 	{"LDC zeagle",      DEVICE_TYPE_ZEAGLE_N2ITION3},
 	{"LDC edy",			DEVICE_TYPE_CRESSI_EDY}
 };
@@ -609,6 +611,7 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 			//rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
 			break;
         case DEVICE_TYPE_MARES_DARWIN:
+        case DEVICE_TYPE_MARES_DARWIN_AIR:
             create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "mares_darwin_parser_create");
             rc = create_parser2(&parser, devdata->devinfo.model);
             //rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
@@ -618,7 +621,11 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 			rc = create_parser1(&parser);
 			//rc = hw_ostc_parser_create (&parser);
 			break;
-
+        case DEVICE_TYPE_ATOMICS_COBALT:
+            create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "atomics_cobalt_parser_create");
+            rc = create_parser1(&parser);
+            //rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
+            break;
 		case DEVICE_TYPE_MARES_ICONHD:
 			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "mares_iconhd_parser_create");
 			rc = create_parser1(&parser);
@@ -898,6 +905,7 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 
 	LDCOPEN1* device_open1 = NULL;
 	LDCOPEN2* device_open2 = NULL;
+	LDCOPEN3* device_open3 = NULL;
 
 
 	switch (backend) {
@@ -961,7 +969,8 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 		//rc = mares_nemo_device_open (&device, devname.c_str());
 		break;	
     case DEVICE_TYPE_MARES_DARWIN:
-        device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "mares_darwin_device_open");
+    case DEVICE_TYPE_MARES_DARWIN_AIR:
+        device_open3 = (LDCOPEN3*)getDLLFunction(libdc, "mares_darwin_device_open");
         //rc = mares_nemo_device_open (&device, devname.c_str());
             break;
 	case DEVICE_TYPE_MARES_ICONHD:
@@ -976,6 +985,10 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 		device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "hw_ostc_device_open");
 		//rc = hw_ostc_device_open (&device, devname.c_str());
 		break;
+	case DEVICE_TYPE_ATOMICS_COBALT:
+		device_open1 = (LDCOPEN1*)getDLLFunction(libdc, "atomics_cobalt_device_open");
+		//rc = hw_ostc_device_open (&device, devname.c_str());
+		break;
 	case DEVICE_TYPE_CRESSI_EDY:
 		device_open2 = (LDCOPEN2*)getDLLFunction(libdc, "cressi_edy_device_open");
 		//rc = cressi_edy_device_open (&device, devname.c_str());
@@ -988,6 +1001,8 @@ void ComputerLibdc::dowork (device_type_t &backend, const std::string &devname, 
 
 	if (device_open2) rc = device_open2(&device, devname.c_str());
 	else if (device_open1) rc = device_open1(&device);
+	else if (device_open3 && backend == DEVICE_TYPE_MARES_DARWIN_AIR) rc = device_open3(&device, devname.c_str(), 1);
+	else if (device_open3) rc = device_open3(&device, devname.c_str(), 0);
 	else {
         ldc_setlogfile(NULL);
         if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
