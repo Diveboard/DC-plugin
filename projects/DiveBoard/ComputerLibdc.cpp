@@ -595,8 +595,8 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 			//rc = oceanic_vtpro_parser_create (&parser);
 			break;
 		case DEVICE_TYPE_OCEANIC_VEO250:
-			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "oceanic_veo250_parser_create");
-			rc = create_parser1(&parser);
+			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "oceanic_veo250_parser_create");
+			rc = create_parser2(&parser, devdata->devinfo.model);
 			//rc = oceanic_veo250_parser_create (&parser);
 			break;
 		case DEVICE_TYPE_OCEANIC_ATOM2:
@@ -627,8 +627,8 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
             //rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
             break;
 		case DEVICE_TYPE_MARES_ICONHD:
-			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "mares_iconhd_parser_create");
-			rc = create_parser1(&parser);
+			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "mares_iconhd_parser_create");
+			rc = create_parser2(&parser, devdata->devinfo.model);
 			break;
 
 		//No parser in current version for Zeagle
@@ -638,8 +638,8 @@ parser_status_t ComputerLibdc::doparse (std::string *out, device_data_t *devdata
 		//	break;
 
 		case DEVICE_TYPE_CRESSI_EDY:
-			create_parser1 = (parser_status_t (*)(parser_t **))getDLLFunction(libdc, "cressi_edy_parser_create");
-			rc = create_parser1(&parser);
+			create_parser2 = (parser_status_t (*)(parser_t **, unsigned int))getDLLFunction(libdc, "cressi_edy_parser_create");
+			rc = create_parser2(&parser, devdata->devinfo.model);
 			//rc = cressi_edy_parser_create (&parser);
 			break;
 		default:
