@@ -10,6 +10,7 @@ cd $tmpbuild
 git clone git@diveboard.plan.io:diveboard-db.git
 
 cd "$tmpbuild"/diveboard-db/libdivecomputer
+autoreconf --install
 ./configure
 make
 
