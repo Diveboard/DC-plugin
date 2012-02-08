@@ -20,6 +20,9 @@ mkdir -p $OUTDIR
 ###
 if [ "X$1" == "X--clean" ] 
 then
+  rm -fr "$DIR/build"
+  cd "$DIR" && firebreath/prepmac.sh projects build
+
   xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
   xcodebuild -project $DIR/build/FireBreath.xcodeproj clean
 fi
