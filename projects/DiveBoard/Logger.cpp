@@ -1,7 +1,7 @@
 #include "Logger.h"
 #include <boost/format.hpp>
 
-#include <stdio.h>
+#include <cstdio>
 
 #ifdef __linux__
 #include <stdarg.h>
