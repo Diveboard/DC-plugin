@@ -21,6 +21,8 @@ LIBDIVEBOARD=$DIR/build/bin/DiveBoard/npDiveBoard.so
 
 PKGNAME=diveboard-plugin-$VERSION-$ARCH.deb
 
+INSTALLED_SIZE=`du -bs '$LIBDIVE' '$LIBDIVEBOARD' | awk 'BEGIN {s=0} {s+=\$1} END {print s}'`
+
 CONTROL="Package:diveboard-plugin
 Version: $VERSION
 Section: web
@@ -29,6 +31,7 @@ Architecture: $ARCHITECTURE
 Depends: libc6 (>= 2.11)
 Replaces: diveboard (<= 1.1.1)
 Maintainer: Diveboard <support@diveboard.com>
+Installed-Size: $INSTALLED_SIZE
 Description: Web Browser plugin for DiveBoard:
  http://www.diveboard.com
  .
