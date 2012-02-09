@@ -626,7 +626,7 @@ serial_set_break (serial_t *device, int level)
 static int
 serial_set_status (int fd, int value, int level)
 {
-	int action = (level ? TIOCMBIS : TIOCMBIC);
+	unsigned long action = (level ? TIOCMBIS : TIOCMBIC);
 
 	if (ioctl (fd, action, &value) != 0) {
 		TRACE ("ioctl");
