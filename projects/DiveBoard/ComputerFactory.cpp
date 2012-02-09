@@ -50,8 +50,9 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["Mares M2"].push_back("CP210x USB to UART Bridge Controller");
 	recognisedPorts["LDC nemo"].push_back("Silicon Labs CP210x USB to UART Bridge");
 	recognisedPorts["LDC nemo"].push_back("CP210x USB to UART Bridge Controller");
-	recognisedPorts["LDC puck"].push_back("Silicon Labs CP210x USB to UART Bridge");
-	recognisedPorts["LDC puck"].push_back("CP210x USB to UART Bridge Controller");
+	recognisedPorts["LDC darwin"].push_back("Silicon Labs CP210x USB to UART Bridge");
+	recognisedPorts["LDC darwin"].push_back("CP210x USB to UART Bridge Controller");
+	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC iconhd"].push_back("ICON HD COM");
 	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
@@ -81,6 +82,7 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["LDC atom2"].push_back("tty.usbserial-20030001");
 	recognisedPorts["Mares M2"].push_back("tty.SLAB_USBtoUART");
 	recognisedPorts["LDC nemo"].push_back("tty.SLAB_USBtoUART");
+	recognisedPorts["LDC darwin"].push_back("tty.SLAB_USBtoUART");
 	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
@@ -317,7 +319,7 @@ void ListTTY(std::vector<std::string>& files, std::vector<std::string>& friendly
 		LOGDEBUG(str(boost::format("Filename : %1% %2%") % dirp->d_name % ((int)strncmp("tty.usbserial-", dirp->d_name, 14))));
 		if (!strncmp("tty.", dirp->d_name, 4)) {
 #elif defined(__linux__)
-		if (!strncmp("ttyS", dirp->d_name, 4) || !strncmp("ttyUSB", dirp->d_name, 6)) {
+		if (!strncmp("ttyS", dirp->d_name, 4) || !strncmp("ttyUSB", dirp->d_name, 6) || !strncmp("ttyACM", dirp->d_name, 6)) {
 #endif
 			files.push_back(str(boost::format("/dev/%1%") % dirp->d_name));
 			friendlyNames.push_back(std::string(dirp->d_name));
