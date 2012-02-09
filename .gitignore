@@ -1,3 +1,6 @@
 build/
 libdivecomputer/msvc/libdivecomputer.sdf
 libdivecomputer/msvc/libdivecomputer.suo
+libdivecomputer/libdivecomputer.xcodeproj/project.xcworkspace/xcuserdata
+libdivecomputer/libdivecomputer.xcodeproj/*.pbxuser
+libdivecomputer/libdivecomputer.xcodeproj/*.mode1v3
