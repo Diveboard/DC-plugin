@@ -1,10 +1,10 @@
 
 DIR=$(dirname $(which $0))
 
-BUILDDIR=$DIR/build/projects/DiveBoard/Debug/DiveBoard.plugin/Contents/MacOS
+BUILDDIR=$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin/Contents/MacOS
 OUTDIR=$DIR/build/packages
 
-LIBDIVE=$DIR/libdivecomputer/build/Debug/liblibdivecomputer.dylib
+LIBDIVE=$DIR/libdivecomputer/build/Release/liblibdivecomputer.dylib
 
 TMPDIR=/tmp
 
@@ -23,11 +23,11 @@ then
   rm -fr "$DIR/build"
   cd "$DIR" && firebreath/prepmac.sh projects build
 
-  xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
-  xcodebuild -project $DIR/build/FireBreath.xcodeproj clean
+  xcodebuild -configuration Release -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
+  xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 fi
-xcodebuild -project $DIR/libdivecomputer/libdivecomputer.xcodeproj build
-xcodebuild -project $DIR/build/FireBreath.xcodeproj build
+xcodebuild -configuration Release -project $DIR/libdivecomputer/libdivecomputer.xcodeproj build
+xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 
 ####
 #### Create package of Diveboard.plugin directory
@@ -37,7 +37,7 @@ xcodebuild -project $DIR/build/FireBreath.xcodeproj build
 cp "$LIBDIVE" "$BUILDDIR"
 
 # Create the package
-/Developer/usr/bin/packagemaker --root "$DIR/build/projects/DiveBoard/Debug/DiveBoard.plugin" --install-to "/Library/Internet Plug-Ins" --out "$TMPDIR/$PKGNAME" --id com.diveboard.plugin.pkg --title "Diveboard plugin" --root-volume-only --domain system
+/Developer/usr/bin/packagemaker --root "$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin" --install-to "/Library/Internet Plug-Ins" --out "$TMPDIR/$PKGNAME" --id com.diveboard.plugin.pkg --title "Diveboard plugin" --root-volume-only --domain system
 
 ####
 #### Assemble full package
