@@ -22,6 +22,7 @@ RequestExecutionLevel admin
 
 !define DLL_LibDiveComputer '"..\..\libdivecomputer\msvc\Release\libdivecomputer.dll"'
 !define DLL_DiveBoardPlugin '"..\..\build\bin\DiveBoard\Release\npDiveBoard.dll"'
+!define DLL_MSVCR '"Win\msvcr100.dll"'
 
 
 
@@ -134,28 +135,45 @@ IfErrors 0 NoError2
   Goto RMDll2
 NoError2:
 
-FoundInstalled:
-
 RMDll3:
 ClearErrors
-Delete $INSTDIR\npDiveBoard.dll
+Delete $PREINSTALL\msvcr100.dll
 IfErrors 0 NoError3
   MessageBox MB_OK "The library is locked. Please close all browsers and retry"
   Goto RMDll3
 NoError3:
 
+FoundInstalled:
+
 RMDll4:
 ClearErrors
-Delete $INSTDIR\libdivecomputer.dll
+Delete $INSTDIR\npDiveBoard.dll
 IfErrors 0 NoError4
   MessageBox MB_OK "The library is locked. Please close all browsers and retry"
   Goto RMDll4
 NoError4:
 
+RMDll5:
+ClearErrors
+Delete $INSTDIR\libdivecomputer.dll
+IfErrors 0 NoError5
+  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
+  Goto RMDll5
+NoError5:
+
+RMDll6:
+ClearErrors
+Delete $INSTDIR\msvcr100.dll
+IfErrors 0 NoError6
+  MessageBox MB_OK "The library is locked. Please close all browsers and retry"
+  Goto RMDll6
+NoError6:
+
 
 CreateDirectory "$INSTDIR"
 !insertmacro InstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_LibDiveComputer} $INSTDIR\libdivecomputer.dll $INSTDIR
 !insertmacro InstallLib REGDLL    NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_DiveBoardPlugin} $INSTDIR\npDiveBoard.dll $INSTDIR
+!insertmacro InstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED ${DLL_msvcr} $INSTDIR\msvcr100.dll $INSTDIR
 WriteUninstaller $INSTDIR\uninstall.exe
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayName" "DiveBoard"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" "DisplayVersion" "1.1"
@@ -233,6 +251,13 @@ IfFileExists "$INSTDIR\npDiveBoard.dll" 0 NoErrorMsgD2
   MessageBox MB_RETRYCANCEL "The library could not be removed! Please close all browsers and retry" IDRETRY 0 IDCANCEL cancelUninst ; skipped if file doesn't exist
   goto Udll2
 NoErrorMsgD2:
+
+Udll3:
+!insertmacro UninstallLib DLL       NOTSHARED NOREBOOT_NOTPROTECTED  $INSTDIR\msvcr100.dll
+IfFileExists "$INSTDIR\msvcr100.dll" 0 NoErrorMsgD3
+  MessageBox MB_RETRYCANCEL "The library could not be removed! Please close all browsers and retry" IDRETRY  0  IDCANCEL cancelUninst   ; skipped if file doesn't exist
+  goto Udll3
+NoErrorMsgD3:
 
 
 DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\DiveBoard" 
