@@ -81,7 +81,7 @@ LIBTYPE openDLLLibrary()
 		DBthrowError("path buffer is too small !!!");
 	std::wstring dll = path;
 	dll += DLL_PATH;
-
+	std::wstring dll_path;
 
 	try
 	{
@@ -107,6 +107,7 @@ LIBTYPE openDLLLibrary()
 
 			LOGINFO("Registry found : %s", s.c_str());
 
+			dll_path = szVal;
 			dll = szVal;
 			dll += DLL_NAME;
 		}
@@ -117,6 +118,8 @@ LIBTYPE openDLLLibrary()
 	std::string dll_s;
 	dll_s.assign(dll.begin(), dll.end());
 	LOGINFO("Searching DLL at %s", dll_s.c_str());
+
+	SetDllDirectory(dll_path.c_str());
 
 	HINSTANCE libdc = LoadLibrary(dll.c_str());
 	if (!libdc)
