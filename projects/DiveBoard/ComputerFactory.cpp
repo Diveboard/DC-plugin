@@ -39,7 +39,7 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["LDC d9"].push_back("Suunto USB Serial Port");
 	recognisedPorts["LDC aladin"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC memomouse"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC smart"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC smart"].push_back(NO_PORT_NEEDED);
 	recognisedPorts["LDC sensus"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC sensuspro"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC sensusultra"].push_back("XXXXXXXXXXXXXX");
@@ -73,7 +73,7 @@ ComputerFactory::ComputerFactory(void)
 	recognisedPorts["LDC d9"].push_back("tty.usbserial-ST000001");
 	recognisedPorts["LDC aladin"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC memomouse"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC smart"].push_back("XXXXXXXXXXXXXX");
+	recognisedPorts["LDC smart"].push_back(NO_PORT_NEEDED);
 	recognisedPorts["LDC sensus"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC sensuspro"].push_back("XXXXXXXXXXXXXX");
 	recognisedPorts["LDC sensusultra"].push_back("XXXXXXXXXXXXXX");
