@@ -79,3 +79,21 @@ On windows, the easiest way is to register the dll in build/bin/DiveBoard/Debug
 
 Good luck !
 
+
+
+
+
+
+
+
+
+
+
+CODE UPDATE FOR LIBDIVECOMPUTER
+
+libdivecomputer has been integrated as a subtree merge.
+
+To update the code from libdivecomputer :
+
+  git pull -s subtree libdivecomputer_remote master
+
