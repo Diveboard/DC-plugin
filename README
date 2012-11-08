@@ -13,6 +13,8 @@
   For mac, make sure that the build location can be configured on a project basis :
   XCode > Preferences > Locations > Advanced > Build Location = Location Specified By Targets
 
+- Get Boost for firebreath
+  git submodule update --recursive --init
 
 
 1/ Build the main plugin :
@@ -96,4 +98,15 @@ libdivecomputer has been integrated as a subtree merge.
 To update the code from libdivecomputer :
 
   git pull -s subtree libdivecomputer_remote master
+  git pull -s subtree firebreath_remote master
 
+
+
+  git checkout -b firebreath_branch firebreath_remote/master
+  git checkout master
+  git read-tree
+  git rm -fr firebreath
+  git checkout firebreath
+  git add firebreath
+  git pull -s subtree firebreath_remote master
+  git submodule update --recursive --init
