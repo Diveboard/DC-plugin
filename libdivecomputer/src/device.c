@@ -21,14 +21,28 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include <libdivecomputer/suunto.h>
+#include <libdivecomputer/reefnet.h>
+#include <libdivecomputer/uwatec.h>
+#include <libdivecomputer/oceanic.h>
+#include <libdivecomputer/mares.h>
+#include <libdivecomputer/hw.h>
+#include <libdivecomputer/cressi.h>
+#include <libdivecomputer/zeagle.h>
+#include <libdivecomputer/atomics.h>
 
 #include "device-private.h"
+#include "context-private.h"
 
 
 void
-device_init (device_t *device, const device_backend_t *backend)
+device_init (dc_device_t *device, dc_context_t *context, const device_backend_t *backend)
 {
 	device->backend = backend;
+
+	device->context = context;
 
 	device->event_mask = 0;
 	device->event_callback = NULL;
@@ -36,124 +50,214 @@ device_init (device_t *device, const device_backend_t *backend)
 
 	device->cancel_callback = NULL;
 	device->cancel_userdata = NULL;
+
+	memset (&device->devinfo, 0, sizeof (device->devinfo));
+	memset (&device->clock, 0, sizeof (device->clock));
 }
 
+dc_status_t
+dc_device_open (dc_device_t **out, dc_context_t *context, dc_descriptor_t *descriptor, const char *name)
+{
+	dc_status_t rc = DC_STATUS_SUCCESS;
+	dc_device_t *device = NULL;
 
-device_type_t
-device_get_type (device_t *device)
+	if (out == NULL || descriptor == NULL)
+		return DC_STATUS_INVALIDARGS;
+
+	switch (dc_descriptor_get_type (descriptor)) {
+	case DC_FAMILY_SUUNTO_SOLUTION:
+		rc = suunto_solution_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_SUUNTO_EON:
+		rc = suunto_eon_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_SUUNTO_VYPER:
+		rc = suunto_vyper_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_SUUNTO_VYPER2:
+		rc = suunto_vyper2_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_SUUNTO_D9:
+		rc = suunto_d9_device_open (&device, context, name, dc_descriptor_get_model (descriptor));
+		break;
+	case DC_FAMILY_UWATEC_ALADIN:
+		rc = uwatec_aladin_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_UWATEC_MEMOMOUSE:
+		rc = uwatec_memomouse_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_UWATEC_SMART:
+		rc = uwatec_smart_device_open (&device, context);
+		break;
+	case DC_FAMILY_REEFNET_SENSUS:
+		rc = reefnet_sensus_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_REEFNET_SENSUSPRO:
+		rc = reefnet_sensuspro_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_REEFNET_SENSUSULTRA:
+		rc = reefnet_sensusultra_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_OCEANIC_VTPRO:
+		rc = oceanic_vtpro_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_OCEANIC_VEO250:
+		rc = oceanic_veo250_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_OCEANIC_ATOM2:
+		rc = oceanic_atom2_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_MARES_NEMO:
+		rc = mares_nemo_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_MARES_PUCK:
+		rc = mares_puck_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_MARES_DARWIN:
+		rc = mares_darwin_device_open (&device, context, name, dc_descriptor_get_model (descriptor));
+		break;
+	case DC_FAMILY_MARES_ICONHD:
+		rc = mares_iconhd_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_HW_OSTC:
+		rc = hw_ostc_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_HW_FROG:
+		rc = hw_frog_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_CRESSI_EDY:
+		rc = cressi_edy_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_ZEAGLE_N2ITION3:
+		rc = zeagle_n2ition3_device_open (&device, context, name);
+		break;
+	case DC_FAMILY_ATOMICS_COBALT:
+		rc = atomics_cobalt_device_open (&device, context);
+		break;
+	default:
+		return DC_STATUS_INVALIDARGS;
+	}
+
+	*out = device;
+
+	return rc;
+}
+
+dc_family_t
+dc_device_get_type (dc_device_t *device)
 {
 	if (device == NULL)
-		return DEVICE_TYPE_NULL;
+		return DC_FAMILY_NULL;
 
 	return device->backend->type;
 }
 
 
-device_status_t
-device_set_cancel (device_t *device, device_cancel_callback_t callback, void *userdata)
+dc_status_t
+dc_device_set_cancel (dc_device_t *device, dc_cancel_callback_t callback, void *userdata)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	device->cancel_callback = callback;
 	device->cancel_userdata = userdata;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
-device_set_events (device_t *device, unsigned int events, device_event_callback_t callback, void *userdata)
+dc_status_t
+dc_device_set_events (dc_device_t *device, unsigned int events, dc_event_callback_t callback, void *userdata)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	device->event_mask = events;
 	device->event_callback = callback;
 	device->event_userdata = userdata;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
-device_set_fingerprint (device_t *device, const unsigned char data[], unsigned int size)
+dc_status_t
+dc_device_set_fingerprint (dc_device_t *device, const unsigned char data[], unsigned int size)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->set_fingerprint == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->set_fingerprint (device, data, size);
 }
 
 
-device_status_t
-device_version (device_t *device, unsigned char data[], unsigned int size)
+dc_status_t
+dc_device_version (dc_device_t *device, unsigned char data[], unsigned int size)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->version == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->version (device, data, size);
 }
 
 
-device_status_t
-device_read (device_t *device, unsigned int address, unsigned char data[], unsigned int size)
+dc_status_t
+dc_device_read (dc_device_t *device, unsigned int address, unsigned char data[], unsigned int size)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->read == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->read (device, address, data, size);
 }
 
 
-device_status_t
-device_write (device_t *device, unsigned int address, const unsigned char data[], unsigned int size)
+dc_status_t
+dc_device_write (dc_device_t *device, unsigned int address, const unsigned char data[], unsigned int size)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->write == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->write (device, address, data, size);
 }
 
 
-device_status_t
-device_dump (device_t *device, dc_buffer_t *buffer)
+dc_status_t
+dc_device_dump (dc_device_t *device, dc_buffer_t *buffer)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->dump == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->dump (device, buffer);
 }
 
 
-device_status_t
-device_dump_read (device_t *device, unsigned char data[], unsigned int size, unsigned int blocksize)
+dc_status_t
+device_dump_read (dc_device_t *device, unsigned char data[], unsigned int size, unsigned int blocksize)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->read == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	// Enable progress notifications.
-	device_progress_t progress = DEVICE_PROGRESS_INITIALIZER;
+	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
 	progress.maximum = size;
-	device_event_emit (device, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (device, DC_EVENT_PROGRESS, &progress);
 
 	unsigned int nbytes = 0;
 	while (nbytes < size) {
@@ -163,74 +267,89 @@ device_dump_read (device_t *device, unsigned char data[], unsigned int size, uns
 			len = blocksize;
 
 		// Read the packet.
-		device_status_t rc = device->backend->read (device, nbytes, data + nbytes, len);
-		if (rc != DEVICE_STATUS_SUCCESS)
+		dc_status_t rc = device->backend->read (device, nbytes, data + nbytes, len);
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		// Update and emit a progress event.
 		progress.current += len;
-		device_event_emit (device, DEVICE_EVENT_PROGRESS, &progress);
+		device_event_emit (device, DC_EVENT_PROGRESS, &progress);
 
 		nbytes += len;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
-device_foreach (device_t *device, dive_callback_t callback, void *userdata)
+dc_status_t
+dc_device_foreach (dc_device_t *device, dc_dive_callback_t callback, void *userdata)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	if (device->backend->foreach == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->foreach (device, callback, userdata);
 }
 
 
-device_status_t
-device_close (device_t *device)
+dc_status_t
+dc_device_close (dc_device_t *device)
 {
 	if (device == NULL)
-		return DEVICE_STATUS_SUCCESS;
+		return DC_STATUS_SUCCESS;
 
 	if (device->backend->close == NULL)
-		return DEVICE_STATUS_UNSUPPORTED;
+		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->close (device);
 }
 
 
 void
-device_event_emit (device_t *device, device_event_t event, const void *data)
+device_event_emit (dc_device_t *device, dc_event_type_t event, const void *data)
 {
-	device_progress_t *progress = (device_progress_t *) data;
+	dc_event_progress_t *progress = (dc_event_progress_t *) data;
 
 	// Check the event data for errors.
 	switch (event) {
-	case DEVICE_EVENT_WAITING:
+	case DC_EVENT_WAITING:
 		assert (data == NULL);
 		break;
-	case DEVICE_EVENT_PROGRESS:
+	case DC_EVENT_PROGRESS:
 		assert (progress != NULL);
 		assert (progress->maximum != 0);
 		assert (progress->maximum >= progress->current);
 		break;
-	case DEVICE_EVENT_DEVINFO:
+	case DC_EVENT_DEVINFO:
 		assert (data != NULL);
 		break;
-	case DEVICE_EVENT_CLOCK:
+	case DC_EVENT_CLOCK:
 		assert (data != NULL);
 		break;
 	default:
 		break;
 	}
 
+	if (device == NULL)
+		return;
+
+	// Cache the event data.
+	switch (event) {
+	case DC_EVENT_DEVINFO:
+		device->devinfo = *(dc_event_devinfo_t *) data;
+		break;
+	case DC_EVENT_CLOCK:
+		device->clock = *(dc_event_clock_t *) data;
+		break;
+	default:
+		break;
+	}
+
 	// Check if there is a callback function registered.
-	if (device == NULL || device->event_callback == NULL)
+	if (device->event_callback == NULL)
 		return;
 
 	// Check the event mask.
@@ -242,7 +361,7 @@ device_event_emit (device_t *device, device_event_t event, const void *data)
 
 
 int
-device_is_cancelled (device_t *device)
+device_is_cancelled (dc_device_t *device)
 {
 	if (device == NULL)
 		return 0;

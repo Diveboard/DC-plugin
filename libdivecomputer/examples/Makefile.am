@@ -1,4 +1,4 @@
-AM_CFLAGS = -I$(top_srcdir)/src
+AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_builddir)/include
 LDADD = $(top_builddir)/src/libdivecomputer.la
 
 bin_PROGRAMS = \
@@ -21,6 +21,7 @@ bin_PROGRAMS = \
 	darwin \
 	iconhd \
 	ostc \
+	frog \
 	edy \
 	n2ition3
 
@@ -28,7 +29,8 @@ if IRDA
 bin_PROGRAMS += smart
 endif
 
-COMMON = common.c common.h
+COMMON = common.c common.h \
+	utils.c utils.h
 
 universal_SOURCES = universal.c $(COMMON)
 
@@ -67,6 +69,8 @@ darwin_SOURCES = mares_darwin_test.c $(COMMON)
 iconhd_SOURCES = mares_iconhd_test.c $(COMMON)
 
 ostc_SOURCES = hw_ostc_test.c $(COMMON)
+
+frog_SOURCES = hw_frog_test.c $(COMMON)
 
 edy_SOURCES = cressi_edy_test.c $(COMMON)
 

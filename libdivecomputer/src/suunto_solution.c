@@ -21,32 +21,34 @@
 
 #include <stdlib.h> // malloc, free
 
+#include <libdivecomputer/suunto_solution.h>
+#include <libdivecomputer/units.h>
+
+#include "context-private.h"
 #include "device-private.h"
-#include "suunto_solution.h"
 #include "ringbuffer.h"
 #include "serial.h"
-#include "utils.h"
 #include "array.h"
 
 #define EXITCODE(rc) \
 ( \
-	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
+	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
 )
 
 #define RB_PROFILE_BEGIN			0x020
 #define RB_PROFILE_END				0x100
 
 typedef struct suunto_solution_device_t {
-	device_t base;
+	dc_device_t base;
 	serial_t *port;
 } suunto_solution_device_t;
 
-static device_status_t suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer);
-static device_status_t suunto_solution_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata);
-static device_status_t suunto_solution_device_close (device_t *abstract);
+static dc_status_t suunto_solution_device_dump (dc_device_t *abstract, dc_buffer_t *buffer);
+static dc_status_t suunto_solution_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
+static dc_status_t suunto_solution_device_close (dc_device_t *abstract);
 
 static const device_backend_t suunto_solution_device_backend = {
-	DEVICE_TYPE_SUUNTO_SOLUTION,
+	DC_FAMILY_SUUNTO_SOLUTION,
 	NULL, /* set_fingerprint */
 	NULL, /* version */
 	NULL, /* read */
@@ -57,7 +59,7 @@ static const device_backend_t suunto_solution_device_backend = {
 };
 
 static int
-device_is_suunto_solution (device_t *abstract)
+device_is_suunto_solution (dc_device_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -66,106 +68,106 @@ device_is_suunto_solution (device_t *abstract)
 }
 
 
-device_status_t
-suunto_solution_device_open (device_t **out, const char* name)
+dc_status_t
+suunto_solution_device_open (dc_device_t **out, dc_context_t *context, const char *name)
 {
 	if (out == NULL)
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	suunto_solution_device_t *device = (suunto_solution_device_t *) malloc (sizeof (suunto_solution_device_t));
 	if (device == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, &suunto_solution_device_backend);
+	device_init (&device->base, context, &suunto_solution_device_backend);
 
 	// Set the default values.
 	device->port = NULL;
 
 	// Open the device.
-	int rc = serial_open (&device->port, name);
+	int rc = serial_open (&device->port, context, name);
 	if (rc == -1) {
-		WARNING ("Failed to open the serial port.");
+		ERROR (context, "Failed to open the serial port.");
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the serial communication protocol (1200 8N2).
 	rc = serial_configure (device->port, 1200, 8, SERIAL_PARITY_NONE, 2, SERIAL_FLOWCONTROL_NONE);
 	if (rc == -1) {
-		WARNING ("Failed to set the terminal attributes.");
+		ERROR (context, "Failed to set the terminal attributes.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the timeout for receiving data (1000ms).
 	if (serial_set_timeout (device->port, 1000) == -1) {
-		WARNING ("Failed to set the timeout.");
+		ERROR (context, "Failed to set the timeout.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Clear the RTS line.
 	if (serial_set_rts (device->port, 0)) {
-		WARNING ("Failed to set the DTR/RTS line.");
+		ERROR (context, "Failed to set the DTR/RTS line.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
-	*out = (device_t*) device;
+	*out = (dc_device_t*) device;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_solution_device_close (device_t *abstract)
+static dc_status_t
+suunto_solution_device_close (dc_device_t *abstract)
 {
 	suunto_solution_device_t *device = (suunto_solution_device_t*) abstract;
 
 	if (! device_is_suunto_solution (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Free memory.
 	free (device);
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
+static dc_status_t
+suunto_solution_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
 	suunto_solution_device_t *device = (suunto_solution_device_t*) abstract;
 
 	if (! device_is_suunto_solution (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Erase the current contents of the buffer and
 	// allocate the required amount of memory.
 	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, SUUNTO_SOLUTION_MEMORY_SIZE)) {
-		WARNING ("Insufficient buffer space available.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (abstract->context, "Insufficient buffer space available.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	unsigned char *data = dc_buffer_get_data (buffer);
 
 	// Enable progress notifications.
-	device_progress_t progress = DEVICE_PROGRESS_INITIALIZER;
+	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
 	progress.maximum = SUUNTO_SOLUTION_MEMORY_SIZE - 1 + 2;
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	int n = 0;
 	unsigned char command[3] = {0};
@@ -181,7 +183,8 @@ suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
 	// Receive: 0x3F
 	n = serial_read (device->port, answer, 1);
 	if (n != 1) return EXITCODE (n);
-	if (answer[0] != 0x3F) WARNING ("Unexpected answer byte.");
+	if (answer[0] != 0x3F)
+		WARNING (abstract->context, "Unexpected answer byte.");
 
 	// Send: 0x4D, 0x01, 0x01
 	command[0] = 0x4D;
@@ -191,14 +194,15 @@ suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
 
 	// Update and emit a progress event.
 	progress.current += 1;
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	data[0] = 0x00;
 	for (unsigned int i = 1; i < SUUNTO_SOLUTION_MEMORY_SIZE; ++i) {
 		// Receive: 0x01, i, data[i]
 		n = serial_read (device->port, answer, 3);
 		if (n != 3) return EXITCODE (n);
-		if (answer[0] != 0x01 || answer[1] != i) WARNING ("Unexpected answer byte.");
+		if (answer[0] != 0x01 || answer[1] != i)
+			WARNING (abstract->context, "Unexpected answer byte.");
 
 		// Send: i
 		command[0] = i;
@@ -207,7 +211,8 @@ suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
 		// Receive: data[i]
 		n = serial_read (device->port, data + i, 1);
 		if (n != 1) return EXITCODE (n);
-		if (data[i] != answer[2]) WARNING ("Unexpected answer byte.");
+		if (data[i] != answer[2])
+			WARNING (abstract->context, "Unexpected answer byte.");
 
 		// Send: 0x0D
 		command[0] = 0x0D;
@@ -215,13 +220,14 @@ suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
 
 		// Update and emit a progress event.
 		progress.current += 1;
-		device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+		device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 	}
 
 	// Receive: 0x02, 0x00, 0x80
 	n = serial_read (device->port, answer, 3);
 	if (n != 3) return EXITCODE (n);
-	if (answer[0] != 0x02 || answer[1] != 0x00 || answer[2] != 0x80) WARNING ("Unexpected answer byte.");
+	if (answer[0] != 0x02 || answer[1] != 0x00 || answer[2] != 0x80)
+		WARNING (abstract->context, "Unexpected answer byte.");
 
 	// Send: 0x80
 	command[0] = 0x80;
@@ -230,7 +236,8 @@ suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
 	// Receive: 0x80
 	n = serial_read (device->port, answer, 1);
 	if (n != 1) return EXITCODE (n);
-	if (answer[0] != 0x80) WARNING ("Unexpected answer byte.");
+	if (answer[0] != 0x80)
+		WARNING (abstract->context, "Unexpected answer byte.");
 
 	// Send: 0x20
 	command[0] = 0x20;
@@ -239,39 +246,40 @@ suunto_solution_device_dump (device_t *abstract, dc_buffer_t *buffer)
 	// Receive: 0x3F
 	n = serial_read (device->port, answer, 1);
 	if (n != 1) return EXITCODE (n);
-	if (answer[0] != 0x3F) WARNING ("Unexpected answer byte.");
+	if (answer[0] != 0x3F)
+		WARNING (abstract->context, "Unexpected answer byte.");
 
 	// Update and emit a progress event.
 	progress.current += 1;
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_solution_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata)
+static dc_status_t
+suunto_solution_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata)
 {
 	if (! device_is_suunto_solution (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	dc_buffer_t *buffer = dc_buffer_new (SUUNTO_SOLUTION_MEMORY_SIZE);
 	if (buffer == NULL)
-		return DEVICE_STATUS_MEMORY;
+		return DC_STATUS_NOMEMORY;
 
-	device_status_t rc = suunto_solution_device_dump (abstract, buffer);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	dc_status_t rc = suunto_solution_device_dump (abstract, buffer);
+	if (rc != DC_STATUS_SUCCESS) {
 		dc_buffer_free (buffer);
 		return rc;
 	}
 
 	// Emit a device info event.
 	unsigned char *data = dc_buffer_get_data (buffer);
-	device_devinfo_t devinfo;
+	dc_event_devinfo_t devinfo;
 	devinfo.model = 0;
 	devinfo.firmware = 0;
 	devinfo.serial = array_uint24_be (data + 0x1D);
-	device_event_emit (abstract, DEVICE_EVENT_DEVINFO, &devinfo);
+	device_event_emit (abstract, DC_EVENT_DEVINFO, &devinfo);
 
 	rc = suunto_solution_extract_dives (abstract,
 		dc_buffer_get_data (buffer), dc_buffer_get_size (buffer), callback, userdata);
@@ -282,14 +290,14 @@ suunto_solution_device_foreach (device_t *abstract, dive_callback_t callback, vo
 }
 
 
-device_status_t
-suunto_solution_extract_dives (device_t *abstract, const unsigned char data[], unsigned int size, dive_callback_t callback, void *userdata)
+dc_status_t
+suunto_solution_extract_dives (dc_device_t *abstract, const unsigned char data[], unsigned int size, dc_dive_callback_t callback, void *userdata)
 {
 	if (abstract && !device_is_suunto_solution (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	if (size < SUUNTO_SOLUTION_MEMORY_SIZE)
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	unsigned char buffer[RB_PROFILE_END - RB_PROFILE_BEGIN] = {0};
 
@@ -299,7 +307,7 @@ suunto_solution_extract_dives (device_t *abstract, const unsigned char data[], u
 		eop >= RB_PROFILE_END ||
 		data[eop] != 0x82)
 	{
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	// The profile data is stored backwards in the ringbuffer. To locate
@@ -331,14 +339,14 @@ suunto_solution_extract_dives (device_t *abstract, const unsigned char data[], u
 			unsigned int len = ringbuffer_distance (previous, current, 0, RB_PROFILE_BEGIN, RB_PROFILE_END);
 
 			if (callback && !callback (buffer + idx, len, NULL, 0, userdata))
-				return DEVICE_STATUS_SUCCESS;
+				return DC_STATUS_SUCCESS;
 
 			previous = current;
 		}
 	}
 
 	if (data[current] != 0x82)
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

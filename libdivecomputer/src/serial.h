@@ -22,6 +22,8 @@
 #ifndef SERIAL_H
 #define SERIAL_H
 
+#include <libdivecomputer/context.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -53,10 +55,7 @@ typedef enum serial_line_t {
 	SERIAL_LINE_RNG, // Ring indicator
 } serial_line_t;
 
-int serial_errcode (void);
-const char* serial_errmsg (void);
-
-int serial_open (serial_t **device, const char* name);
+int serial_open (serial_t **device, dc_context_t *context, const char* name);
 
 int serial_close (serial_t *device);
 
@@ -88,11 +87,12 @@ int serial_set_timeout (serial_t *device, long timeout /* milliseconds */);
 
 int serial_set_queue_size (serial_t *device, unsigned int input, unsigned int output);
 
+int serial_set_halfduplex (serial_t *device, int value);
+
 int serial_read (serial_t *device, void* data, unsigned int size);
 int serial_write (serial_t *device, const void* data, unsigned int size);
 
 int serial_flush (serial_t *device, int queue);
-int serial_drain (serial_t *device);
 
 int serial_send_break (serial_t *device);
 
@@ -105,9 +105,7 @@ int serial_get_transmitted (serial_t *device);
 
 int serial_get_line (serial_t *device, int line);
 
-int serial_sleep (unsigned long timeout /* milliseconds */);
-
-int serial_timer (void);
+int serial_sleep (serial_t *device, unsigned long timeout /* milliseconds */);
 
 #ifdef __cplusplus
 }

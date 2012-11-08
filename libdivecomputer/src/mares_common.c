@@ -23,14 +23,14 @@
 #include <string.h> // memcpy, memcmp
 #include <assert.h> // assert
 
+#include "context-private.h"
 #include "mares_common.h"
 #include "checksum.h"
-#include "utils.h"
 #include "array.h"
 
 #define EXITCODE(rc) \
 ( \
-	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
+	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
 )
 
 #define MAXRETRIES 4
@@ -39,12 +39,12 @@
 #define FP_SIZE   5
 
 void
-mares_common_device_init (mares_common_device_t *device, const device_backend_t *backend)
+mares_common_device_init (mares_common_device_t *device, dc_context_t *context, const device_backend_t *backend)
 {
 	assert (device != NULL);
 
 	// Initialize the base class.
-	device_init (&device->base, backend);
+	device_init (&device->base, context, backend);
 
 	// Set the default values.
 	device->port = NULL;
@@ -53,7 +53,7 @@ mares_common_device_init (mares_common_device_t *device, const device_backend_t 
 }
 
 
-static void
+static int
 mares_common_convert_binary_to_ascii (const unsigned char input[], unsigned int isize, unsigned char output[], unsigned int osize)
 {
 	assert (osize == 2 * isize);
@@ -71,10 +71,12 @@ mares_common_convert_binary_to_ascii (const unsigned char input[], unsigned int 
 		unsigned char lsn = input[i] & 0x0F;
 		output[i * 2 + 1] = ascii[lsn];
 	}
+
+	return 0;
 }
 
 
-static void
+static int
 mares_common_convert_ascii_to_binary (const unsigned char input[], unsigned int isize, unsigned char output[], unsigned int osize)
 {
 	assert (isize == 2 * osize);
@@ -91,13 +93,15 @@ mares_common_convert_ascii_to_binary (const unsigned char input[], unsigned int 
 			else if (ascii >= 'a' && ascii <= 'f')
 				number = 10 + ascii - 'a';
 			else
-				WARNING ("Invalid charachter.");
+				return -1; /* Invalid character */
 
 			value <<= 4;
 			value += number;
 		}
 		output[i] = value;
 	}
+
+	return 0;
 }
 
 
@@ -121,22 +125,22 @@ mares_common_make_ascii (const unsigned char raw[], unsigned int rsize, unsigned
 }
 
 
-static device_status_t
+static dc_status_t
 mares_common_packet (mares_common_device_t *device, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize)
 {
-	device_t *abstract = (device_t *) device;
+	dc_device_t *abstract = (dc_device_t *) device;
 
 	if (device_is_cancelled (abstract))
-		return DEVICE_STATUS_CANCELLED;
+		return DC_STATUS_CANCELLED;
 
 	if (device->delay) {
-		serial_sleep (device->delay);
+		serial_sleep (device->port, device->delay);
 	}
 
 	// Send the command to the device.
 	int n = serial_write (device->port, command, csize);
 	if (n != csize) {
-		WARNING ("Failed to send the command.");
+		ERROR (abstract->context, "Failed to send the command.");
 		return EXITCODE (n);
 	}
 
@@ -145,28 +149,27 @@ mares_common_packet (mares_common_device_t *device, const unsigned char command[
 		unsigned char echo[PACKETSIZE] = {0};
 		n = serial_read (device->port, echo, csize);
 		if (n != csize) {
-			WARNING ("Failed to receive the echo.");
+			ERROR (abstract->context, "Failed to receive the echo.");
 			return EXITCODE (n);
 		}
 
 		// Verify the echo.
 		if (memcmp (echo, command, csize) != 0) {
-			WARNING ("Unexpected echo.");
-			return DEVICE_STATUS_PROTOCOL;
+			WARNING (abstract->context, "Unexpected echo.");
 		}
 	}
 
 	// Receive the answer of the device.
 	n = serial_read (device->port, answer, asize);
 	if (n != asize) {
-		WARNING ("Failed to receive the answer.");
+		ERROR (abstract->context, "Failed to receive the answer.");
 		return EXITCODE (n);
 	}
 
 	// Verify the header and trailer of the packet.
 	if (answer[0] != '<' || answer[asize - 1] != '>') {
-		WARNING ("Unexpected answer header/trailer byte.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer header/trailer byte.");
+		return DC_STATUS_PROTOCOL;
 	}
 
 	// Verify the checksum of the packet.
@@ -174,36 +177,39 @@ mares_common_packet (mares_common_device_t *device, const unsigned char command[
 	unsigned char ccrc = checksum_add_uint8 (answer + 1, asize - 4, 0x00);
 	mares_common_convert_ascii_to_binary (answer + asize - 3, 2, &crc, 1);
 	if (crc != ccrc) {
-		WARNING ("Unexpected answer CRC.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer checksum.");
+		return DC_STATUS_PROTOCOL;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
+static dc_status_t
 mares_common_transfer (mares_common_device_t *device, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize)
 {
 	unsigned int nretries = 0;
-	device_status_t rc = DEVICE_STATUS_SUCCESS;
-	while ((rc = mares_common_packet (device, command, csize, answer, asize)) != DEVICE_STATUS_SUCCESS) {
+	dc_status_t rc = DC_STATUS_SUCCESS;
+	while ((rc = mares_common_packet (device, command, csize, answer, asize)) != DC_STATUS_SUCCESS) {
 		// Automatically discard a corrupted packet,
 		// and request a new one.
-		if (rc != DEVICE_STATUS_PROTOCOL && rc != DEVICE_STATUS_TIMEOUT)
+		if (rc != DC_STATUS_PROTOCOL && rc != DC_STATUS_TIMEOUT)
 			return rc;
 
 		// Abort if the maximum number of retries is reached.
 		if (nretries++ >= MAXRETRIES)
 			return rc;
+
+		// Discard any garbage bytes.
+		serial_flush (device->port, SERIAL_QUEUE_INPUT);
 	}
 
 	return rc;
 }
 
 
-device_status_t
-mares_common_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
+dc_status_t
+mares_common_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
 	mares_common_device_t *device = (mares_common_device_t*) abstract;
 
@@ -229,8 +235,8 @@ mares_common_device_read (device_t *abstract, unsigned int address, unsigned cha
 
 		// Send the command and receive the answer.
 		unsigned char answer[2 * (PACKETSIZE + 2)] = {0};
-		device_status_t rc = mares_common_transfer (device, command, sizeof (command), answer, 2 * (len + 2));
-		if (rc != DEVICE_STATUS_SUCCESS)
+		dc_status_t rc = mares_common_transfer (device, command, sizeof (command), answer, 2 * (len + 2));
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		// Extract the raw data from the packet.
@@ -241,26 +247,26 @@ mares_common_device_read (device_t *abstract, unsigned int address, unsigned cha
 		data += len;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
-mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dive_callback_t callback, void *userdata)
+dc_status_t
+mares_common_extract_dives (dc_context_t *context, const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dc_dive_callback_t callback, void *userdata)
 {
 	assert (layout != NULL);
 
 	// Get the freedive mode for this model.
 	unsigned int model = data[1];
 	unsigned int freedive = 2;
-	if (model == 1 || model == 7)
+	if (model == 1 || model == 7 || model == 19)
 		freedive = 3;
 
 	// Get the end of the profile ring buffer.
 	unsigned int eop = array_uint16_le (data + 0x6B);
 	if (eop < layout->rb_profile_begin || eop >= layout->rb_profile_end) {
-		WARNING ("Ringbuffer pointer out of range.");
-		return DEVICE_STATUS_ERROR;
+		ERROR (context, "Ringbuffer pointer out of range.");
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	// Make the ringbuffer linear, to avoid having to deal
@@ -270,8 +276,8 @@ mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned 
 		layout->rb_profile_end - layout->rb_profile_begin +
 		layout->rb_freedives_end - layout->rb_freedives_begin);
 	if (buffer == NULL) {
-		WARNING ("Out of memory.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	memcpy (buffer + 0, data + eop, layout->rb_profile_end - eop);
@@ -346,9 +352,9 @@ mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned 
 		// something is wrong and an error is returned.
 		unsigned int length = array_uint16_le (buffer + offset);
 		if (length != nbytes) {
-			WARNING ("Calculated and stored size are not equal.");
+			ERROR (context, "Calculated and stored size are not equal.");
 			free (buffer);
-			return DEVICE_STATUS_ERROR;
+			return DC_STATUS_DATAFORMAT;
 		}
 
 		// Process the profile data for the most recent freedive entry.
@@ -374,9 +380,9 @@ mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned 
 			// equals the number of freedives in the profile data. If
 			// both values are different, the profile data is incomplete.
 			if (count != nsamples) {
-				WARNING ("Unexpected number of freedive sessions.");
+				ERROR (context, "Unexpected number of freedive sessions.");
 				free (buffer);
-				return DEVICE_STATUS_ERROR;
+				return DC_STATUS_DATAFORMAT;
 			}
 
 			// Append the profile data to the main logbook entry. The
@@ -389,16 +395,16 @@ mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned 
 		unsigned int fp_offset = offset + length - extra - FP_OFFSET;
 		if (fingerprint && memcmp (buffer + fp_offset, fingerprint, FP_SIZE) == 0) {
 			free (buffer);
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 		}
 
 		if (callback && !callback (buffer + offset, nbytes, buffer + fp_offset, FP_SIZE, userdata)) {
 			free (buffer);
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 		}
 	}
 
 	free (buffer);
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

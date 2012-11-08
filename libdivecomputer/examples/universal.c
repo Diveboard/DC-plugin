@@ -28,36 +28,35 @@
 #include <unistd.h>
 #endif
 
+#ifdef _MSC_VER
+#define snprintf _snprintf
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
+
 #ifdef _WIN32
 #define DC_TICKS_FORMAT "%I64d"
 #else
 #define DC_TICKS_FORMAT "%lld"
 #endif
 
-#include <suunto.h>
-#include <reefnet.h>
-#include <uwatec.h>
-#include <oceanic.h>
-#include <mares.h>
-#include <hw.h>
-#include <cressi.h>
-#include <zeagle.h>
-#include <atomics.h>
-#include <utils.h>
+#include <libdivecomputer/context.h>
+#include <libdivecomputer/device.h>
+#include <libdivecomputer/parser.h>
 
+#include "utils.h"
 #include "common.h"
 
 static const char *g_cachedir = NULL;
 static int g_cachedir_read = 1;
 
 typedef struct device_data_t {
-	device_type_t backend;
-	device_devinfo_t devinfo;
-	device_clock_t clock;
+	dc_event_devinfo_t devinfo;
+	dc_event_clock_t clock;
 } device_data_t;
 
 typedef struct dive_data_t {
-	device_data_t *devdata;
+	dc_device_t *device;
 	FILE* fp;
 	unsigned int number;
 	dc_buffer_t *fingerprint;
@@ -70,35 +69,36 @@ typedef struct sample_data_t {
 
 typedef struct backend_table_t {
 	const char *name;
-	device_type_t type;
+	dc_family_t type;
 } backend_table_t;
 
 static const backend_table_t g_backends[] = {
-	{"solution",	DEVICE_TYPE_SUUNTO_SOLUTION},
-	{"eon",			DEVICE_TYPE_SUUNTO_EON},
-	{"vyper",		DEVICE_TYPE_SUUNTO_VYPER},
-	{"vyper2",		DEVICE_TYPE_SUUNTO_VYPER2},
-	{"d9",			DEVICE_TYPE_SUUNTO_D9},
-	{"aladin",		DEVICE_TYPE_UWATEC_ALADIN},
-	{"memomouse",	DEVICE_TYPE_UWATEC_MEMOMOUSE},
-	{"smart",		DEVICE_TYPE_UWATEC_SMART},
-	{"sensus",		DEVICE_TYPE_REEFNET_SENSUS},
-	{"sensuspro",	DEVICE_TYPE_REEFNET_SENSUSPRO},
-	{"sensusultra",	DEVICE_TYPE_REEFNET_SENSUSULTRA},
-	{"vtpro",		DEVICE_TYPE_OCEANIC_VTPRO},
-	{"veo250",		DEVICE_TYPE_OCEANIC_VEO250},
-	{"atom2",		DEVICE_TYPE_OCEANIC_ATOM2},
-	{"nemo",		DEVICE_TYPE_MARES_NEMO},
-	{"puck",		DEVICE_TYPE_MARES_PUCK},
-	{"darwin",      DEVICE_TYPE_MARES_DARWIN},
-	{"iconhd",		DEVICE_TYPE_MARES_ICONHD},
-	{"ostc",		DEVICE_TYPE_HW_OSTC},
-	{"edy",			DEVICE_TYPE_CRESSI_EDY},
-	{"n2ition3",	DEVICE_TYPE_ZEAGLE_N2ITION3},
-	{"cobalt",		DEVICE_TYPE_ATOMICS_COBALT}
+	{"solution",    DC_FAMILY_SUUNTO_SOLUTION},
+	{"eon",	        DC_FAMILY_SUUNTO_EON},
+	{"vyper",       DC_FAMILY_SUUNTO_VYPER},
+	{"vyper2",      DC_FAMILY_SUUNTO_VYPER2},
+	{"d9",          DC_FAMILY_SUUNTO_D9},
+	{"aladin",      DC_FAMILY_UWATEC_ALADIN},
+	{"memomouse",   DC_FAMILY_UWATEC_MEMOMOUSE},
+	{"smart",       DC_FAMILY_UWATEC_SMART},
+	{"sensus",      DC_FAMILY_REEFNET_SENSUS},
+	{"sensuspro",   DC_FAMILY_REEFNET_SENSUSPRO},
+	{"sensusultra", DC_FAMILY_REEFNET_SENSUSULTRA},
+	{"vtpro",       DC_FAMILY_OCEANIC_VTPRO},
+	{"veo250",      DC_FAMILY_OCEANIC_VEO250},
+	{"atom2",       DC_FAMILY_OCEANIC_ATOM2},
+	{"nemo",        DC_FAMILY_MARES_NEMO},
+	{"puck",        DC_FAMILY_MARES_PUCK},
+	{"darwin",      DC_FAMILY_MARES_DARWIN},
+	{"iconhd",      DC_FAMILY_MARES_ICONHD},
+	{"ostc",        DC_FAMILY_HW_OSTC},
+	{"frog",        DC_FAMILY_HW_FROG},
+	{"edy",         DC_FAMILY_CRESSI_EDY},
+	{"n2ition3",    DC_FAMILY_ZEAGLE_N2ITION3},
+	{"cobalt",      DC_FAMILY_ATOMICS_COBALT}
 };
 
-static device_type_t
+static dc_family_t
 lookup_type (const char *name)
 {
 	unsigned int nbackends = sizeof (g_backends) / sizeof (g_backends[0]);
@@ -107,11 +107,11 @@ lookup_type (const char *name)
 			return g_backends[i].type;
 	}
 
-	return DEVICE_TYPE_NULL;
+	return DC_FAMILY_NULL;
 }
 
 static const char *
-lookup_name (device_type_t type)
+lookup_name (dc_family_t type)
 {
 	unsigned int nbackends = sizeof (g_backends) / sizeof (g_backends[0]);
 	for (unsigned int i = 0; i < nbackends; ++i) {
@@ -159,7 +159,7 @@ fpconvert (const char *fingerprint)
 }
 
 static dc_buffer_t *
-fpread (const char *dirname, device_type_t backend, unsigned int serial)
+fpread (const char *dirname, dc_family_t backend, unsigned int serial)
 {
 	// Build the filename.
 	char filename[1024] = {0};
@@ -188,7 +188,7 @@ fpread (const char *dirname, device_type_t backend, unsigned int serial)
 }
 
 static void
-fpwrite (dc_buffer_t *buffer, const char *dirname, device_type_t backend, unsigned int serial)
+fpwrite (dc_buffer_t *buffer, const char *dirname, dc_family_t backend, unsigned int serial)
 {
 	// Check the buffer size.
 	if (dc_buffer_get_size (buffer) == 0)
@@ -231,7 +231,7 @@ cancel_cb (void *userdata)
 }
 
 void
-sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdata)
+sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
 {
 	static const char *events[] = {
 		"none", "deco", "rbt", "ascent", "ceiling", "workload", "transmitter",
@@ -243,35 +243,35 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 	sample_data_t *sampledata = (sample_data_t *) userdata;
 
 	switch (type) {
-	case SAMPLE_TYPE_TIME:
+	case DC_SAMPLE_TIME:
 		if (sampledata->nsamples++)
 			fprintf (sampledata->fp, "</sample>\n");
 		fprintf (sampledata->fp, "<sample>\n");
 		fprintf (sampledata->fp, "   <time>%02u:%02u</time>\n", value.time / 60, value.time % 60);
 		break;
-	case SAMPLE_TYPE_DEPTH:
+	case DC_SAMPLE_DEPTH:
 		fprintf (sampledata->fp, "   <depth>%.2f</depth>\n", value.depth);
 		break;
-	case SAMPLE_TYPE_PRESSURE:
+	case DC_SAMPLE_PRESSURE:
 		fprintf (sampledata->fp, "   <pressure tank=\"%u\">%.2f</pressure>\n", value.pressure.tank, value.pressure.value);
 		break;
-	case SAMPLE_TYPE_TEMPERATURE:
+	case DC_SAMPLE_TEMPERATURE:
 		fprintf (sampledata->fp, "   <temperature>%.2f</temperature>\n", value.temperature);
 		break;
-	case SAMPLE_TYPE_EVENT:
+	case DC_SAMPLE_EVENT:
 		fprintf (sampledata->fp, "   <event type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</event>\n",
 			value.event.type, value.event.time, value.event.flags, value.event.value, events[value.event.type]);
 		break;
-	case SAMPLE_TYPE_RBT:
+	case DC_SAMPLE_RBT:
 		fprintf (sampledata->fp, "   <rbt>%u</rbt>\n", value.rbt);
 		break;
-	case SAMPLE_TYPE_HEARTBEAT:
+	case DC_SAMPLE_HEARTBEAT:
 		fprintf (sampledata->fp, "   <heartbeat>%u</heartbeat>\n", value.heartbeat);
 		break;
-	case SAMPLE_TYPE_BEARING:
+	case DC_SAMPLE_BEARING:
 		fprintf (sampledata->fp, "   <bearing>%u</bearing>\n", value.bearing);
 		break;
-	case SAMPLE_TYPE_VENDOR:
+	case DC_SAMPLE_VENDOR:
 		fprintf (sampledata->fp, "   <vendor type=\"%u\" size=\"%u\">", value.vendor.type, value.vendor.size);
 		for (unsigned int i = 0; i < value.vendor.size; ++i)
 			fprintf (sampledata->fp, "%02X", ((unsigned char *) value.vendor.data)[i]);
@@ -282,100 +282,35 @@ sample_cb (parser_sample_type_t type, parser_sample_value_t value, void *userdat
 	}
 }
 
-static parser_status_t
-doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned int size)
+
+static dc_status_t
+doparse (FILE *fp, dc_device_t *device, const unsigned char data[], unsigned int size)
 {
 	// Create the parser.
 	message ("Creating the parser.\n");
-	parser_t *parser = NULL;
-	parser_status_t rc = PARSER_STATUS_SUCCESS;
-	switch (devdata->backend) {
-	case DEVICE_TYPE_SUUNTO_SOLUTION:
-		rc = suunto_solution_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_SUUNTO_EON:
-		rc = suunto_eon_parser_create (&parser, 0);
-		break;
-	case DEVICE_TYPE_SUUNTO_VYPER:
-		if (devdata->devinfo.model == 0x01)
-			rc = suunto_eon_parser_create (&parser, 1);
-		else
-			rc = suunto_vyper_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_SUUNTO_VYPER2:
-	case DEVICE_TYPE_SUUNTO_D9:
-		rc = suunto_d9_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_UWATEC_ALADIN:
-	case DEVICE_TYPE_UWATEC_MEMOMOUSE:
-		rc = uwatec_memomouse_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_UWATEC_SMART:
-		rc = uwatec_smart_parser_create (&parser, devdata->devinfo.model, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUS:
-		rc = reefnet_sensus_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUSPRO:
-		rc = reefnet_sensuspro_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUSULTRA:
-		rc = reefnet_sensusultra_parser_create (&parser, devdata->clock.devtime, devdata->clock.systime);
-		break;
-	case DEVICE_TYPE_OCEANIC_VTPRO:
-		rc = oceanic_vtpro_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_OCEANIC_VEO250:
-		rc = oceanic_veo250_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_OCEANIC_ATOM2:
-		rc = oceanic_atom2_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_MARES_NEMO:
-	case DEVICE_TYPE_MARES_PUCK:
-		rc = mares_nemo_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_MARES_DARWIN:
-		rc = mares_darwin_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_MARES_ICONHD:
-		rc = mares_iconhd_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_HW_OSTC:
-		rc = hw_ostc_parser_create (&parser);
-		break;
-	case DEVICE_TYPE_CRESSI_EDY:
-	case DEVICE_TYPE_ZEAGLE_N2ITION3:
-		rc = cressi_edy_parser_create (&parser, devdata->devinfo.model);
-		break;
-	case DEVICE_TYPE_ATOMICS_COBALT:
-		rc = atomics_cobalt_parser_create (&parser);
-		break;
-	default:
-		rc = PARSER_STATUS_ERROR;
-		break;
-	}
-	if (rc != PARSER_STATUS_SUCCESS) {
+	dc_parser_t *parser = NULL;
+	dc_status_t rc = dc_parser_new (&parser, device);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error creating the parser.");
 		return rc;
 	}
 
 	// Register the data.
 	message ("Registering the data.\n");
-	rc = parser_set_data (parser, data, size);
-	if (rc != PARSER_STATUS_SUCCESS) {
+	rc = dc_parser_set_data (parser, data, size);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error registering the data.");
-		parser_destroy (parser);
+		dc_parser_destroy (parser);
 		return rc;
 	}
 
 	// Parse the datetime.
 	message ("Parsing the datetime.\n");
 	dc_datetime_t dt = {0};
-	rc = parser_get_datetime (parser, &dt);
-	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+	rc = dc_parser_get_datetime (parser, &dt);
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
 		WARNING ("Error parsing the datetime.");
-		parser_destroy (parser);
+		dc_parser_destroy (parser);
 		return rc;
 	}
 
@@ -386,10 +321,10 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	// Parse the divetime.
 	message ("Parsing the divetime.\n");
 	unsigned int divetime = 0;
-	rc = parser_get_field (parser, FIELD_TYPE_DIVETIME, 0, &divetime);
-	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+	rc = dc_parser_get_field (parser, DC_FIELD_DIVETIME, 0, &divetime);
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
 		WARNING ("Error parsing the divetime.");
-		parser_destroy (parser);
+		dc_parser_destroy (parser);
 		return rc;
 	}
 
@@ -399,10 +334,10 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	// Parse the maxdepth.
 	message ("Parsing the maxdepth.\n");
 	double maxdepth = 0.0;
-	rc = parser_get_field (parser, FIELD_TYPE_MAXDEPTH, 0, &maxdepth);
-	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+	rc = dc_parser_get_field (parser, DC_FIELD_MAXDEPTH, 0, &maxdepth);
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
 		WARNING ("Error parsing the maxdepth.");
-		parser_destroy (parser);
+		dc_parser_destroy (parser);
 		return rc;
 	}
 
@@ -412,19 +347,19 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 	// Parse the gas mixes.
 	message ("Parsing the gas mixes.\n");
 	unsigned int ngases = 0;
-	rc = parser_get_field (parser, FIELD_TYPE_GASMIX_COUNT, 0, &ngases);
-	if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+	rc = dc_parser_get_field (parser, DC_FIELD_GASMIX_COUNT, 0, &ngases);
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
 		WARNING ("Error parsing the gas mix count.");
-		parser_destroy (parser);
+		dc_parser_destroy (parser);
 		return rc;
 	}
 
 	for (unsigned int i = 0; i < ngases; ++i) {
-		gasmix_t gasmix = {0};
-		rc = parser_get_field (parser, FIELD_TYPE_GASMIX, i, &gasmix);
-		if (rc != PARSER_STATUS_SUCCESS && rc != PARSER_STATUS_UNSUPPORTED) {
+		dc_gasmix_t gasmix = {0};
+		rc = dc_parser_get_field (parser, DC_FIELD_GASMIX, i, &gasmix);
+		if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
 			WARNING ("Error parsing the gas mix.");
-			parser_destroy (parser);
+			dc_parser_destroy (parser);
 			return rc;
 		}
 
@@ -446,10 +381,10 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 
 	// Parse the sample data.
 	message ("Parsing the sample data.\n");
-	rc = parser_samples_foreach (parser, sample_cb, &sampledata);
-	if (rc != PARSER_STATUS_SUCCESS) {
+	rc = dc_parser_samples_foreach (parser, sample_cb, &sampledata);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error parsing the sample data.");
-		parser_destroy (parser);
+		dc_parser_destroy (parser);
 		return rc;
 	}
 
@@ -458,48 +393,48 @@ doparse (FILE *fp, device_data_t *devdata, const unsigned char data[], unsigned 
 
 	// Destroy the parser.
 	message ("Destroying the parser.\n");
-	rc = parser_destroy (parser);
-	if (rc != PARSER_STATUS_SUCCESS) {
+	rc = dc_parser_destroy (parser);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error destroying the parser.");
 		return rc;
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 static void
-event_cb (device_t *device, device_event_t event, const void *data, void *userdata)
+event_cb (dc_device_t *device, dc_event_type_t event, const void *data, void *userdata)
 {
-	const device_progress_t *progress = (device_progress_t *) data;
-	const device_devinfo_t *devinfo = (device_devinfo_t *) data;
-	const device_clock_t *clock = (device_clock_t *) data;
+	const dc_event_progress_t *progress = (dc_event_progress_t *) data;
+	const dc_event_devinfo_t *devinfo = (dc_event_devinfo_t *) data;
+	const dc_event_clock_t *clock = (dc_event_clock_t *) data;
 
 	device_data_t *devdata = (device_data_t *) userdata;
 
 	switch (event) {
-	case DEVICE_EVENT_WAITING:
+	case DC_EVENT_WAITING:
 		message ("Event: waiting for user action\n");
 		break;
-	case DEVICE_EVENT_PROGRESS:
+	case DC_EVENT_PROGRESS:
 		message ("Event: progress %3.2f%% (%u/%u)\n",
 			100.0 * (double) progress->current / (double) progress->maximum,
 			progress->current, progress->maximum);
 		break;
-	case DEVICE_EVENT_DEVINFO:
+	case DC_EVENT_DEVINFO:
 		devdata->devinfo = *devinfo;
 		message ("Event: model=%u (0x%08x), firmware=%u (0x%08x), serial=%u (0x%08x)\n",
 			devinfo->model, devinfo->model,
 			devinfo->firmware, devinfo->firmware,
 			devinfo->serial, devinfo->serial);
 		if (g_cachedir && g_cachedir_read) {
-			dc_buffer_t *fingerprint = fpread (g_cachedir, devdata->backend, devinfo->serial);
-			device_set_fingerprint (device,
+			dc_buffer_t *fingerprint = fpread (g_cachedir, dc_device_get_type (device), devinfo->serial);
+			dc_device_set_fingerprint (device,
 				dc_buffer_get_data (fingerprint),
 				dc_buffer_get_size (fingerprint));
 			dc_buffer_free (fingerprint);
 		}
 		break;
-	case DEVICE_EVENT_CLOCK:
+	case DC_EVENT_CLOCK:
 		devdata->clock = *clock;
 		message ("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
 			clock->systime, clock->devtime);
@@ -532,7 +467,7 @@ dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fing
 			fprintf (divedata->fp, "%02X", fingerprint[i]);
 		fprintf (divedata->fp, "</fingerprint>\n");
 
-		doparse (divedata->fp, divedata->devdata, data, size);
+		doparse (divedata->fp, divedata->device, data, size);
 
 		fprintf (divedata->fp, "</dive>\n");
 	}
@@ -548,6 +483,7 @@ usage (const char *filename)
 	fprintf (stderr, "Usage:\n\n");
 	fprintf (stderr, "   %s [options] devname\n\n", filename);
 	fprintf (stderr, "Options:\n\n");
+	fprintf (stderr, "   -n name        Set device name (required).\n");
 	fprintf (stderr, "   -b name        Set backend name (required).\n");
 	fprintf (stderr, "   -t model       Set model code.\n");
 	fprintf (stderr, "   -f hexdata     Set fingerprint data.\n");
@@ -570,124 +506,131 @@ usage (const char *filename)
 		else
 			fprintf (stderr, "\n\n");
 	}
+
+	fprintf (stderr, "Supported devices:\n\n");
+	dc_iterator_t *iterator = NULL;
+	dc_descriptor_t *descriptor = NULL;
+	dc_descriptor_iterator (&iterator);
+	while (dc_iterator_next (iterator, &descriptor) == DC_STATUS_SUCCESS) {
+		fprintf (stderr, "   %s %s\n",
+			dc_descriptor_get_vendor (descriptor),
+			dc_descriptor_get_product (descriptor));
+		dc_descriptor_free (descriptor);
+	}
+	dc_iterator_free (iterator);
 }
 
 
-static device_status_t
-dowork (device_type_t backend, unsigned int model, const char *devname, const char *rawfile, const char *xmlfile, int memory, int dives, dc_buffer_t *fingerprint)
+static dc_status_t
+search (dc_descriptor_t **out, const char *name, dc_family_t backend, unsigned int model)
 {
-	device_status_t rc = DEVICE_STATUS_SUCCESS;
+	dc_status_t rc = DC_STATUS_SUCCESS;
+
+	dc_iterator_t *iterator = NULL;
+	rc = dc_descriptor_iterator (&iterator);
+	if (rc != DC_STATUS_SUCCESS) {
+		WARNING ("Error creating the device descriptor iterator.");
+		return rc;
+	}
+
+	dc_descriptor_t *descriptor = NULL, *current = NULL;
+	while ((rc = dc_iterator_next (iterator, &descriptor)) == DC_STATUS_SUCCESS) {
+		if (name) {
+			const char *vendor = dc_descriptor_get_vendor (descriptor);
+			const char *product = dc_descriptor_get_product (descriptor);
+
+			size_t n = strlen (vendor);
+			if (strncasecmp (name, vendor, n) == 0 && name[n] == ' ' &&
+				strcasecmp (name + n + 1, product) == 0)
+			{
+				current = descriptor;
+				break;
+			} else if (strcasecmp (name, product) == 0) {
+				current = descriptor;
+				break;
+			}
+		} else {
+			if (backend == dc_descriptor_get_type (descriptor)) {
+				if (model == dc_descriptor_get_model (descriptor)) {
+					// Exact match found. Return immediately.
+					dc_descriptor_free (current);
+					current = descriptor;
+					break;
+				} else {
+					// Possible match found. Keep searching for an exact match.
+					// If no exact match is found, the first match is returned.
+					if (current == NULL) {
+						current = descriptor;
+						descriptor = NULL;
+					}
+				}
+			}
+		}
+
+		dc_descriptor_free (descriptor);
+	}
+
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_DONE) {
+		dc_descriptor_free (current);
+		dc_iterator_free (iterator);
+		WARNING ("Error iterating the device descriptors.");
+		return rc;
+	}
+
+	dc_iterator_free (iterator);
+
+	*out = current;
+
+	return DC_STATUS_SUCCESS;
+}
+
+
+static dc_status_t
+dowork (dc_context_t *context, dc_descriptor_t *descriptor, const char *devname, const char *rawfile, const char *xmlfile, int memory, int dives, dc_buffer_t *fingerprint)
+{
+	dc_status_t rc = DC_STATUS_SUCCESS;
 
 	// Initialize the device data.
-	device_data_t devdata = {0};
-	devdata.backend = backend;
+	device_data_t devdata = {{0}};
 
 	// Open the device.
-	message ("Opening the device (%s, %s).\n",
-		lookup_name (backend), devname ? devname : "null");
-	device_t *device = NULL;
-	switch (backend) {
-	case DEVICE_TYPE_SUUNTO_SOLUTION:
-		rc = suunto_solution_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_SUUNTO_EON:
-		rc = suunto_eon_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_SUUNTO_VYPER:
-		rc = suunto_vyper_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_SUUNTO_VYPER2:
-		rc = suunto_vyper2_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_SUUNTO_D9:
-		rc = suunto_d9_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_UWATEC_ALADIN:
-		rc = uwatec_aladin_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_UWATEC_MEMOMOUSE:
-		rc = uwatec_memomouse_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_UWATEC_SMART:
-		rc = uwatec_smart_device_open (&device);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUS:
-		rc = reefnet_sensus_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUSPRO:
-		rc = reefnet_sensuspro_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_REEFNET_SENSUSULTRA:
-		rc = reefnet_sensusultra_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_OCEANIC_VTPRO:
-		rc = oceanic_vtpro_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_OCEANIC_VEO250:
-		rc = oceanic_veo250_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_OCEANIC_ATOM2:
-		rc = oceanic_atom2_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_MARES_NEMO:
-		rc = mares_nemo_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_MARES_PUCK:
-		rc = mares_puck_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_MARES_DARWIN:
-		rc = mares_darwin_device_open (&device, devname, model);
-		break;
-	case DEVICE_TYPE_MARES_ICONHD:
-		rc = mares_iconhd_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_HW_OSTC:
-		rc = hw_ostc_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_CRESSI_EDY:
-		rc = cressi_edy_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_ZEAGLE_N2ITION3:
-		rc = zeagle_n2ition3_device_open (&device, devname);
-		break;
-	case DEVICE_TYPE_ATOMICS_COBALT:
-		rc = atomics_cobalt_device_open (&device);
-		break;
-	default:
-		rc = DEVICE_STATUS_ERROR;
-		break;
-	}
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("Opening the device (%s %s, %s).\n",
+		dc_descriptor_get_vendor (descriptor),
+		dc_descriptor_get_product (descriptor),
+		devname ? devname : "null");
+	dc_device_t *device = NULL;
+	rc = dc_device_open (&device, context, descriptor, devname);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error opening device.");
 		return rc;
 	}
 
 	// Register the event handler.
 	message ("Registering the event handler.\n");
-	int events = DEVICE_EVENT_WAITING | DEVICE_EVENT_PROGRESS | DEVICE_EVENT_DEVINFO | DEVICE_EVENT_CLOCK;
-	rc = device_set_events (device, events, event_cb, &devdata);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK;
+	rc = dc_device_set_events (device, events, event_cb, &devdata);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error registering the event handler.");
-		device_close (device);
+		dc_device_close (device);
 		return rc;
 	}
 
 	// Register the cancellation handler.
 	message ("Registering the cancellation handler.\n");
-	rc = device_set_cancel (device, cancel_cb, NULL);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	rc = dc_device_set_cancel (device, cancel_cb, NULL);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error registering the cancellation handler.");
-		device_close (device);
+		dc_device_close (device);
 		return rc;
 	}
 
 	// Register the fingerprint data.
 	if (fingerprint) {
 		message ("Registering the fingerprint data.\n");
-		rc = device_set_fingerprint (device, dc_buffer_get_data (fingerprint), dc_buffer_get_size (fingerprint));
-		if (rc != DEVICE_STATUS_SUCCESS) {
+		rc = dc_device_set_fingerprint (device, dc_buffer_get_data (fingerprint), dc_buffer_get_size (fingerprint));
+		if (rc != DC_STATUS_SUCCESS) {
 			WARNING ("Error registering the fingerprint data.");
-			device_close (device);
+			dc_device_close (device);
 			return rc;
 		}
 	}
@@ -698,11 +641,11 @@ dowork (device_type_t backend, unsigned int model, const char *devname, const ch
 
 		// Download the memory dump.
 		message ("Downloading the memory dump.\n");
-		rc = device_dump (device, buffer);
-		if (rc != DEVICE_STATUS_SUCCESS) {
+		rc = dc_device_dump (device, buffer);
+		if (rc != DC_STATUS_SUCCESS) {
 			WARNING ("Error downloading the memory dump.");
 			dc_buffer_free (buffer);
-			device_close (device);
+			dc_device_close (device);
 			return rc;
 		}
 
@@ -720,7 +663,7 @@ dowork (device_type_t backend, unsigned int model, const char *devname, const ch
 	if (dives) {
 		// Initialize the dive data.
 		dive_data_t divedata = {0};
-		divedata.devdata = &devdata;
+		divedata.device = device;
 		divedata.fingerprint = NULL;
 		divedata.number = 0;
 
@@ -729,18 +672,18 @@ dowork (device_type_t backend, unsigned int model, const char *devname, const ch
 
 		// Download the dives.
 		message ("Downloading the dives.\n");
-		rc = device_foreach (device, dive_cb, &divedata);
-		if (rc != DEVICE_STATUS_SUCCESS) {
+		rc = dc_device_foreach (device, dive_cb, &divedata);
+		if (rc != DC_STATUS_SUCCESS) {
 			WARNING ("Error downloading the dives.");
 			dc_buffer_free (divedata.fingerprint);
 			if (divedata.fp) fclose (divedata.fp);
-			device_close (device);
+			dc_device_close (device);
 			return rc;
 		}
 
 		// Store the fingerprint data.
 		if (g_cachedir) {
-			fpwrite (divedata.fingerprint, g_cachedir, devdata.backend, devdata.devinfo.serial);
+			fpwrite (divedata.fingerprint, g_cachedir, dc_device_get_type (device), devdata.devinfo.serial);
 		}
 
 		// Free the fingerprint buffer.
@@ -752,13 +695,13 @@ dowork (device_type_t backend, unsigned int model, const char *devname, const ch
 
 	// Close the device.
 	message ("Closing the device.\n");
-	rc = device_close (device);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	rc = dc_device_close (device);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error closing the device.");
 		return rc;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
@@ -766,7 +709,9 @@ int
 main (int argc, char *argv[])
 {
 	// Default values.
-	device_type_t backend = DEVICE_TYPE_NULL;
+	dc_family_t backend = DC_FAMILY_NULL;
+	dc_loglevel_t loglevel = DC_LOGLEVEL_WARNING;
+	const char *name = NULL;
 	const char *logfile = "output.log";
 	const char *rawfile = "output.bin";
 	const char *xmlfile = "output.xml";
@@ -778,8 +723,11 @@ main (int argc, char *argv[])
 #ifndef _MSC_VER
 	// Parse command-line options.
 	int opt = 0;
-	while ((opt = getopt (argc, argv, "b:t:f:l:m:d:c:h")) != -1) {
+	while ((opt = getopt (argc, argv, "n:b:t:f:l:m:d:c:vh")) != -1) {
 		switch (opt) {
+		case 'n':
+			name = optarg;
+			break;
 		case 'b':
 			backend = lookup_type (optarg);
 			break;
@@ -792,6 +740,9 @@ main (int argc, char *argv[])
 			break;
 		case 'l':
 			logfile = optarg;
+			break;
+		case 'v':
+			loglevel++;
 			break;
 		case 'm':
 			memory = 1;
@@ -828,22 +779,45 @@ main (int argc, char *argv[])
 		dives = 1;
 	}
 
-	// The backend is a mandatory argument.
-	if (backend == DEVICE_TYPE_NULL) {
-		usage (argv[0]);
-		return EXIT_FAILURE;
-	}
-
 	signal (SIGINT, sighandler);
 
 	message_set_logfile (logfile);
 
+	dc_context_t *context = NULL;
+	dc_status_t rc = dc_context_new (&context);
+	if (rc != DC_STATUS_SUCCESS) {
+		message_set_logfile (NULL);
+		return EXIT_FAILURE;
+	}
+
+	dc_context_set_loglevel (context, loglevel);
+	dc_context_set_logfunc (context, logfunc, NULL);
+
+	/* Search for a matching device descriptor. */
+	dc_descriptor_t *descriptor = NULL;
+	rc = search (&descriptor, name, backend, model);
+	if (rc != DC_STATUS_SUCCESS) {
+		message_set_logfile (NULL);
+		return EXIT_FAILURE;
+	}
+
+	/* Fail if no device descriptor found. */
+	if (descriptor == NULL) {
+		WARNING ("No matching device found.");
+		usage (argv[0]);
+		message_set_logfile (NULL);
+		return EXIT_FAILURE;
+	}
+
 	dc_buffer_t *fp = fpconvert (fingerprint);
-	device_status_t rc = dowork (backend, model, devname, rawfile, xmlfile, memory, dives, fp);
+	rc = dowork (context, descriptor, devname, rawfile, xmlfile, memory, dives, fp);
 	dc_buffer_free (fp);
 	message ("Result: %s\n", errmsg (rc));
 
+	dc_descriptor_free (descriptor);
+	dc_context_free (context);
+
 	message_set_logfile (NULL);
 
-	return rc != DEVICE_STATUS_SUCCESS ? EXIT_FAILURE : EXIT_SUCCESS;
+	return rc != DC_STATUS_SUCCESS ? EXIT_FAILURE : EXIT_SUCCESS;
 }

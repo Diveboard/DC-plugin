@@ -21,26 +21,27 @@
 
 #include <stdlib.h>
 
-#include "cressi_edy.h"
+#include <libdivecomputer/cressi_edy.h>
+
+#include "context-private.h"
 #include "parser-private.h"
-#include "utils.h"
 #include "array.h"
 
 typedef struct cressi_edy_parser_t cressi_edy_parser_t;
 
 struct cressi_edy_parser_t {
-	parser_t base;
+	dc_parser_t base;
 	unsigned int model;
 };
 
-static parser_status_t cressi_edy_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
-static parser_status_t cressi_edy_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
-static parser_status_t cressi_edy_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
-static parser_status_t cressi_edy_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
-static parser_status_t cressi_edy_parser_destroy (parser_t *abstract);
+static dc_status_t cressi_edy_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size);
+static dc_status_t cressi_edy_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime);
+static dc_status_t cressi_edy_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value);
+static dc_status_t cressi_edy_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
+static dc_status_t cressi_edy_parser_destroy (dc_parser_t *abstract);
 
 static const parser_backend_t cressi_edy_parser_backend = {
-	PARSER_TYPE_CRESSI_EDY,
+	DC_FAMILY_CRESSI_EDY,
 	cressi_edy_parser_set_data, /* set_data */
 	cressi_edy_parser_get_datetime, /* datetime */
 	cressi_edy_parser_get_field, /* fields */
@@ -50,7 +51,7 @@ static const parser_backend_t cressi_edy_parser_backend = {
 
 
 static int
-parser_is_cressi_edy (parser_t *abstract)
+parser_is_cressi_edy (dc_parser_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -59,59 +60,59 @@ parser_is_cressi_edy (parser_t *abstract)
 }
 
 
-parser_status_t
-cressi_edy_parser_create (parser_t **out, unsigned int model)
+dc_status_t
+cressi_edy_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int model)
 {
 	if (out == NULL)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	cressi_edy_parser_t *parser = (cressi_edy_parser_t *) malloc (sizeof (cressi_edy_parser_t));
 	if (parser == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return PARSER_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, &cressi_edy_parser_backend);
+	parser_init (&parser->base, context, &cressi_edy_parser_backend);
 
 	// Set the default values.
 	parser->model = model;
 
-	*out = (parser_t*) parser;
+	*out = (dc_parser_t*) parser;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-cressi_edy_parser_destroy (parser_t *abstract)
+static dc_status_t
+cressi_edy_parser_destroy (dc_parser_t *abstract)
 {
 	if (! parser_is_cressi_edy (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Free memory.
 	free (abstract);
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-cressi_edy_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size)
+static dc_status_t
+cressi_edy_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	if (! parser_is_cressi_edy (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-cressi_edy_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
+static dc_status_t
+cressi_edy_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 {
 	if (abstract->size < 32)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const unsigned char *p = abstract->data;
 
@@ -124,52 +125,52 @@ cressi_edy_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
 		datetime->second = 0;
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-cressi_edy_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+static dc_status_t
+cressi_edy_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value)
 {
 	cressi_edy_parser_t *parser = (cressi_edy_parser_t *) abstract;
 
 	if (abstract->size < 32)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const unsigned char *p = abstract->data;
 
-	gasmix_t *gasmix = (gasmix_t *) value;
+	dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
 
 	if (value) {
 		switch (type) {
-		case FIELD_TYPE_DIVETIME:
+		case DC_FIELD_DIVETIME:
 			if (parser->model == 0x08)
 				*((unsigned int *) value) = bcd2dec (p[0x0C] & 0x0F) * 60 + bcd2dec (p[0x0D]);
 			else
 				*((unsigned int *) value) = (bcd2dec (p[0x0C] & 0x0F) * 100 + bcd2dec (p[0x0D])) * 60;
 			break;
-		case FIELD_TYPE_MAXDEPTH:
+		case DC_FIELD_MAXDEPTH:
 			*((double *) value) = (bcd2dec (p[0x02] & 0x0F) * 100 + bcd2dec (p[0x03])) / 10.0;
 			break;
-		case FIELD_TYPE_GASMIX_COUNT:
+		case DC_FIELD_GASMIX_COUNT:
 			*((unsigned int *) value) = 3;
 			break;
-		case FIELD_TYPE_GASMIX:
+		case DC_FIELD_GASMIX:
 			gasmix->helium = 0.0;
 			gasmix->oxygen = bcd2dec (p[0x17 - flags]) / 100.0;
 			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
 			break;
 		default:
-			return PARSER_STATUS_UNSUPPORTED;
+			return DC_STATUS_UNSUPPORTED;
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-cressi_edy_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
+static dc_status_t
+cressi_edy_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
 	cressi_edy_parser_t *parser = (cressi_edy_parser_t *) abstract;
 
@@ -185,7 +186,7 @@ cressi_edy_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 
 	unsigned int offset = 32;
 	while (offset + 2 <= size) {
-		parser_sample_value_t sample = {0};
+		dc_sample_value_t sample = {0};
 
 		if (data[offset] == 0xFF)
 			break;
@@ -197,15 +198,15 @@ cressi_edy_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 		// Time (seconds).
 		time += interval;
 		sample.time = time;
-		if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+		if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 		// Depth (1/10 m).
 		unsigned int depth = bcd2dec (data[offset + 0] & 0x0F) * 100 + bcd2dec (data[offset + 1]);
 		sample.depth = depth / 10.0;
-		if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+		if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 
 		offset += 2 + extra;
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

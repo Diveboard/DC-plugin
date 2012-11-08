@@ -22,53 +22,69 @@
 #include <stdio.h>	// fopen, fwrite, fclose
 #include <stdlib.h>	// atoi
 
-#include "suunto_vyper.h"
-#include "utils.h"
+#include <libdivecomputer/suunto_vyper.h>
 
+#include "utils.h"
 #include "common.h"
 
-device_status_t
+dc_status_t
 test_dump_sdm (const char* name, unsigned int delay)
 {
-	device_t *device = NULL;
+	dc_context_t *context = NULL;
+	dc_device_t *device = NULL;
+
+	dc_context_new (&context);
+	dc_context_set_loglevel (context, DC_LOGLEVEL_ALL);
+	dc_context_set_logfunc (context, logfunc, NULL);
 
 	message ("suunto_vyper_device_open\n");
-	device_status_t rc = suunto_vyper_device_open (&device, name);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	dc_status_t rc = suunto_vyper_device_open (&device, context, name);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error opening serial port.");
+		dc_context_free (context);
 		return rc;
 	}
 
 	suunto_vyper_device_set_delay (device, delay);
 
-	message ("device_foreach\n");
-	rc = device_foreach (device, NULL, NULL);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("dc_device_foreach\n");
+	rc = dc_device_foreach (device, NULL, NULL);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Cannot read dives.");
-		device_close (device);
+		dc_device_close (device);
+		dc_context_free (context);
 		return rc;
 	}
 
-	message ("device_close\n");
-	rc = device_close (device);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("dc_device_close\n");
+	rc = dc_device_close (device);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Cannot close device.");
+		dc_context_free (context);
 		return rc;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	dc_context_free (context);
+
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
+dc_status_t
 test_dump_memory (const char* name, unsigned int delay, const char* filename)
 {
-	device_t *device = NULL;
+	dc_context_t *context = NULL;
+	dc_device_t *device = NULL;
+
+	dc_context_new (&context);
+	dc_context_set_loglevel (context, DC_LOGLEVEL_ALL);
+	dc_context_set_logfunc (context, logfunc, NULL);
 
 	message ("suunto_vyper_device_open\n");
-	device_status_t rc = suunto_vyper_device_open (&device, name);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	dc_status_t rc = suunto_vyper_device_open (&device, context, name);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error opening serial port.");
+		dc_context_free (context);
 		return rc;
 	}
 
@@ -76,12 +92,13 @@ test_dump_memory (const char* name, unsigned int delay, const char* filename)
 
 	dc_buffer_t *buffer = dc_buffer_new (0);
 
-	message ("device_dump\n");
-	rc = device_dump (device, buffer);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("dc_device_dump\n");
+	rc = dc_device_dump (device, buffer);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Cannot read memory.");
 		dc_buffer_free (buffer);
-		device_close (device);
+		dc_device_close (device);
+		dc_context_free (context);
 		return rc;
 	}
 
@@ -94,14 +111,17 @@ test_dump_memory (const char* name, unsigned int delay, const char* filename)
 
 	dc_buffer_free (buffer);
 
-	message ("device_close\n");
-	rc = device_close (device);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("dc_device_close\n");
+	rc = dc_device_close (device);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Cannot close device.");
+		dc_context_free (context);
 		return rc;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	dc_context_free (context);
+
+	return DC_STATUS_SUCCESS;
 }
 
 
@@ -126,8 +146,8 @@ int main(int argc, char *argv[])
 
 	message ("DEVICE=%s, DELAY=%i\n", name, delay);
 
-	device_status_t a = test_dump_sdm (name, delay);
-	device_status_t b = test_dump_memory (name, delay, "VYPER.DMP");
+	dc_status_t a = test_dump_sdm (name, delay);
+	dc_status_t b = test_dump_memory (name, delay, "VYPER.DMP");
 
 	message ("\nSUMMARY\n");
 	message ("-------\n");

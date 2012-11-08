@@ -40,20 +40,20 @@ typedef struct mares_common_layout_t {
 } mares_common_layout_t;
 
 typedef struct mares_common_device_t {
-	device_t base;
+	dc_device_t base;
 	serial_t *port;
 	unsigned int echo;
 	unsigned int delay;
 } mares_common_device_t;
 
 void
-mares_common_device_init (mares_common_device_t *device, const device_backend_t *backend);
+mares_common_device_init (mares_common_device_t *device, dc_context_t *context, const device_backend_t *backend);
 
-device_status_t
-mares_common_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
+dc_status_t
+mares_common_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
 
-device_status_t
-mares_common_extract_dives (const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dive_callback_t callback, void *userdata);
+dc_status_t
+mares_common_extract_dives (dc_context_t *context, const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dc_dive_callback_t callback, void *userdata);
 
 #ifdef __cplusplus
 }

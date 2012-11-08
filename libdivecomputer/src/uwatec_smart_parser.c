@@ -22,10 +22,11 @@
 #include <stdlib.h>
 #include <string.h>	// memcmp
 
-#include "uwatec_smart.h"
+#include <libdivecomputer/uwatec_smart.h>
+#include <libdivecomputer/units.h>
+
+#include "context-private.h"
 #include "parser-private.h"
-#include "units.h"
-#include "utils.h"
 #include "array.h"
 
 #define NBITS 8
@@ -37,25 +38,26 @@
 #define ALADINTEC2G   0x13
 #define SMARTCOM      0x14
 #define SMARTTEC      0x18
+#define GALILEOTRIMIX 0x19
 #define SMARTZ        0x1C
 
 typedef struct uwatec_smart_parser_t uwatec_smart_parser_t;
 
 struct uwatec_smart_parser_t {
-	parser_t base;
+	dc_parser_t base;
 	unsigned int model;
 	unsigned int devtime;
 	dc_ticks_t systime;
 };
 
-static parser_status_t uwatec_smart_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
-static parser_status_t uwatec_smart_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
-static parser_status_t uwatec_smart_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
-static parser_status_t uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
-static parser_status_t uwatec_smart_parser_destroy (parser_t *abstract);
+static dc_status_t uwatec_smart_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size);
+static dc_status_t uwatec_smart_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime);
+static dc_status_t uwatec_smart_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value);
+static dc_status_t uwatec_smart_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
+static dc_status_t uwatec_smart_parser_destroy (dc_parser_t *abstract);
 
 static const parser_backend_t uwatec_smart_parser_backend = {
-	PARSER_TYPE_UWATEC_SMART,
+	DC_FAMILY_UWATEC_SMART,
 	uwatec_smart_parser_set_data, /* set_data */
 	uwatec_smart_parser_get_datetime, /* datetime */
 	uwatec_smart_parser_get_field, /* fields */
@@ -65,7 +67,7 @@ static const parser_backend_t uwatec_smart_parser_backend = {
 
 
 static int
-parser_is_uwatec_smart (parser_t *abstract)
+parser_is_uwatec_smart (dc_parser_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -74,72 +76,72 @@ parser_is_uwatec_smart (parser_t *abstract)
 }
 
 
-parser_status_t
-uwatec_smart_parser_create (parser_t **out, unsigned int model, unsigned int devtime, dc_ticks_t systime)
+dc_status_t
+uwatec_smart_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int model, unsigned int devtime, dc_ticks_t systime)
 {
 	if (out == NULL)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	uwatec_smart_parser_t *parser = (uwatec_smart_parser_t *) malloc (sizeof (uwatec_smart_parser_t));
 	if (parser == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return PARSER_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, &uwatec_smart_parser_backend);
+	parser_init (&parser->base, context, &uwatec_smart_parser_backend);
 
 	// Set the default values.
 	parser->model = model;
 	parser->devtime = devtime;
 	parser->systime = systime;
 
-	*out = (parser_t*) parser;
+	*out = (dc_parser_t*) parser;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-uwatec_smart_parser_destroy (parser_t *abstract)
+static dc_status_t
+uwatec_smart_parser_destroy (dc_parser_t *abstract)
 {
 	if (! parser_is_uwatec_smart (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Free memory.	
 	free (abstract);
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-uwatec_smart_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size)
+static dc_status_t
+uwatec_smart_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	if (! parser_is_uwatec_smart (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-uwatec_smart_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
+static dc_status_t
+uwatec_smart_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 {
 	uwatec_smart_parser_t *parser = (uwatec_smart_parser_t *) abstract;
 
 	if (abstract->size < 8 + 4)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	unsigned int timestamp = array_uint32_le (abstract->data + 8);
 
 	dc_ticks_t ticks = parser->systime - (parser->devtime - timestamp) / 2;
 
 	if (!dc_datetime_localtime (datetime, ticks))
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 typedef struct uwatec_smart_header_info_t {
@@ -198,8 +200,8 @@ uwatec_smart_header_info_t uwatec_galileo_sol_header = {
 	44, 3
 };
 
-static parser_status_t
-uwatec_smart_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+static dc_status_t
+uwatec_smart_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value)
 {
 	uwatec_smart_parser_t *parser = (uwatec_smart_parser_t *) abstract;
 
@@ -207,6 +209,7 @@ uwatec_smart_parser_get_field (parser_t *abstract, parser_field_type_t type, uns
 	unsigned int size = abstract->size;
 
 	unsigned int header = 0;
+	unsigned int trimix = 0;
 	const uwatec_smart_header_info_t *table = NULL;
 
 	// Load the correct table.
@@ -216,7 +219,12 @@ uwatec_smart_parser_get_field (parser_t *abstract, parser_field_type_t type, uns
 		table = &uwatec_smart_pro_header;
 		break;
 	case GALILEO:
+	case GALILEOTRIMIX:
 		header = 152;
+		if (data[43] & 0x80) {
+			header = 0xB1;
+			trimix = 1;
+		}
 		table = &uwatec_galileo_sol_header;
 		break;
 	case ALADINTEC:
@@ -240,36 +248,39 @@ uwatec_smart_parser_get_field (parser_t *abstract, parser_field_type_t type, uns
 		table = &uwatec_smart_z_header;
 		break;
 	default:
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	if (size < header)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
-	gasmix_t *gasmix = (gasmix_t *) value;
+	dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
 
 	if (value) {
 		switch (type) {
-		case FIELD_TYPE_DIVETIME:
+		case DC_FIELD_DIVETIME:
 			*((unsigned int *) value) = array_uint16_le (data + table->divetime) * 60;
 			break;
-		case FIELD_TYPE_MAXDEPTH:
+		case DC_FIELD_MAXDEPTH:
 			*((double *) value) = array_uint16_le (data + table->maxdepth) / 100.0;
 			break;
-		case FIELD_TYPE_GASMIX_COUNT:
-			*((unsigned int *) value) = table->ngases;
+		case DC_FIELD_GASMIX_COUNT:
+			if (trimix)
+				*((unsigned int *) value) = 0;
+			else
+				*((unsigned int *) value) = table->ngases;
 			break;
-		case FIELD_TYPE_GASMIX:
+		case DC_FIELD_GASMIX:
 			gasmix->helium = 0.0;
 			gasmix->oxygen = array_uint16_le (data + table->gasmix + flags * 2) / 100.0;
 			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
 			break;
 		default:
-			return PARSER_STATUS_UNSUPPORTED;
+			return DC_STATUS_UNSUPPORTED;
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
@@ -340,6 +351,8 @@ typedef enum {
 	BEARING,
 	ALARMS,
 	TIME,
+	UNKNOWN1,
+	UNKNOWN2,
 } uwatec_smart_sample_t;
 
 typedef struct uwatec_smart_sample_info_t {
@@ -429,15 +442,17 @@ uwatec_smart_sample_info_t uwatec_galileo_sol_table [] = {
 	{HEARTRATE,      1, 0, 8, 0, 1}, // 1111 0111 dddddddd
 	{BEARING,        1, 0, 8, 0, 2}, // 1111 1000 dddddddd dddddddd
 	{ALARMS,         1, 2, 8, 0, 1}, // 1111 1001 dddddddd
+	{UNKNOWN1,       1, 0, 8, 0, 0}, // 1111 1010 (8 bytes)
+	{UNKNOWN2,       1, 0, 8, 0, 1}, // 1111 1011 dddddddd (n-1 bytes)
 };
 
-static parser_status_t
-uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
+static dc_status_t
+uwatec_smart_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
 	uwatec_smart_parser_t *parser = (uwatec_smart_parser_t*) abstract;
 
 	if (! parser_is_uwatec_smart (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
@@ -445,6 +460,7 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 	const uwatec_smart_sample_info_t *table = NULL;
 	unsigned int entries = 0;
 	unsigned int header = 0;
+	unsigned int trimix = 0;
 
 	// Load the correct table.
 	switch (parser->model) {
@@ -454,7 +470,12 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 		entries = NELEMENTS (uwatec_smart_pro_table);
 		break;
 	case GALILEO:
+	case GALILEOTRIMIX:
 		header = 152;
+		if (data[43] & 0x80) {
+			header = 0xB1;
+			trimix = 1;
+		}
 		table = uwatec_galileo_sol_table;
 		entries = NELEMENTS (uwatec_galileo_sol_table);
 		break;
@@ -480,7 +501,7 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 		entries = NELEMENTS (uwatec_smart_tec_table);
 		break;
 	default:
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	// Get the maximum number of alarm bytes.
@@ -511,11 +532,11 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 
 	unsigned int offset = header;
 	while (offset < size) {
-		parser_sample_value_t sample = {0};
+		dc_sample_value_t sample = {0};
 
 		// Process the type bits in the bitstream.
 		unsigned int id = 0;
-		if (parser->model == GALILEO) {
+		if (parser->model == GALILEO || parser->model == GALILEOTRIMIX) {
 			// Uwatec Galileo
 			id = uwatec_galileo_identify (data[offset]);
 		} else {
@@ -523,8 +544,8 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 			id = uwatec_smart_identify (data + offset, size - offset);
 		}
 		if (id >= entries) {
-			WARNING ("Invalid type bits.");
-			return PARSER_STATUS_ERROR;
+			ERROR (abstract->context, "Invalid type bits.");
+			return DC_STATUS_DATAFORMAT;
 		}
 
 		// Skip the processed type bytes.
@@ -548,8 +569,8 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 
 		// Check for buffer overflows.
 		if (offset + table[id].extrabytes > size) {
-			WARNING ("Incomplete sample data.");
-			return PARSER_STATUS_ERROR;
+			ERROR (abstract->context, "Incomplete sample data.");
+			return DC_STATUS_DATAFORMAT;
 		}
 
 		// Process the extra data bytes.
@@ -588,8 +609,13 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 			break;
 		case PRESSURE:
 			if (table[id].absolute) {
-				tank = table[id].index;
-				pressure = value / 4.0;
+				if (trimix) {
+					tank = (value & 0xF000) >> 24;
+					pressure = (value & 0x0FFF) / 4.0;
+				} else {
+					tank = table[id].index;
+					pressure = value / 4.0;
+				}
 				have_pressure = 1;
 			} else {
 				pressure += svalue / 4.0;
@@ -627,54 +653,68 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 		case TIME:
 			complete = value;
 			break;
+		case UNKNOWN1:
+			if (offset + 8 > size) {
+				ERROR (abstract->context, "Incomplete sample data.");
+				return DC_STATUS_DATAFORMAT;
+			}
+			offset += 8;
+			break;
+		case UNKNOWN2:
+			if (value < 1 || offset + value - 1 > size) {
+				ERROR (abstract->context, "Incomplete sample data.");
+				return DC_STATUS_DATAFORMAT;
+			}
+			offset += value - 1;
+			break;
 		default:
-			WARNING ("Unknown sample type.");
+			WARNING (abstract->context, "Unknown sample type.");
 			break;
 		}
 
 		while (complete) {
 			sample.time = time;
-			if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+			if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 			if (have_temperature) {
 				sample.temperature = temperature;
-				if (callback) callback (SAMPLE_TYPE_TEMPERATURE, sample, userdata);
+				if (callback) callback (DC_SAMPLE_TEMPERATURE, sample, userdata);
 			}
 
 			if (have_alarms) {
 				sample.vendor.type = SAMPLE_VENDOR_UWATEC_SMART;
 				sample.vendor.size = nalarms;
 				sample.vendor.data = alarms;
-				if (callback) callback (SAMPLE_TYPE_VENDOR, sample, userdata);
+				if (callback) callback (DC_SAMPLE_VENDOR, sample, userdata);
 				memset (alarms, 0, sizeof (alarms));
 				have_alarms = 0;
 			}
 
 			if (have_rbt || have_pressure) {
 				sample.rbt = rbt;
-				if (callback) callback (SAMPLE_TYPE_RBT, sample, userdata);
+				if (callback) callback (DC_SAMPLE_RBT, sample, userdata);
 			}
 
 			if (have_pressure) {
 				sample.pressure.tank = tank;
 				sample.pressure.value = pressure;
-				if (callback) callback (SAMPLE_TYPE_PRESSURE, sample, userdata);
+				if (callback) callback (DC_SAMPLE_PRESSURE, sample, userdata);
 			}
 
 			if (have_heartrate) {
 				sample.heartbeat = heartrate;
-				if (callback) callback (SAMPLE_TYPE_HEARTBEAT, sample, userdata);
+				if (callback) callback (DC_SAMPLE_HEARTBEAT, sample, userdata);
 			}
 
 			if (have_bearing) {
 				sample.bearing = bearing;
-				if (callback) callback (SAMPLE_TYPE_BEARING, sample, userdata);
+				if (callback) callback (DC_SAMPLE_BEARING, sample, userdata);
 				have_bearing = 0;
 			}
 
 			if (have_depth) {
 				sample.depth = depth - depth_calibration;
-				if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+				if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 			}
 
 			time += 4;
@@ -682,5 +722,5 @@ uwatec_smart_parser_samples_foreach (parser_t *abstract, sample_callback_t callb
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

@@ -22,14 +22,18 @@
 #ifndef EXAMPLES_COMMON_H
 #define EXAMPLES_COMMON_H
 
-#include <device.h>
+#include <libdivecomputer/common.h>
+#include <libdivecomputer/context.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
 const char *
-errmsg (device_status_t rc);
+errmsg (dc_status_t rc);
+
+void
+logfunc (dc_context_t *context, dc_loglevel_t loglevel, const char *file, unsigned int line, const char *function, const char *msg, void *userdata);
 
 #ifdef __cplusplus
 }

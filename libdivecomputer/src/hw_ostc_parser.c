@@ -21,17 +21,19 @@
 
 #include <stdlib.h>
 
-#include "hw_ostc.h"
+#include <libdivecomputer/hw_ostc.h>
+
+#include "context-private.h"
 #include "parser-private.h"
 #include "array.h"
-#include "utils.h"
 
 #define NINFO 6
 
 typedef struct hw_ostc_parser_t hw_ostc_parser_t;
 
 struct hw_ostc_parser_t {
-	parser_t base;
+	dc_parser_t base;
+	unsigned int frog;
 };
 
 typedef struct hw_ostc_sample_info_t {
@@ -39,14 +41,14 @@ typedef struct hw_ostc_sample_info_t {
 	unsigned int size;
 } hw_ostc_sample_info_t;
 
-static parser_status_t hw_ostc_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
-static parser_status_t hw_ostc_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
-static parser_status_t hw_ostc_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
-static parser_status_t hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
-static parser_status_t hw_ostc_parser_destroy (parser_t *abstract);
+static dc_status_t hw_ostc_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size);
+static dc_status_t hw_ostc_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime);
+static dc_status_t hw_ostc_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value);
+static dc_status_t hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
+static dc_status_t hw_ostc_parser_destroy (dc_parser_t *abstract);
 
 static const parser_backend_t hw_ostc_parser_backend = {
-	PARSER_TYPE_HW_OSTC,
+	DC_FAMILY_HW_OSTC,
 	hw_ostc_parser_set_data, /* set_data */
 	hw_ostc_parser_get_datetime, /* datetime */
 	hw_ostc_parser_get_field, /* fields */
@@ -56,7 +58,7 @@ static const parser_backend_t hw_ostc_parser_backend = {
 
 
 static int
-parser_is_hw_ostc (parser_t *abstract)
+parser_is_hw_ostc (dc_parser_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -65,82 +67,65 @@ parser_is_hw_ostc (parser_t *abstract)
 }
 
 
-parser_status_t
-hw_ostc_parser_create (parser_t **out)
+dc_status_t
+hw_ostc_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int frog)
 {
 	if (out == NULL)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	hw_ostc_parser_t *parser = (hw_ostc_parser_t *) malloc (sizeof (hw_ostc_parser_t));
 	if (parser == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return PARSER_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, &hw_ostc_parser_backend);
+	parser_init (&parser->base, context, &hw_ostc_parser_backend);
 
-	*out = (parser_t*) parser;
+	parser->frog = frog;
 
-	return PARSER_STATUS_SUCCESS;
+	*out = (dc_parser_t *) parser;
+
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-hw_ostc_parser_destroy (parser_t *abstract)
+static dc_status_t
+hw_ostc_parser_destroy (dc_parser_t *abstract)
 {
 	if (! parser_is_hw_ostc (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Free memory.
 	free (abstract);
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-hw_ostc_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size)
+static dc_status_t
+hw_ostc_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	if (! parser_is_hw_ostc (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-hw_ostc_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
+static dc_status_t
+hw_ostc_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 {
-	if (abstract->size < 8)
-		return PARSER_STATUS_ERROR;
-
-	const unsigned char *p = abstract->data;
-
-	if (datetime) {
-		datetime->year   = p[5] + 2000;
-		datetime->month  = p[3];
-		datetime->day    = p[4];
-		datetime->hour   = p[6];
-		datetime->minute = p[7];
-		datetime->second = 0;
-	}
-
-	return PARSER_STATUS_SUCCESS;
-}
-
-static parser_status_t
-hw_ostc_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
-{
+	hw_ostc_parser_t *parser = (hw_ostc_parser_t *) abstract;
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
-	if (size < 3)
-		return PARSER_STATUS_ERROR;
+	if (size < 9)
+		return DC_STATUS_DATAFORMAT;
 
 	// Check the profile version
-	unsigned int version = data[2];
+	unsigned int version = data[parser->frog ? 8 : 2];
 	unsigned int header = 0;
 	switch (version) {
 	case 0x20:
@@ -149,54 +134,127 @@ hw_ostc_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned
 	case 0x21:
 		header = 57;
 		break;
+	case 0x22:
+		header = 256;
+		break;
 	default:
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	if (size < header)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
-	gasmix_t *gasmix = (gasmix_t *) value;
+	unsigned int divetime = 0;
+	if (version == 0x21 || version == 0x22) {
+		// Use the dive time stored in the extended header, rounded down towards
+		// the nearest minute, to match the value displayed by the ostc.
+		divetime = (array_uint16_le (data + 47) / 60) * 60;
+	} else {
+		// Use the normal dive time (excluding the shallow parts of the dive).
+		divetime = array_uint16_le (data + 10) * 60 + data[12];
+	}
+
+	if (parser->frog)
+		data += 6;
+
+	dc_datetime_t dt;
+	dt.year   = data[5] + 2000;
+	dt.month  = data[3];
+	dt.day    = data[4];
+	dt.hour   = data[6];
+	dt.minute = data[7];
+	dt.second = 0;
+
+	dc_ticks_t ticks = dc_datetime_mktime (&dt);
+	if (ticks == (dc_ticks_t) -1)
+		return DC_STATUS_DATAFORMAT;
+
+	ticks -= divetime;
+
+	if (!dc_datetime_localtime (datetime, ticks))
+		return DC_STATUS_DATAFORMAT;
+
+	return DC_STATUS_SUCCESS;
+}
+
+static dc_status_t
+hw_ostc_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value)
+{
+	hw_ostc_parser_t *parser = (hw_ostc_parser_t *) abstract;
+	const unsigned char *data = abstract->data;
+	unsigned int size = abstract->size;
+
+	if (size < 9)
+		return DC_STATUS_DATAFORMAT;
+
+	// Check the profile version
+	unsigned int version = data[parser->frog ? 8 : 2];
+	unsigned int header = 0;
+	switch (version) {
+	case 0x20:
+		header = 47;
+		break;
+	case 0x21:
+		header = 57;
+		break;
+	case 0x22:
+		header = 256;
+		break;
+	default:
+		return DC_STATUS_DATAFORMAT;
+	}
+
+	if (size < header)
+		return DC_STATUS_DATAFORMAT;
+
+	if (parser->frog)
+		data += 6;
+
+	dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
 
 	if (value) {
 		switch (type) {
-		case FIELD_TYPE_DIVETIME:
+		case DC_FIELD_DIVETIME:
 			*((unsigned int *) value) = array_uint16_le (data + 10) * 60 + data[12];
 			break;
-		case FIELD_TYPE_MAXDEPTH:
+		case DC_FIELD_MAXDEPTH:
 			*((double *) value) = array_uint16_le (data + 8) / 100.0;
 			break;
-		case FIELD_TYPE_GASMIX_COUNT:
-			*((unsigned int *) value) = 6;
+		case DC_FIELD_GASMIX_COUNT:
+			if (parser->frog)
+				*((unsigned int *) value) = 3;
+			else
+				*((unsigned int *) value) = 6;
 			break;
-		case FIELD_TYPE_GASMIX:
+		case DC_FIELD_GASMIX:
 			gasmix->oxygen = data[19 + 2 * flags] / 100.0;
-			gasmix->helium = data[20 + 2 * flags] / 100.0;
+			if (parser->frog)
+				gasmix->helium = 0.0;
+			else
+				gasmix->helium = data[20 + 2 * flags] / 100.0;
 			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
 			break;
 		default:
-			return PARSER_STATUS_UNSUPPORTED;
+			return DC_STATUS_UNSUPPORTED;
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
+static dc_status_t
+hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
-	if (! parser_is_hw_ostc (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
-
+	hw_ostc_parser_t *parser = (hw_ostc_parser_t *) abstract;
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
-	if (size < 3)
-		return PARSER_STATUS_ERROR;
+	if (size < 9)
+		return DC_STATUS_DATAFORMAT;
 
 	// Check the profile version
-	unsigned int version = data[2];
+	unsigned int version = data[parser->frog ? 8 : 2];
 	unsigned int header = 0;
 	switch (version) {
 	case 0x20:
@@ -205,12 +263,15 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 	case 0x21:
 		header = 57;
 		break;
+	case 0x22:
+		header = 256;
+		break;
 	default:
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	if (size < header)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	// Get the sample rate.
 	unsigned int samplerate = data[36];
@@ -223,7 +284,7 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 		switch (i) {
 		case 0: // Temperature
 			if (info[i].size != 2)
-				return PARSER_STATUS_ERROR;
+				return DC_STATUS_DATAFORMAT;
 			break;
 		default: // Not yet used.
 			break;
@@ -235,19 +296,19 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 
 	unsigned int offset = header;
 	while (offset + 3 <= size) {
-		parser_sample_value_t sample = {0};
+		dc_sample_value_t sample = {0};
 
 		nsamples++;
 
 		// Time (seconds).
 		time += samplerate;
 		sample.time = time;
-		if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+		if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 		// Depth (mbar).
 		unsigned int depth = array_uint16_le (data + offset);
 		sample.depth = depth / 100.0;
-		if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+		if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 		offset += 2;
 
 		// Extended sample info.
@@ -257,7 +318,7 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 
 		// Check for buffer overflows.
 		if (offset + length > size)
-			return PARSER_STATUS_ERROR;
+			return DC_STATUS_DATAFORMAT;
 
 		// Get the event byte.
 		if (events) {
@@ -295,7 +356,7 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 				case 0: // Temperature (0.1 °C).
 					value = array_uint16_le (data + offset);
 					sample.temperature = value / 10.0;
-					if (callback) callback (SAMPLE_TYPE_TEMPERATURE, sample, userdata);
+					if (callback) callback (DC_SAMPLE_TEMPERATURE, sample, userdata);
 					break;
 				default: // Not yet used.
 					break;
@@ -312,7 +373,7 @@ hw_ostc_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, 
 	}
 
 	if (data[offset] != 0xFD || data[offset + 1] != 0xFD)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

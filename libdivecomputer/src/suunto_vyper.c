@@ -23,17 +23,18 @@
 #include <stdlib.h> // malloc, free
 #include <assert.h>	// assert
 
+#include <libdivecomputer/suunto_vyper.h>
+
+#include "context-private.h"
 #include "device-private.h"
-#include "suunto_vyper.h"
 #include "suunto_common.h"
 #include "serial.h"
 #include "checksum.h"
 #include "array.h"
-#include "utils.h"
 
 #define EXITCODE(rc) \
 ( \
-	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
+	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
 )
 
 #define MIN(a,b)	(((a) < (b)) ? (a) : (b))
@@ -50,14 +51,14 @@ typedef struct suunto_vyper_device_t {
 	unsigned int delay;
 } suunto_vyper_device_t;
 
-static device_status_t suunto_vyper_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
-static device_status_t suunto_vyper_device_write (device_t *abstract, unsigned int address, const unsigned char data[], unsigned int size);
-static device_status_t suunto_vyper_device_dump (device_t *abstract, dc_buffer_t *buffer);
-static device_status_t suunto_vyper_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata);
-static device_status_t suunto_vyper_device_close (device_t *abstract);
+static dc_status_t suunto_vyper_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
+static dc_status_t suunto_vyper_device_write (dc_device_t *abstract, unsigned int address, const unsigned char data[], unsigned int size);
+static dc_status_t suunto_vyper_device_dump (dc_device_t *abstract, dc_buffer_t *buffer);
+static dc_status_t suunto_vyper_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
+static dc_status_t suunto_vyper_device_close (dc_device_t *abstract);
 
 static const device_backend_t suunto_vyper_device_backend = {
-	DEVICE_TYPE_SUUNTO_VYPER,
+	DC_FAMILY_SUUNTO_VYPER,
 	suunto_common_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* version */
 	suunto_vyper_device_read, /* read */
@@ -85,7 +86,7 @@ static const suunto_common_layout_t suunto_spyder_layout = {
 
 
 static int
-device_is_suunto_vyper (device_t *abstract)
+device_is_suunto_vyper (dc_device_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -94,110 +95,112 @@ device_is_suunto_vyper (device_t *abstract)
 }
 
 
-device_status_t
-suunto_vyper_device_open (device_t **out, const char* name)
+dc_status_t
+suunto_vyper_device_open (dc_device_t **out, dc_context_t *context, const char *name)
 {
 	if (out == NULL)
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	suunto_vyper_device_t *device = (suunto_vyper_device_t *) malloc (sizeof (suunto_vyper_device_t));
 	if (device == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	suunto_common_device_init (&device->base, &suunto_vyper_device_backend);
+	suunto_common_device_init (&device->base, context, &suunto_vyper_device_backend);
 
 	// Set the default values.
 	device->port = NULL;
 	device->delay = 500;
 
 	// Open the device.
-	int rc = serial_open (&device->port, name);
+	int rc = serial_open (&device->port, context, name);
 	if (rc == -1) {
-		WARNING ("Failed to open the serial port.");
+		ERROR (context, "Failed to open the serial port.");
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the serial communication protocol (2400 8O1).
 	rc = serial_configure (device->port, 2400, 8, SERIAL_PARITY_ODD, 1, SERIAL_FLOWCONTROL_NONE);
 	if (rc == -1) {
-		WARNING ("Failed to set the terminal attributes.");
+		ERROR (context, "Failed to set the terminal attributes.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the timeout for receiving data (1000 ms).
 	if (serial_set_timeout (device->port, 1000) == -1) {
-		WARNING ("Failed to set the timeout.");
+		ERROR (context, "Failed to set the timeout.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the DTR line (power supply for the interface).
 	if (serial_set_dtr (device->port, 1) == -1) {
-		WARNING ("Failed to set the DTR line.");
+		ERROR (context, "Failed to set the DTR line.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Give the interface 100 ms to settle and draw power up.
-	serial_sleep (100);
+	serial_sleep (device->port, 100);
 
 	// Make sure everything is in a sane state.
 	serial_flush (device->port, SERIAL_QUEUE_BOTH);
 
-	*out = (device_t*) device;
+	*out = (dc_device_t*) device;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_vyper_device_close (device_t *abstract)
+static dc_status_t
+suunto_vyper_device_close (dc_device_t *abstract)
 {
 	suunto_vyper_device_t *device = (suunto_vyper_device_t*) abstract;
 
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Free memory.	
 	free (device);
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
-suunto_vyper_device_set_delay (device_t *abstract, unsigned int delay)
+dc_status_t
+suunto_vyper_device_set_delay (dc_device_t *abstract, unsigned int delay)
 {
 	suunto_vyper_device_t *device = (suunto_vyper_device_t*) abstract;
 
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	device->delay = delay;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
+static dc_status_t
 suunto_vyper_send (suunto_vyper_device_t *device, const unsigned char command[], unsigned int csize)
 {
-	serial_sleep (device->delay);
+	dc_device_t *abstract = (dc_device_t *) device;
+
+	serial_sleep (device->port, device->delay);
 
 	// Set RTS to send the command.
 	serial_set_rts (device->port, 1);
@@ -205,12 +208,9 @@ suunto_vyper_send (suunto_vyper_device_t *device, const unsigned char command[],
 	// Send the command to the dive computer.
 	int n = serial_write (device->port, command, csize);
 	if (n != csize) {
-		WARNING ("Failed to send the command.");
+		ERROR (abstract->context, "Failed to send the command.");
 		return EXITCODE (n);
 	}
-
-	// Wait until all data has been transmitted.
-	serial_drain (device->port);
 
 	// If the interface sends an echo back (which is the case for many clone 
 	// interfaces), this echo should be removed from the input queue before 
@@ -223,65 +223,65 @@ suunto_vyper_send (suunto_vyper_device_t *device, const unsigned char command[],
 	// receive the reply before RTS is cleared. We have to wait some time 
 	// before clearing RTS (around 30ms). But if we wait too long (> 500ms), 
 	// the reply disappears again.
-	serial_sleep (200);
+	serial_sleep (device->port, 200);
 	serial_flush (device->port, SERIAL_QUEUE_INPUT);
 
 	// Clear RTS to receive the reply.
 	serial_set_rts (device->port, 0);
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
+static dc_status_t
 suunto_vyper_transfer (suunto_vyper_device_t *device, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize, unsigned int size)
 {
 	assert (asize >= size + 2);
 
-	device_t *abstract = (device_t *) device;
+	dc_device_t *abstract = (dc_device_t *) device;
 
 	if (device_is_cancelled (abstract))
-		return DEVICE_STATUS_CANCELLED;
+		return DC_STATUS_CANCELLED;
 
 	// Send the command to the dive computer.
-	device_status_t rc = suunto_vyper_send (device, command, csize);
-	if (rc != DEVICE_STATUS_SUCCESS) {
-		WARNING ("Failed to send the command.");
+	dc_status_t rc = suunto_vyper_send (device, command, csize);
+	if (rc != DC_STATUS_SUCCESS) {
+		ERROR (abstract->context, "Failed to send the command.");
 		return rc;
 	}
 
 	// Receive the answer of the dive computer.
 	int n = serial_read (device->port, answer, asize);
 	if (n != asize) {
-		WARNING ("Failed to receive the answer.");
+		ERROR (abstract->context, "Failed to receive the answer.");
 		return EXITCODE (n);
 	}
 
 	// Verify the header of the package.
 	if (memcmp (command, answer, asize - size - 1) != 0) {
-		WARNING ("Unexpected answer start byte(s).");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer start byte(s).");
+		return DC_STATUS_PROTOCOL;
 	}
 
 	// Verify the checksum of the package.
 	unsigned char crc = answer[asize - 1];
 	unsigned char ccrc = checksum_xor_uint8 (answer, asize - 1, 0x00);
 	if (crc != ccrc) {
-		WARNING ("Unexpected answer CRC.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer checksum.");
+		return DC_STATUS_PROTOCOL;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_vyper_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
+static dc_status_t
+suunto_vyper_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
 	suunto_vyper_device_t *device = (suunto_vyper_device_t*) abstract;
 
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// The data transmission is split in packages
 	// of maximum $SUUNTO_VYPER_PACKET_SIZE bytes.
@@ -299,8 +299,8 @@ suunto_vyper_device_read (device_t *abstract, unsigned int address, unsigned cha
 				len, // count
 				0};  // CRC
 		command[4] = checksum_xor_uint8 (command, 4, 0x00);
-		device_status_t rc = suunto_vyper_transfer (device, command, sizeof (command), answer, len + 5, len);
-		if (rc != DEVICE_STATUS_SUCCESS)
+		dc_status_t rc = suunto_vyper_transfer (device, command, sizeof (command), answer, len + 5, len);
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		memcpy (data, answer + 4, len);
@@ -310,17 +310,17 @@ suunto_vyper_device_read (device_t *abstract, unsigned int address, unsigned cha
 		data += len;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_vyper_device_write (device_t *abstract, unsigned int address, const unsigned char data[], unsigned int size)
+static dc_status_t
+suunto_vyper_device_write (dc_device_t *abstract, unsigned int address, const unsigned char data[], unsigned int size)
 {
 	suunto_vyper_device_t *device = (suunto_vyper_device_t*) abstract;
 
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// The data transmission is split in packages
 	// of maximum $SUUNTO_VYPER_PACKET_SIZE bytes.
@@ -333,8 +333,8 @@ suunto_vyper_device_write (device_t *abstract, unsigned int address, const unsig
 		// Prepare to write the package.
 		unsigned char panswer[3] = {0};
 		unsigned char pcommand[3] = {0x07, 0xA5, 0xA2};
-		device_status_t rc = suunto_vyper_transfer (device, pcommand, sizeof (pcommand), panswer, sizeof (panswer), 0);
-		if (rc != DEVICE_STATUS_SUCCESS)
+		dc_status_t rc = suunto_vyper_transfer (device, pcommand, sizeof (pcommand), panswer, sizeof (panswer), 0);
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		// Write the package.
@@ -347,7 +347,7 @@ suunto_vyper_device_write (device_t *abstract, unsigned int address, const unsig
 		memcpy (wcommand + 4, data, len);
 		wcommand[len + 4] = checksum_xor_uint8 (wcommand, len + 4, 0x00);
 		rc = suunto_vyper_transfer (device, wcommand, len + 5, wanswer, sizeof (wanswer), 0);
-		if (rc != DEVICE_STATUS_SUCCESS)
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		nbytes += len;
@@ -355,30 +355,30 @@ suunto_vyper_device_write (device_t *abstract, unsigned int address, const unsig
 		data += len;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-suunto_vyper_read_dive (device_t *abstract, dc_buffer_t *buffer, int init, device_progress_t *progress)
+static dc_status_t
+suunto_vyper_read_dive (dc_device_t *abstract, dc_buffer_t *buffer, int init, dc_event_progress_t *progress)
 {
 	suunto_vyper_device_t *device = (suunto_vyper_device_t*) abstract;
 
 	if (device_is_cancelled (abstract))
-		return DEVICE_STATUS_CANCELLED;
+		return DC_STATUS_CANCELLED;
 
 	// Erase the current contents of the buffer.
 	if (!dc_buffer_clear (buffer)) {
-		WARNING ("Insufficient buffer space available.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (abstract->context, "Insufficient buffer space available.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Send the command to the dive computer.
 	unsigned char command[3] = {init ? 0x08 : 0x09, 0xA5, 0x00};
 	command[2] = checksum_xor_uint8 (command, 2, 0x00);
-	device_status_t rc = suunto_vyper_send (device, command, 3);
-	if (rc != DEVICE_STATUS_SUCCESS) {
-		WARNING ("Failed to send the command.");
+	dc_status_t rc = suunto_vyper_send (device, command, 3);
+	if (rc != DC_STATUS_SUCCESS) {
+		ERROR (abstract->context, "Failed to send the command.");
 		return rc;
 	}
 
@@ -401,22 +401,22 @@ suunto_vyper_read_dive (device_t *abstract, dc_buffer_t *buffer, int init, devic
 			// an error, because the DC always sends at least one package.
 			if (n == 0 && npackages != 0)
 				break;
-			WARNING ("Failed to receive the answer.");
+			ERROR (abstract->context, "Failed to receive the answer.");
 			return EXITCODE (n);
 		}
 
 		// Verify the header of the package.
 		if (answer[0] != command[0] || 
 			answer[1] > SUUNTO_VYPER_PACKET_SIZE) {
-			WARNING ("Unexpected answer start byte(s).");
-			return DEVICE_STATUS_PROTOCOL;
+			ERROR (abstract->context, "Unexpected answer start byte(s).");
+			return DC_STATUS_PROTOCOL;
 		}
 
 		// Receive the remaining part of the package.
 		unsigned char len = answer[1];
 		n = serial_read (device->port, answer + 2, len + 1);
 		if (n != len + 1) {
-			WARNING ("Failed to receive the answer.");
+			ERROR (abstract->context, "Failed to receive the answer.");
 			return EXITCODE (n);
 		}
 
@@ -424,8 +424,8 @@ suunto_vyper_read_dive (device_t *abstract, dc_buffer_t *buffer, int init, devic
 		unsigned char crc = answer[len + 2];
 		unsigned char ccrc = checksum_xor_uint8 (answer, len + 2, 0x00);
 		if (crc != ccrc) {
-			WARNING ("Unexpected answer CRC.");
-			return DEVICE_STATUS_PROTOCOL;
+			ERROR (abstract->context, "Unexpected answer checksum.");
+			return DC_STATUS_PROTOCOL;
 		}
 
 		// The DC sends a null package (a package with length zero) when it 
@@ -434,13 +434,15 @@ suunto_vyper_read_dive (device_t *abstract, dc_buffer_t *buffer, int init, devic
 		// we discard the current (incomplete) dive and end the transmission.
 		if (len == 0) {
 			dc_buffer_clear (buffer);
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 		}
 
 		// Update and emit a progress event.
 		if (progress) {
 			progress->current += len;
-			device_event_emit (abstract, DEVICE_EVENT_PROGRESS, progress);
+			if (progress->current > progress->maximum)
+				progress->current = progress->maximum;
+			device_event_emit (abstract, DC_EVENT_PROGRESS, progress);
 		}
 
 		// Append the package to the output buffer.
@@ -464,8 +466,8 @@ suunto_vyper_read_dive (device_t *abstract, dc_buffer_t *buffer, int init, devic
 
 	// Check for a buffer error.
 	if (dc_buffer_get_size (buffer) != nbytes) {
-		WARNING ("Insufficient buffer space available.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (abstract->context, "Insufficient buffer space available.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// The DC traverses its internal ring buffer backwards. The most recent 
@@ -474,31 +476,31 @@ suunto_vyper_read_dive (device_t *abstract, dc_buffer_t *buffer, int init, devic
 	// the bytes again before returning them to the application.
 	array_reverse_bytes (dc_buffer_get_data (buffer), dc_buffer_get_size (buffer));
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-device_status_t
-suunto_vyper_device_read_dive (device_t *abstract, dc_buffer_t *buffer, int init)
+dc_status_t
+suunto_vyper_device_read_dive (dc_device_t *abstract, dc_buffer_t *buffer, int init)
 {
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	return suunto_vyper_read_dive (abstract, buffer, init, NULL);
 }
 
 
-static device_status_t
-suunto_vyper_device_dump (device_t *abstract, dc_buffer_t *buffer)
+static dc_status_t
+suunto_vyper_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Erase the current contents of the buffer and
 	// allocate the required amount of memory.
 	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, SUUNTO_VYPER_MEMORY_SIZE)) {
-		WARNING ("Insufficient buffer space available.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (abstract->context, "Insufficient buffer space available.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	return device_dump_read (abstract, dc_buffer_get_data (buffer),
@@ -506,26 +508,26 @@ suunto_vyper_device_dump (device_t *abstract, dc_buffer_t *buffer)
 }
 
 
-static device_status_t
-suunto_vyper_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata)
+static dc_status_t
+suunto_vyper_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata)
 {
 	suunto_common_device_t *device = (suunto_common_device_t*) abstract;
 
 	if (! device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Enable progress notifications.
-	device_progress_t progress = DEVICE_PROGRESS_INITIALIZER;
+	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
 	progress.maximum = SUUNTO_VYPER_MEMORY_SIZE;
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Read the device info. The Vyper and the Spyder store this data
 	// in a different location. To minimize the number of (slow) reads,
 	// we read a larger block of memory that always contains the data
 	// for both devices.
 	unsigned char header[HDR_DEVINFO_END - HDR_DEVINFO_BEGIN] = {0};
-	device_status_t rc = suunto_vyper_device_read (abstract, HDR_DEVINFO_BEGIN, header, sizeof (header));
-	if (rc != DEVICE_STATUS_SUCCESS)
+	dc_status_t rc = suunto_vyper_device_read (abstract, HDR_DEVINFO_BEGIN, header, sizeof (header));
+	if (rc != DC_STATUS_SUCCESS)
 		return rc;
 
 	// Identify the connected device as a Vyper or a Spyder, by inspecting
@@ -542,40 +544,48 @@ suunto_vyper_device_foreach (device_t *abstract, dive_callback_t callback, void 
 	progress.maximum = sizeof (header) +
 		(layout->rb_profile_end - layout->rb_profile_begin);
 	progress.current += sizeof (header);
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Emit a device info event.
-	device_devinfo_t devinfo;
+	dc_event_devinfo_t devinfo;
 	devinfo.model = header[hoffset + 0];
 	devinfo.firmware = header[hoffset + 1];
 	devinfo.serial = array_uint32_be (header + hoffset + 2);
-	device_event_emit (abstract, DEVICE_EVENT_DEVINFO, &devinfo);
+	device_event_emit (abstract, DC_EVENT_DEVINFO, &devinfo);
 
 	// Allocate a memory buffer.
 	dc_buffer_t *buffer = dc_buffer_new (layout->rb_profile_end - layout->rb_profile_begin);
 	if (buffer == NULL)
-		return DEVICE_STATUS_MEMORY;
+		return DC_STATUS_NOMEMORY;
 
 	unsigned int ndives = 0;
-	while ((rc = suunto_vyper_read_dive (abstract, buffer, (ndives == 0), &progress)) == DEVICE_STATUS_SUCCESS) {
+	unsigned int remaining = layout->rb_profile_end - layout->rb_profile_begin;
+	while ((rc = suunto_vyper_read_dive (abstract, buffer, (ndives == 0), &progress)) == DC_STATUS_SUCCESS) {
 		unsigned char *data = dc_buffer_get_data (buffer);
 		unsigned int size = dc_buffer_get_size (buffer);
 
+		if (size > remaining) {
+			ERROR (abstract->context, "Unexpected number of bytes received.");
+			dc_buffer_free (buffer);
+			return DC_STATUS_DATAFORMAT;
+		}
+
 		if (size == 0) {
 			dc_buffer_free (buffer);
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 		}
 
 		if (memcmp (data + layout->fp_offset, device->fingerprint, sizeof (device->fingerprint)) == 0) {
 			dc_buffer_free (buffer);
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 		}
 
 		if (callback && !callback (data, size, data + layout->fp_offset, sizeof (device->fingerprint), userdata)) {
 			dc_buffer_free (buffer);
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 		}
 
+		remaining -= size;
 		ndives++;
 	}
 
@@ -585,16 +595,16 @@ suunto_vyper_device_foreach (device_t *abstract, dive_callback_t callback, void 
 }
 
 
-device_status_t
-suunto_vyper_extract_dives (device_t *abstract, const unsigned char data[], unsigned int size, dive_callback_t callback, void *userdata)
+dc_status_t
+suunto_vyper_extract_dives (dc_device_t *abstract, const unsigned char data[], unsigned int size, dc_dive_callback_t callback, void *userdata)
 {
 	suunto_common_device_t *device = (suunto_common_device_t*) abstract;
 
 	if (abstract && !device_is_suunto_vyper (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	if (size < SUUNTO_VYPER_MEMORY_SIZE)
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const suunto_common_layout_t *layout = &suunto_vyper_layout;
 	if (data[HDR_DEVINFO_VYPER] == 20 || data[HDR_DEVINFO_VYPER] == 30 || data[HDR_DEVINFO_VYPER] == 60)

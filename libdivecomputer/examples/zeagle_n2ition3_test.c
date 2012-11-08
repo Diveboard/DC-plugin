@@ -21,31 +21,38 @@
 
 #include <stdio.h>	// fopen, fwrite, fclose
 
-#include "zeagle_n2ition3.h"
-#include "utils.h"
+#include <libdivecomputer/zeagle_n2ition3.h>
 
+#include "utils.h"
 #include "common.h"
 
-device_status_t
+dc_status_t
 test_dump_memory (const char* name, const char* filename)
 {
-	device_t *device = NULL;
+	dc_context_t *context = NULL;
+	dc_device_t *device = NULL;
+
+	dc_context_new (&context);
+	dc_context_set_loglevel (context, DC_LOGLEVEL_ALL);
+	dc_context_set_logfunc (context, logfunc, NULL);
 
 	message ("zeagle_n2ition3_device_open\n");
-	device_status_t rc = zeagle_n2ition3_device_open (&device, name);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	dc_status_t rc = zeagle_n2ition3_device_open (&device, context, name);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error opening serial port.");
+		dc_context_free (context);
 		return rc;
 	}
 
 	dc_buffer_t *buffer = dc_buffer_new (0);
 
-	message ("device_dump\n");
-	rc = device_dump (device, buffer);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("dc_device_dump\n");
+	rc = dc_device_dump (device, buffer);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Cannot read memory.");
 		dc_buffer_free (buffer);
-		device_close (device);
+		dc_device_close (device);
+		dc_context_free (context);
 		return rc;
 	}
 
@@ -58,14 +65,17 @@ test_dump_memory (const char* name, const char* filename)
 
 	dc_buffer_free (buffer);
 
-	message ("device_close\n");
-	rc = device_close (device);
-	if (rc != DEVICE_STATUS_SUCCESS) {
+	message ("dc_device_close\n");
+	rc = dc_device_close (device);
+	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Cannot close device.");
+		dc_context_free (context);
 		return rc;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	dc_context_free (context);
+
+	return DC_STATUS_SUCCESS;
 }
 
 
@@ -85,7 +95,7 @@ int main(int argc, char *argv[])
 
 	message ("DEVICE=%s\n", name);
 
-	device_status_t a = test_dump_memory (name, "N2ITION3.DMP");
+	dc_status_t a = test_dump_memory (name, "N2ITION3.DMP");
 
 	message ("\nSUMMARY\n");
 	message ("-------\n");

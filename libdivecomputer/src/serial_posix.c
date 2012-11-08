@@ -43,18 +43,18 @@
 #define TIOCINQ FIONREAD
 #endif
 
-#include "serial.h"
-#include "utils.h"
+#ifdef ENABLE_PTY
+#define NOPTY (errno != EINVAL && errno != ENOTTY)
+#else
+#define NOPTY 1
+#endif
 
-#define TRACE(expr) \
-{ \
-	int error = errno; \
-	message ("TRACE (%s:%d, %s): %s (%d)\n", __FILE__, __LINE__, \
-		expr, serial_errmsg (), serial_errcode ()); \
-	errno = error; \
-}
+#include "serial.h"
+#include "context-private.h"
 
 struct serial_t {
+	/* Library context. */
+	dc_context_t *context;
 	/*
 	 * The file descriptor corresponding to the serial port.
 	 */
@@ -66,29 +66,18 @@ struct serial_t {
 	 * serial port is closed.
 	 */
 	struct termios tty;
+	/* Half-duplex settings */
+	int halfduplex;
+	unsigned int baudrate;
+	unsigned int nbits;
 };
-
-//
-// Error reporting.
-//
-
-int serial_errcode (void)
-{
-	return errno;
-}
-
-
-const char* serial_errmsg (void)
-{
-	return strerror (errno);
-}
 
 //
 // Open the serial port.
 //
 
 int
-serial_open (serial_t **out, const char* name)
+serial_open (serial_t **out, dc_context_t *context, const char* name)
 {
 	if (out == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -96,28 +85,46 @@ serial_open (serial_t **out, const char* name)
 	// Allocate memory.
 	serial_t *device = (serial_t *) malloc (sizeof (serial_t));
 	if (device == NULL) {
-		TRACE ("malloc");
+		SYSERROR (context, errno);
 		return -1; // ENOMEM (Not enough space)
 	}
 
+	// Library context.
+	device->context = context;
+
 	// Default to blocking reads.
 	device->timeout = -1;
+
+	// Default to full-duplex.
+	device->halfduplex = 0;
+	device->baudrate = 0;
+	device->nbits = 0;
 
 	// Open the device in non-blocking mode, to return immediately
 	// without waiting for the modem connection to complete.
 	device->fd = open (name, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (device->fd == -1) {
-		TRACE ("open");
+		SYSERROR (context, errno);
 		free (device);
 		return -1; // Error during open call.
 	}
+
+#ifndef ENABLE_PTY
+	// Enable exclusive access mode.
+	if (ioctl (device->fd, TIOCEXCL, NULL) != 0) {
+		SYSERROR (context, errno);
+		close (device->fd);
+		free (device);
+		return -1;
+	}
+#endif
 
 	// Retrieve the current terminal attributes, to 
 	// be able to restore them when closing the device.
 	// It is also used to check if the obtained
 	// file descriptor represents a terminal device.
 	if (tcgetattr (device->fd, &device->tty) != 0) {
-		TRACE ("tcgetattr");
+		SYSERROR (context, errno);
 		close (device->fd);
 		free (device);
 		return -1;
@@ -140,7 +147,7 @@ serial_close (serial_t *device)
 
 	// Restore the initial terminal attributes.
 	if (tcsetattr (device->fd, TCSANOW, &device->tty) != 0) {
-		TRACE ("tcsetattr");
+		SYSERROR (device->context, errno);
 		close (device->fd);
 		free (device);
 		return -1;
@@ -148,7 +155,7 @@ serial_close (serial_t *device)
 
 	// Close the device.
 	if (close (device->fd) != 0) {
-		TRACE ("close");
+		SYSERROR (device->context, errno);
 		free (device);
 		return -1;
 	}
@@ -169,10 +176,13 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
+	INFO (device->context, "Configure: baudrate=%i, databits=%i, parity=%i, stopbits=%i, flowcontrol=%i",
+		baudrate, databits, parity, stopbits, flowcontrol);
+
 	// Retrieve the current settings.
 	struct termios tty;
 	if (tcgetattr (device->fd, &tty) != 0) {
-		TRACE ("tcgetattr");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -268,7 +278,7 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 	}
 	if (cfsetispeed (&tty, baud) != 0 ||
 		cfsetospeed (&tty, baud) != 0) {
-		TRACE ("cfsetispeed/cfsetospeed");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -350,7 +360,7 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 
 	// Apply the new settings.
 	if (tcsetattr (device->fd, TCSANOW, &tty) != 0) {
-		TRACE ("tcsetattr");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -361,11 +371,11 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 
 	struct termios active;
 	if (tcgetattr (device->fd, &active) != 0) {
-		TRACE ("tcgetattr");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 	if (memcmp (&tty, &active, sizeof (struct termios) != 0)) {
-		TRACE ("memcmp");
+		ERROR (device->context, "Failed to set the terminal attributes.");
 		return -1;
 	}
 
@@ -374,8 +384,8 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 #if defined(TIOCGSERIAL) && defined(TIOCSSERIAL)
 		// Get the current settings.
 		struct serial_struct ss;
-		if (ioctl (device->fd, TIOCGSERIAL, &ss) != 0) {
-			TRACE ("ioctl");
+		if (ioctl (device->fd, TIOCGSERIAL, &ss) != 0 && NOPTY) {
+			SYSERROR (device->context, errno);
 			return -1;
 		}
 
@@ -385,14 +395,14 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 		ss.flags |= ASYNC_SPD_CUST;
 
 		// Apply the new settings.
-		if (ioctl (device->fd, TIOCSSERIAL, &ss) != 0) {
-			TRACE ("ioctl");
+		if (ioctl (device->fd, TIOCSSERIAL, &ss) != 0 && NOPTY) {
+			SYSERROR (device->context, errno);
 			return -1;
 		}
 #elif defined(IOSSIOSPEED)
 		speed_t speed = baudrate;
-		if (ioctl (device->fd, IOSSIOSPEED, &speed) != 0) {
-			TRACE ("ioctl");
+		if (ioctl (device->fd, IOSSIOSPEED, &speed) != 0 && NOPTY) {
+			SYSERROR (device->context, errno);
 			return -1;
 		}
 #else
@@ -400,6 +410,9 @@ serial_configure (serial_t *device, int baudrate, int databits, int parity, int 
 		return -1;
 #endif
 	}
+
+	device->baudrate = baudrate;
+	device->nbits = 1 + databits + stopbits + (parity ? 1 : 0);
 
 	return 0;
 }
@@ -413,6 +426,8 @@ serial_set_timeout (serial_t *device, long timeout)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
+
+	INFO (device->context, "Timeout: value=%li", timeout);
 
 	device->timeout = timeout;
 
@@ -429,6 +444,18 @@ serial_set_queue_size (serial_t *device, unsigned int input, unsigned int output
 {
 	if (device == NULL)
 		return -1; // ERROR_INVALID_PARAMETER (The parameter is incorrect)
+
+	return 0;
+}
+
+
+int
+serial_set_halfduplex (serial_t *device, int value)
+{
+	if (device == NULL)
+		return -1; // EINVAL (Invalid argument)
+
+	device->halfduplex = value;
 
 	return 0;
 }
@@ -457,7 +484,7 @@ serial_read (serial_t *device, void *data, unsigned int size)
 		if (timeout > 0) {
 			struct timeval now;
 			if (gettimeofday (&now, NULL) != 0) {
-				TRACE ("gettimeofday");
+				SYSERROR (device->context, errno);
 				return -1;
 			}
 
@@ -483,7 +510,7 @@ serial_read (serial_t *device, void *data, unsigned int size)
 		if (rc < 0) {
 			if (errno == EINTR)
 				continue; // Retry.
-			TRACE ("select");
+			SYSERROR (device->context, errno);
 			return -1; // Error during select call.
 		} else if (rc == 0) {
 			break; // Timeout.
@@ -493,7 +520,7 @@ serial_read (serial_t *device, void *data, unsigned int size)
 		if (n < 0) {
 			if (errno == EINTR || errno == EAGAIN)
 				continue; // Retry.
-			TRACE ("read");
+			SYSERROR (device->context, errno);
 			return -1; // Error during read call.
 		} else if (n == 0) {
 			 break; // EOF.
@@ -501,6 +528,8 @@ serial_read (serial_t *device, void *data, unsigned int size)
 
 		nbytes += n;
 	}
+
+	HEXDUMP (device->context, DC_LOGLEVEL_INFO, "Read", (unsigned char *) data, nbytes);
 
 	return nbytes;
 }
@@ -512,6 +541,15 @@ serial_write (serial_t *device, const void *data, unsigned int size)
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
+	struct timeval tve, tvb;
+	if (device->halfduplex) {
+		// Get the current time.
+		if (gettimeofday (&tvb, NULL) != 0) {
+			SYSERROR (device->context, errno);
+			return -1;
+		}
+	}
+
 	unsigned int nbytes = 0;
 	while (nbytes < size) {
 		fd_set fds;
@@ -522,7 +560,7 @@ serial_write (serial_t *device, const void *data, unsigned int size)
 		if (rc < 0) {
 			if (errno == EINTR)
 				continue; // Retry.
-			TRACE ("select");
+			SYSERROR (device->context, errno);
 			return -1; // Error during select call.
 		} else if (rc == 0) {
 			break; // Timeout.
@@ -532,7 +570,7 @@ serial_write (serial_t *device, const void *data, unsigned int size)
 		if (n < 0) {
 			if (errno == EINTR || errno == EAGAIN)
 				continue; // Retry.
-			TRACE ("write");
+			SYSERROR (device->context, errno);
 			return -1; // Error during write call.
 		} else if (n == 0) {
 			 break; // EOF.
@@ -540,6 +578,43 @@ serial_write (serial_t *device, const void *data, unsigned int size)
 
 		nbytes += n;
 	}
+
+	// Wait until all data has been transmitted.
+	while (tcdrain (device->fd) != 0) {
+		if (errno != EINTR ) {
+			SYSERROR (device->context, errno);
+			return -1;
+		}
+	}
+
+	if (device->halfduplex) {
+		// Get the current time.
+		if (gettimeofday (&tve, NULL) != 0) {
+			SYSERROR (device->context, errno);
+			return -1;
+		}
+
+		// Calculate the elapsed time (microseconds).
+		struct timeval tvt;
+		timersub (&tve, &tvb, &tvt);
+		unsigned long elapsed = tvt.tv_sec * 1000000 + tvt.tv_usec;
+
+		// Calculate the expected duration (microseconds). A 2 millisecond fudge
+		// factor is added because it improves the success rate significantly.
+		unsigned long expected = 1000000.0 * device->nbits / device->baudrate * size + 0.5 + 2000;
+
+		// Wait for the remaining time.
+		if (elapsed < expected) {
+			unsigned long remaining = expected - elapsed;
+
+			// The remaining time is rounded up to the nearest millisecond to
+			// match the Windows implementation. The higher resolution is
+			// pointless anyway, since we already added a fudge factor above.
+			serial_sleep (device, (remaining + 999) / 1000);
+		}
+	}
+
+	HEXDUMP (device->context, DC_LOGLEVEL_INFO, "Write", (unsigned char *) data, nbytes);
 
 	return nbytes;
 }
@@ -550,6 +625,10 @@ serial_flush (serial_t *device, int queue)
 {
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
+
+	INFO (device->context, "Flush: queue=%u, input=%i, output=%i", queue,
+		serial_get_received (device),
+		serial_get_transmitted (device));
 
 	int flags = 0;	
 
@@ -566,25 +645,8 @@ serial_flush (serial_t *device, int queue)
 	}
 
 	if (tcflush (device->fd, flags) != 0) {
-		TRACE ("tcflush");
+		SYSERROR (device->context, errno);
 		return -1;
-	}
-
-	return 0;
-}
-
-
-int
-serial_drain (serial_t *device)
-{
-	if (device == NULL)
-		return -1; // EINVAL (Invalid argument)
-
-	while (tcdrain (device->fd) != 0) {
-		if (errno != EINTR ) {
-			TRACE ("tcdrain");
-			return -1;
-		}
 	}
 
 	return 0;
@@ -598,7 +660,7 @@ serial_send_break (serial_t *device)
 		return -1; // EINVAL (Invalid argument)
 
 	if (tcsendbreak (device->fd, 0) != 0) {
-		TRACE ("tcsendbreak");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 	
@@ -612,24 +674,12 @@ serial_set_break (serial_t *device, int level)
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
-	int action = (level ? TIOCSBRK : TIOCCBRK);
+	INFO (device->context, "Break: value=%i", level);
 
-	if (ioctl (device->fd, action, NULL) != 0) {
-		TRACE ("ioctl");
-		return -1;
-	}
+	unsigned long action = (level ? TIOCSBRK : TIOCCBRK);
 
-	return 0;
-}
-
-
-static int
-serial_set_status (int fd, int value, int level)
-{
-	unsigned long action = (level ? TIOCMBIS : TIOCMBIC);
-
-	if (ioctl (fd, action, &value) != 0) {
-		TRACE ("ioctl");
+	if (ioctl (device->fd, action, NULL) != 0 && NOPTY) {
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -643,7 +693,17 @@ serial_set_dtr (serial_t *device, int level)
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
-	return serial_set_status (device->fd, TIOCM_DTR, level);
+	INFO (device->context, "DTR: value=%i", level);
+
+	unsigned long action = (level ? TIOCMBIS : TIOCMBIC);
+
+	int value = TIOCM_DTR;
+	if (ioctl (device->fd, action, &value) != 0 && NOPTY) {
+		SYSERROR (device->context, errno);
+		return -1;
+	}
+
+	return 0;
 }
 
 
@@ -653,7 +713,17 @@ serial_set_rts (serial_t *device, int level)
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
-	return serial_set_status (device->fd, TIOCM_RTS, level);
+	INFO (device->context, "RTS: value=%i", level);
+
+	unsigned long action = (level ? TIOCMBIS : TIOCMBIC);
+
+	int value = TIOCM_RTS;
+	if (ioctl (device->fd, action, &value) != 0 && NOPTY) {
+		SYSERROR (device->context, errno);
+		return -1;
+	}
+
+	return 0;
 }
 
 
@@ -665,7 +735,7 @@ serial_get_received (serial_t *device)
 
 	int bytes = 0;
 	if (ioctl (device->fd, TIOCINQ, &bytes) != 0) {
-		TRACE ("ioctl");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -681,7 +751,7 @@ serial_get_transmitted (serial_t *device)
 
 	int bytes = 0;
 	if (ioctl (device->fd, TIOCOUTQ, &bytes) != 0) {
-		TRACE ("ioctl");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -697,7 +767,7 @@ serial_get_line (serial_t *device, int line)
 
 	int status = 0;
 	if (ioctl (device->fd, TIOCMGET, &status) != 0) {
-		TRACE ("ioctl");
+		SYSERROR (device->context, errno);
 		return -1;
 	}
 
@@ -719,31 +789,23 @@ serial_get_line (serial_t *device, int line)
 
 
 int
-serial_sleep (unsigned long timeout)
+serial_sleep (serial_t *device, unsigned long timeout)
 {
+	if (device == NULL)
+		return -1;
+
+	INFO (device->context, "Sleep: value=%lu", timeout);
+
 	struct timespec ts;
 	ts.tv_sec  = (timeout / 1000);
 	ts.tv_nsec = (timeout % 1000) * 1000000;
 
 	while (nanosleep (&ts, &ts) != 0) {
 		if (errno != EINTR ) {
-			TRACE ("nanosleep");
+			SYSERROR (device->context, errno);
 			return -1;
 		}
 	}
 
 	return 0;
-}
-
-
-int
-serial_timer (void)
-{
-	struct timeval tv;
-	if (gettimeofday (&tv, NULL) != 0) {
-		TRACE ("gettimeofday");
-		return 0;
-	}
-
-	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }

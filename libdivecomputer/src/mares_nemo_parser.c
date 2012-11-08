@@ -22,10 +22,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mares_nemo.h"
+#include <libdivecomputer/mares_nemo.h>
+#include <libdivecomputer/units.h>
+
+#include "context-private.h"
 #include "parser-private.h"
-#include "units.h"
-#include "utils.h"
 #include "array.h"
 
 #define NEMO        0
@@ -39,7 +40,7 @@
 typedef struct mares_nemo_parser_t mares_nemo_parser_t;
 
 struct mares_nemo_parser_t {
-	parser_t base;
+	dc_parser_t base;
 	unsigned int model;
 	unsigned int freedive;
 	/* Internal state */
@@ -51,14 +52,14 @@ struct mares_nemo_parser_t {
 	unsigned int extra;
 };
 
-static parser_status_t mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
-static parser_status_t mares_nemo_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
-static parser_status_t mares_nemo_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
-static parser_status_t mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
-static parser_status_t mares_nemo_parser_destroy (parser_t *abstract);
+static dc_status_t mares_nemo_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size);
+static dc_status_t mares_nemo_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime);
+static dc_status_t mares_nemo_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value);
+static dc_status_t mares_nemo_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
+static dc_status_t mares_nemo_parser_destroy (dc_parser_t *abstract);
 
 static const parser_backend_t mares_nemo_parser_backend = {
-	PARSER_TYPE_MARES_NEMO,
+	DC_FAMILY_MARES_NEMO,
 	mares_nemo_parser_set_data, /* set_data */
 	mares_nemo_parser_get_datetime, /* datetime */
 	mares_nemo_parser_get_field, /* fields */
@@ -68,7 +69,7 @@ static const parser_backend_t mares_nemo_parser_backend = {
 
 
 static int
-parser_is_mares_nemo (parser_t *abstract)
+parser_is_mares_nemo (dc_parser_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -77,25 +78,25 @@ parser_is_mares_nemo (parser_t *abstract)
 }
 
 
-parser_status_t
-mares_nemo_parser_create (parser_t **out, unsigned int model)
+dc_status_t
+mares_nemo_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int model)
 {
 	if (out == NULL)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	mares_nemo_parser_t *parser = (mares_nemo_parser_t *) malloc (sizeof (mares_nemo_parser_t));
 	if (parser == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return PARSER_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, &mares_nemo_parser_backend);
+	parser_init (&parser->base, context, &mares_nemo_parser_backend);
 
 	// Get the freedive mode for this model.
 	unsigned int freedive = 2;
-	if (model == NEMOWIDE || model == PUCK)
+	if (model == NEMOWIDE || model == PUCK || model == PUCKAIR)
 		freedive = 3;
 
 	// Set the default values.
@@ -108,27 +109,27 @@ mares_nemo_parser_create (parser_t **out, unsigned int model)
 	parser->header = 0;
 	parser->extra = 0;
 
-	*out = (parser_t*) parser;
+	*out = (dc_parser_t*) parser;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-mares_nemo_parser_destroy (parser_t *abstract)
+static dc_status_t
+mares_nemo_parser_destroy (dc_parser_t *abstract)
 {
 	if (! parser_is_mares_nemo (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Free memory.
 	free (abstract);
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size)
+static dc_status_t
+mares_nemo_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	mares_nemo_parser_t *parser = (mares_nemo_parser_t *) abstract;
 
@@ -143,14 +144,14 @@ mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsig
 	parser->extra = 0;
 
 	if (size == 0)
-		return PARSER_STATUS_SUCCESS;
+		return DC_STATUS_SUCCESS;
 
 	if (size < 2 + 3)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	unsigned int length = array_uint16_le (data);
 	if (length > size)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	unsigned int extra = 0;
 	const unsigned char marker[3] = {0xAA, 0xBB, 0xCC};
@@ -162,7 +163,7 @@ mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsig
 	}
 
 	if (length < 2 + extra + 3)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	unsigned int mode = data[length - extra - 1];
 
@@ -183,7 +184,7 @@ mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsig
 
 	unsigned int nbytes = 2 + nsamples * sample_size + header_size + extra;
 	if (length != nbytes)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	// Store the new state.
 	parser->base.data = data;
@@ -195,17 +196,17 @@ mares_nemo_parser_set_data (parser_t *abstract, const unsigned char *data, unsig
 	parser->header = header_size;
 	parser->extra = extra;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-mares_nemo_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
+static dc_status_t
+mares_nemo_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 {
 	mares_nemo_parser_t *parser = (mares_nemo_parser_t *) abstract;
 
 	if (abstract->size == 0)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const unsigned char *p = abstract->data + parser->length - parser->extra - 8;
 
@@ -218,75 +219,87 @@ mares_nemo_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
 		datetime->second = 0;
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-mares_nemo_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+static dc_status_t
+mares_nemo_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value)
 {
 	mares_nemo_parser_t *parser = (mares_nemo_parser_t *) abstract;
 
 	if (abstract->size == 0)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const unsigned char *data = abstract->data;
 	const unsigned char *p = abstract->data + 2 + parser->sample_count * parser->sample_size;
 
 	if (value) {
 		if (parser->mode != parser->freedive) {
-			gasmix_t *gasmix = (gasmix_t *) value;
+			dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
 			switch (type) {
-			case FIELD_TYPE_DIVETIME:
+			case DC_FIELD_DIVETIME:
 				*((unsigned int *) value) = parser->sample_count * 20;
 				break;
-			case FIELD_TYPE_MAXDEPTH:
+			case DC_FIELD_MAXDEPTH:
 				*((double *) value) = array_uint16_le (p + 53 - 10) / 10.0;
 				break;
-			case FIELD_TYPE_GASMIX_COUNT:
-				*((unsigned int *) value) = 1;
+			case DC_FIELD_GASMIX_COUNT:
+				if (parser->mode == 0 || parser->mode == 1)
+					*((unsigned int *) value) = 1;
+				else
+					*((unsigned int *) value) = 0;
 				break;
-			case FIELD_TYPE_GASMIX:
+			case DC_FIELD_GASMIX:
+				switch (parser->mode) {
+				case 0: // Air
+					gasmix->oxygen = 0.21;
+					break;
+				case 1: // Nitrox
+					gasmix->oxygen = p[53 - 43] / 100.0;
+					break;
+				default:
+					return DC_STATUS_UNSUPPORTED;
+				}
 				gasmix->helium = 0.0;
-				gasmix->oxygen = p[53 - 43] / 100.0;
 				gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
 				break;
 			default:
-				return PARSER_STATUS_UNSUPPORTED;
+				return DC_STATUS_UNSUPPORTED;
 			}
 		} else {
 			unsigned int divetime = 0;
 			switch (type) {
-			case FIELD_TYPE_DIVETIME:
+			case DC_FIELD_DIVETIME:
 				for (unsigned int i = 0; i < parser->sample_count; ++i) {
 					unsigned int idx = 2 + parser->sample_size * i;
 					divetime += data[idx + 2] + data[idx + 3] * 60;
 				}
 				*((unsigned int *) value) = divetime;
 				break;
-			case FIELD_TYPE_MAXDEPTH:
+			case DC_FIELD_MAXDEPTH:
 				*((double *) value) = array_uint16_le (p + 28 - 10) / 10.0;
 				break;
-			case FIELD_TYPE_GASMIX_COUNT:
+			case DC_FIELD_GASMIX_COUNT:
 				*((unsigned int *) value) = 0;
 				break;
 			default:
-				return PARSER_STATUS_UNSUPPORTED;
+				return DC_STATUS_UNSUPPORTED;
 			}
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
+static dc_status_t
+mares_nemo_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
 	mares_nemo_parser_t *parser = (mares_nemo_parser_t *) abstract;
 
 	if (abstract->size == 0)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
@@ -294,7 +307,7 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 	if (parser->mode != parser->freedive) {
 		unsigned int time = 0;
 		for (unsigned int i = 0; i < parser->sample_count; ++i) {
-			parser_sample_value_t sample = {0};
+			dc_sample_value_t sample = {0};
 
 			unsigned int idx = 2 + parser->sample_size * i;
 			unsigned int value = array_uint16_le (data + idx);
@@ -306,11 +319,11 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 			// Time (seconds).
 			time += 20;
 			sample.time = time;
-			if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+			if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 			// Depth (1/10 m).
 			sample.depth = depth / 10.0;
-			if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+			if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 
 			// Ascent rate
 			if (ascent) {
@@ -318,7 +331,7 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 				sample.event.time = 0;
 				sample.event.flags = 0;
 				sample.event.value = ascent;
-				if (callback) callback (SAMPLE_TYPE_EVENT, sample, userdata);
+				if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
 			}
 
 			// Deco violation
@@ -327,7 +340,7 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 				sample.event.time = 0;
 				sample.event.flags = 0;
 				sample.event.value = 0;
-				if (callback) callback (SAMPLE_TYPE_EVENT, sample, userdata);
+				if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
 			}
 
 			// Deco stop
@@ -336,14 +349,14 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 				sample.event.time = 0;
 				sample.event.flags = 0;
 				sample.event.value = 0;
-				if (callback) callback (SAMPLE_TYPE_EVENT, sample, userdata);
+				if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
 			}
 
 			// Pressure (1 bar).
 			if (parser->sample_size == 3) {
 				sample.pressure.tank = 0;
 				sample.pressure.value = data[idx + 2];
-				if (callback) callback (SAMPLE_TYPE_PRESSURE, sample, userdata);
+				if (callback) callback (DC_SAMPLE_PRESSURE, sample, userdata);
 			}
 		}
 	} else {
@@ -357,7 +370,7 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 		unsigned int time = 0;
 		unsigned int offset = parser->length;
 		for (unsigned int i = 0; i < parser->sample_count; ++i) {
-			parser_sample_value_t sample = {0};
+			dc_sample_value_t sample = {0};
 
 			unsigned int idx = 2 + parser->sample_size * i;
 			unsigned int maxdepth = array_uint16_le (data + idx);
@@ -367,11 +380,11 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 			// Surface Time (seconds).
 			time += surftime;
 			sample.time = time;
-			if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+			if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 			// Surface Depth (0 m).
 			sample.depth = 0.0;
-			if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+			if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 
 			if (profiles) {
 				// Get the freedive sample interval for this model.
@@ -408,11 +421,11 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 					if (time > maxtime)
 						time = maxtime; // Adjust the last sample.
 					sample.time = time;
-					if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+					if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 					// Depth (1/10 m).
 					sample.depth = depth / 10.0;
-					if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+					if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 				}
 
 				// Verify that the number of samples in the profile data
@@ -420,21 +433,21 @@ mares_nemo_parser_samples_foreach (parser_t *abstract, sample_callback_t callbac
 				// in the summary entry). If both values are different, the
 				// the profile data is probably incorrect.
 				if (count != n) {
-					WARNING ("Unexpected number of samples.");
-					return PARSER_STATUS_ERROR;
+					ERROR (abstract->context, "Unexpected number of samples.");
+					return DC_STATUS_DATAFORMAT;
 				}
 			} else {
 				// Dive Time (seconds).
 				time += divetime;
 				sample.time = time;
-				if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+				if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 				// Maximum Depth (1/10 m).
 				sample.depth = maxdepth / 10.0;
-				if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+				if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 			}
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

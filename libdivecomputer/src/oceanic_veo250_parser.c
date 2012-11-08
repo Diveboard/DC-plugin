@@ -21,17 +21,18 @@
 
 #include <stdlib.h>
 
-#include "oceanic_veo250.h"
+#include <libdivecomputer/oceanic_veo250.h>
+#include <libdivecomputer/units.h>
+
 #include "oceanic_common.h"
+#include "context-private.h"
 #include "parser-private.h"
 #include "array.h"
-#include "units.h"
-#include "utils.h"
 
 typedef struct oceanic_veo250_parser_t oceanic_veo250_parser_t;
 
 struct oceanic_veo250_parser_t {
-	parser_t base;
+	dc_parser_t base;
 	unsigned int model;
 	// Cached fields.
 	unsigned int cached;
@@ -39,14 +40,14 @@ struct oceanic_veo250_parser_t {
 	double maxdepth;
 };
 
-static parser_status_t oceanic_veo250_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size);
-static parser_status_t oceanic_veo250_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime);
-static parser_status_t oceanic_veo250_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value);
-static parser_status_t oceanic_veo250_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata);
-static parser_status_t oceanic_veo250_parser_destroy (parser_t *abstract);
+static dc_status_t oceanic_veo250_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size);
+static dc_status_t oceanic_veo250_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime);
+static dc_status_t oceanic_veo250_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value);
+static dc_status_t oceanic_veo250_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
+static dc_status_t oceanic_veo250_parser_destroy (dc_parser_t *abstract);
 
 static const parser_backend_t oceanic_veo250_parser_backend = {
-	PARSER_TYPE_OCEANIC_VEO250,
+	DC_FAMILY_OCEANIC_VEO250,
 	oceanic_veo250_parser_set_data, /* set_data */
 	oceanic_veo250_parser_get_datetime, /* datetime */
 	oceanic_veo250_parser_get_field, /* fields */
@@ -56,7 +57,7 @@ static const parser_backend_t oceanic_veo250_parser_backend = {
 
 
 static int
-parser_is_oceanic_veo250 (parser_t *abstract)
+parser_is_oceanic_veo250 (dc_parser_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -65,21 +66,21 @@ parser_is_oceanic_veo250 (parser_t *abstract)
 }
 
 
-parser_status_t
-oceanic_veo250_parser_create (parser_t **out, unsigned int model)
+dc_status_t
+oceanic_veo250_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int model)
 {
 	if (out == NULL)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	oceanic_veo250_parser_t *parser = (oceanic_veo250_parser_t *) malloc (sizeof (oceanic_veo250_parser_t));
 	if (parser == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return PARSER_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, &oceanic_veo250_parser_backend);
+	parser_init (&parser->base, context, &oceanic_veo250_parser_backend);
 
 	// Set the default values.
 	parser->model = model;
@@ -87,49 +88,49 @@ oceanic_veo250_parser_create (parser_t **out, unsigned int model)
 	parser->divetime = 0;
 	parser->maxdepth = 0.0;
 
-	*out = (parser_t*) parser;
+	*out = (dc_parser_t*) parser;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-oceanic_veo250_parser_destroy (parser_t *abstract)
+static dc_status_t
+oceanic_veo250_parser_destroy (dc_parser_t *abstract)
 {
 	if (! parser_is_oceanic_veo250 (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Free memory.
 	free (abstract);
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-oceanic_veo250_parser_set_data (parser_t *abstract, const unsigned char *data, unsigned int size)
+static dc_status_t
+oceanic_veo250_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	oceanic_veo250_parser_t *parser = (oceanic_veo250_parser_t *) abstract;
 
 	if (! parser_is_oceanic_veo250 (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Reset the cache.
 	parser->cached = 0;
 	parser->divetime = 0;
 	parser->maxdepth = 0.0;
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-oceanic_veo250_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
+static dc_status_t
+oceanic_veo250_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 {
 	oceanic_veo250_parser_t *parser = (oceanic_veo250_parser_t *) abstract;
 
 	if (abstract->size < 8)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	const unsigned char *p = abstract->data;
 
@@ -145,12 +146,12 @@ oceanic_veo250_parser_get_datetime (parser_t *abstract, dc_datetime_t *datetime)
 			datetime->year += 3;
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-oceanic_veo250_parser_get_field (parser_t *abstract, parser_field_type_t type, unsigned int flags, void *value)
+static dc_status_t
+oceanic_veo250_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value)
 {
 	oceanic_veo250_parser_t *parser = (oceanic_veo250_parser_t *) abstract;
 
@@ -158,13 +159,13 @@ oceanic_veo250_parser_get_field (parser_t *abstract, parser_field_type_t type, u
 	unsigned int size = abstract->size;
 
 	if (size < 7 * PAGESIZE / 2)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	if (!parser->cached) {
 		sample_statistics_t statistics = SAMPLE_STATISTICS_INITIALIZER;
-		parser_status_t rc = oceanic_veo250_parser_samples_foreach (
+		dc_status_t rc = oceanic_veo250_parser_samples_foreach (
 			abstract, sample_statistics_cb, &statistics);
-		if (rc != PARSER_STATUS_SUCCESS)
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		parser->cached = 1;
@@ -174,20 +175,20 @@ oceanic_veo250_parser_get_field (parser_t *abstract, parser_field_type_t type, u
 
 	unsigned int footer = size - PAGESIZE;
 
-	gasmix_t *gasmix = (gasmix_t *) value;
+	dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
 
 	if (value) {
 		switch (type) {
-		case FIELD_TYPE_DIVETIME:
+		case DC_FIELD_DIVETIME:
 			*((unsigned int *) value) = data[footer + 3] * 60;
 			break;
-		case FIELD_TYPE_MAXDEPTH:
+		case DC_FIELD_MAXDEPTH:
 			*((double *) value) = parser->maxdepth;
 			break;
-		case FIELD_TYPE_GASMIX_COUNT:
+		case DC_FIELD_GASMIX_COUNT:
 				*((unsigned int *) value) = 1;
 			break;
-		case FIELD_TYPE_GASMIX:
+		case DC_FIELD_GASMIX:
 			gasmix->helium = 0.0;
 			if (data[footer + 6])
 				gasmix->oxygen = data[footer + 6] / 100.0;
@@ -196,25 +197,25 @@ oceanic_veo250_parser_get_field (parser_t *abstract, parser_field_type_t type, u
 			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
 			break;
 		default:
-			return PARSER_STATUS_UNSUPPORTED;
+			return DC_STATUS_UNSUPPORTED;
 		}
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static parser_status_t
-oceanic_veo250_parser_samples_foreach (parser_t *abstract, sample_callback_t callback, void *userdata)
+static dc_status_t
+oceanic_veo250_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
 	if (! parser_is_oceanic_veo250 (abstract))
-		return PARSER_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
 	if (size < 7 * PAGESIZE / 2)
-		return PARSER_STATUS_ERROR;
+		return DC_STATUS_DATAFORMAT;
 
 	unsigned int time = 0;
 	unsigned int interval = 0;
@@ -235,7 +236,7 @@ oceanic_veo250_parser_samples_foreach (parser_t *abstract, sample_callback_t cal
 
 	unsigned int offset = 5 * PAGESIZE / 2;
 	while (offset + PAGESIZE / 2 <= size - PAGESIZE) {
-		parser_sample_value_t sample = {0};
+		dc_sample_value_t sample = {0};
 
 		// Ignore empty samples.
 		if (array_isequal (data + offset, PAGESIZE / 2, 0x00)) {
@@ -246,26 +247,26 @@ oceanic_veo250_parser_samples_foreach (parser_t *abstract, sample_callback_t cal
 		// Time.
 		time += interval;
 		sample.time = time;
-		if (callback) callback (SAMPLE_TYPE_TIME, sample, userdata);
+		if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
 		// Vendor specific data
 		sample.vendor.type = SAMPLE_VENDOR_OCEANIC_VEO250;
 		sample.vendor.size = PAGESIZE / 2;
 		sample.vendor.data = data + offset;
-		if (callback) callback (SAMPLE_TYPE_VENDOR, sample, userdata);
+		if (callback) callback (DC_SAMPLE_VENDOR, sample, userdata);
 
 		// Depth (ft)
 		unsigned int depth = data[offset + 2];
 		sample.depth = depth * FEET;
-		if (callback) callback (SAMPLE_TYPE_DEPTH, sample, userdata);
+		if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 
 		// Temperature (°F)
 		unsigned int temperature = data[offset + 7];
 		sample.temperature = (temperature - 32.0) * (5.0 / 9.0);
-		if (callback) callback (SAMPLE_TYPE_TEMPERATURE, sample, userdata);
+		if (callback) callback (DC_SAMPLE_TEMPERATURE, sample, userdata);
 
 		offset += PAGESIZE / 2;
 	}
 
-	return PARSER_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

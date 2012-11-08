@@ -23,17 +23,18 @@
 #include <stdlib.h> // malloc, free
 #include <assert.h> // assert
 
+#include <libdivecomputer/zeagle_n2ition3.h>
+
+#include "context-private.h"
 #include "device-private.h"
-#include "zeagle_n2ition3.h"
 #include "serial.h"
-#include "utils.h"
 #include "checksum.h"
 #include "array.h"
 #include "ringbuffer.h"
 
 #define EXITCODE(rc) \
 ( \
-	rc == -1 ? DEVICE_STATUS_IO : DEVICE_STATUS_TIMEOUT \
+	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
 )
 
 #define RB_PROFILE_BEGIN  0x3FA0
@@ -44,19 +45,19 @@
 #define RB_LOGBOOK_END    60
 
 typedef struct zeagle_n2ition3_device_t {
-	device_t base;
+	dc_device_t base;
 	serial_t *port;
 	unsigned char fingerprint[16];
 } zeagle_n2ition3_device_t;
 
-static device_status_t zeagle_n2ition3_device_set_fingerprint (device_t *abstract, const unsigned char data[], unsigned int size);
-static device_status_t zeagle_n2ition3_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
-static device_status_t zeagle_n2ition3_device_dump (device_t *abstract, dc_buffer_t *buffer);
-static device_status_t zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata);
-static device_status_t zeagle_n2ition3_device_close (device_t *abstract);
+static dc_status_t zeagle_n2ition3_device_set_fingerprint (dc_device_t *abstract, const unsigned char data[], unsigned int size);
+static dc_status_t zeagle_n2ition3_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
+static dc_status_t zeagle_n2ition3_device_dump (dc_device_t *abstract, dc_buffer_t *buffer);
+static dc_status_t zeagle_n2ition3_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
+static dc_status_t zeagle_n2ition3_device_close (dc_device_t *abstract);
 
 static const device_backend_t zeagle_n2ition3_device_backend = {
-	DEVICE_TYPE_ZEAGLE_N2ITION3,
+	DC_FAMILY_ZEAGLE_N2ITION3,
 	zeagle_n2ition3_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* version */
 	zeagle_n2ition3_device_read, /* read */
@@ -67,7 +68,7 @@ static const device_backend_t zeagle_n2ition3_device_backend = {
 };
 
 static int
-device_is_zeagle_n2ition3 (device_t *abstract)
+device_is_zeagle_n2ition3 (dc_device_t *abstract)
 {
 	if (abstract == NULL)
 		return 0;
@@ -76,55 +77,57 @@ device_is_zeagle_n2ition3 (device_t *abstract)
 }
 
 
-static device_status_t
+static dc_status_t
 zeagle_n2ition3_packet (zeagle_n2ition3_device_t *device, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize)
 {
+	dc_device_t *abstract = (dc_device_t *) device;
+
 	assert (asize >= csize + 5);
 
 	// Send the command to the device.
 	int n = serial_write (device->port, command, csize);
 	if (n != csize) {
-		WARNING ("Failed to send the command.");
+		ERROR (abstract->context, "Failed to send the command.");
 		return EXITCODE (n);
 	}
 
 	// Receive the answer of the device.
 	n = serial_read (device->port, answer, asize);
 	if (n != asize) {
-		WARNING ("Failed to receive the answer.");
+		ERROR (abstract->context, "Failed to receive the answer.");
 		return EXITCODE (n);
 	}
 
 	// Verify the echo.
 	if (memcmp (answer, command, csize) != 0) {
-		WARNING ("Unexpected echo.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected echo.");
+		return DC_STATUS_PROTOCOL;
 	}
 
 	// Verify the header and trailer of the packet.
 	if (answer[csize] != 0x02 && answer[asize - 1] != 0x03) {
-		WARNING ("Unexpected answer header/trailer byte.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer header/trailer byte.");
+		return DC_STATUS_PROTOCOL;
 	}
 
 	// Verify the size of the packet.
 	if (array_uint16_le (answer + csize + 1) + csize + 5 != asize) {
-		WARNING ("Unexpected answer size.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer size.");
+		return DC_STATUS_PROTOCOL;
 	}
 
 	// Verify the checksum of the packet.
 	unsigned char crc = answer[asize - 2];
 	unsigned char ccrc = ~checksum_add_uint8 (answer + csize + 3, asize - csize - 5, 0x00) + 1;
 	if (crc != ccrc) {
-		WARNING ("Unexpected answer checksum.");
-		return DEVICE_STATUS_PROTOCOL;
+		ERROR (abstract->context, "Unexpected answer checksum.");
+		return DC_STATUS_PROTOCOL;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
-static device_status_t
+static dc_status_t
 zeagle_n2ition3_init (zeagle_n2ition3_device_t *device)
 {
 	unsigned char answer[6 + 13] = {0};
@@ -133,48 +136,48 @@ zeagle_n2ition3_init (zeagle_n2ition3_device_t *device)
 	return zeagle_n2ition3_packet (device, command, sizeof (command), answer, sizeof (answer));
 }
 
-device_status_t
-zeagle_n2ition3_device_open (device_t **out, const char* name)
+dc_status_t
+zeagle_n2ition3_device_open (dc_device_t **out, dc_context_t *context, const char *name)
 {
 	if (out == NULL)
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	// Allocate memory.
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t *) malloc (sizeof (zeagle_n2ition3_device_t));
 	if (device == NULL) {
-		WARNING ("Failed to allocate memory.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (context, "Failed to allocate memory.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, &zeagle_n2ition3_device_backend);
+	device_init (&device->base, context, &zeagle_n2ition3_device_backend);
 
 	// Set the default values.
 	device->port = NULL;
 
 	// Open the device.
-	int rc = serial_open (&device->port, name);
+	int rc = serial_open (&device->port, context, name);
 	if (rc == -1) {
-		WARNING ("Failed to open the serial port.");
+		ERROR (context, "Failed to open the serial port.");
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the serial communication protocol (4800 8N1).
 	rc = serial_configure (device->port, 4800, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
 	if (rc == -1) {
-		WARNING ("Failed to set the terminal attributes.");
+		ERROR (context, "Failed to set the terminal attributes.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Set the timeout for receiving data (1000 ms).
 	if (serial_set_timeout (device->port, 1000) == -1) {
-		WARNING ("Failed to set the timeout.");
+		ERROR (context, "Failed to set the timeout.");
 		serial_close (device->port);
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Make sure everything is in a sane state.
@@ -183,57 +186,57 @@ zeagle_n2ition3_device_open (device_t **out, const char* name)
 	// Send the init commands.
 	zeagle_n2ition3_init (device);
 
-	*out = (device_t *) device;
+	*out = (dc_device_t *) device;
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-zeagle_n2ition3_device_close (device_t *abstract)
+static dc_status_t
+zeagle_n2ition3_device_close (dc_device_t *abstract)
 {
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t*) abstract;
 
 	if (! device_is_zeagle_n2ition3 (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
-		return DEVICE_STATUS_IO;
+		return DC_STATUS_IO;
 	}
 
 	// Free memory.
 	free (device);
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-zeagle_n2ition3_device_set_fingerprint (device_t *abstract, const unsigned char data[], unsigned int size)
+static dc_status_t
+zeagle_n2ition3_device_set_fingerprint (dc_device_t *abstract, const unsigned char data[], unsigned int size)
 {
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t *) abstract;
 
 	if (size && size != sizeof (device->fingerprint))
-		return DEVICE_STATUS_ERROR;
+		return DC_STATUS_INVALIDARGS;
 
 	if (size)
 		memcpy (device->fingerprint, data, sizeof (device->fingerprint));
 	else
 		memset (device->fingerprint, 0, sizeof (device->fingerprint));
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-zeagle_n2ition3_device_read (device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
+static dc_status_t
+zeagle_n2ition3_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t*) abstract;
 
 	if (! device_is_zeagle_n2ition3 (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// The data transmission is split in packages
 	// of maximum $ZEAGLE_N2ITION3_PACKET_SIZE bytes.
@@ -253,8 +256,8 @@ zeagle_n2ition3_device_read (device_t *abstract, unsigned int address, unsigned 
 				len, // count
 				0x00, 0x00, 0x00, 0x00, 0x00, 0x03};
 		command[11] = ~checksum_add_uint8 (command + 3, 8, 0x00) + 1;
-		device_status_t rc = zeagle_n2ition3_packet (device, command, sizeof (command), answer, 13 + len + 6);
-		if (rc != DEVICE_STATUS_SUCCESS)
+		dc_status_t rc = zeagle_n2ition3_packet (device, command, sizeof (command), answer, 13 + len + 6);
+		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		memcpy (data, answer + 17, len);
@@ -264,21 +267,21 @@ zeagle_n2ition3_device_read (device_t *abstract, unsigned int address, unsigned 
 		data += len;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }
 
 
-static device_status_t
-zeagle_n2ition3_device_dump (device_t *abstract, dc_buffer_t *buffer)
+static dc_status_t
+zeagle_n2ition3_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
 	if (! device_is_zeagle_n2ition3 (abstract))
-		return DEVICE_STATUS_TYPE_MISMATCH;
+		return DC_STATUS_INVALIDARGS;
 
 	// Erase the current contents of the buffer and
 	// allocate the required amount of memory.
 	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, ZEAGLE_N2ITION3_MEMORY_SIZE)) {
-		WARNING ("Insufficient buffer space available.");
-		return DEVICE_STATUS_MEMORY;
+		ERROR (abstract->context, "Insufficient buffer space available.");
+		return DC_STATUS_NOMEMORY;
 	}
 
 	return device_dump_read (abstract, dc_buffer_get_data (buffer),
@@ -286,22 +289,22 @@ zeagle_n2ition3_device_dump (device_t *abstract, dc_buffer_t *buffer)
 }
 
 
-static device_status_t
-zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, void *userdata)
+static dc_status_t
+zeagle_n2ition3_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata)
 {
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t *) abstract;
 
 	// Enable progress notifications.
-	device_progress_t progress = DEVICE_PROGRESS_INITIALIZER;
+	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
 	progress.maximum = (RB_LOGBOOK_END - RB_LOGBOOK_BEGIN) * 2 + 8 +
 		(RB_PROFILE_END - RB_PROFILE_BEGIN);
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Read the configuration data.
 	unsigned char config[(RB_LOGBOOK_END - RB_LOGBOOK_BEGIN) * 2 + 8] = {0};
-	device_status_t rc = zeagle_n2ition3_device_read (abstract, RB_LOGBOOK_OFFSET, config, sizeof (config));
-	if (rc != DEVICE_STATUS_SUCCESS) {
-		WARNING ("Failed to read the configuration data.");
+	dc_status_t rc = zeagle_n2ition3_device_read (abstract, RB_LOGBOOK_OFFSET, config, sizeof (config));
+	if (rc != DC_STATUS_SUCCESS) {
+		ERROR (abstract->context, "Failed to read the configuration data.");
 		return rc;
 	}
 
@@ -311,9 +314,9 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 	if (first < RB_LOGBOOK_BEGIN || first >= RB_LOGBOOK_END ||
 		last < RB_LOGBOOK_BEGIN || last >= RB_LOGBOOK_END) {
 		if (last == 0xFF)
-			return DEVICE_STATUS_SUCCESS;
-		WARNING ("Invalid ringbuffer pointer detected.");
-		return DEVICE_STATUS_ERROR;
+			return DC_STATUS_SUCCESS;
+		ERROR (abstract->context, "Invalid ringbuffer pointer detected.");
+		return DC_STATUS_DATAFORMAT;
 	}
 
 	// Get the number of logbook items.
@@ -322,8 +325,8 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 	// Get the profile pointer.
 	unsigned int eop = array_uint16_le (config + 0x7E);
 	if (eop < RB_PROFILE_BEGIN || eop >= RB_PROFILE_END) {
-		WARNING ("Invalid ringbuffer pointer detected.");
-		return DEVICE_STATUS_ERROR;
+		ERROR (abstract->context, "Invalid ringbuffer pointer detected.");
+		return DC_STATUS_DATAFORMAT;
 	}
 	
 	// The logbook ringbuffer can store at most 60 dives, even if the profile
@@ -337,8 +340,8 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 		// Get the pointer to the profile data.
 		unsigned int current = array_uint16_le (config + 2 * idx);
 		if (current < RB_PROFILE_BEGIN || current >= RB_PROFILE_END) {
-			WARNING ("Invalid ringbuffer pointer detected.");
-			return DEVICE_STATUS_ERROR;
+			ERROR (abstract->context, "Invalid ringbuffer pointer detected.");
+			return DC_STATUS_DATAFORMAT;
 		}
 
 		// Get the profile length.
@@ -362,7 +365,7 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 	// Update and emit a progress event.
 	progress.current += sizeof (config);
 	progress.maximum = (RB_LOGBOOK_END - RB_LOGBOOK_BEGIN) * 2 + 8 + total;
-	device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Memory buffer for the profile data.
 	unsigned char buffer[RB_PROFILE_END - RB_PROFILE_BEGIN] = {0};
@@ -397,14 +400,14 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 
 			// Read the memory page.
 			rc = zeagle_n2ition3_device_read (abstract, address, buffer + offset, len);
-			if (rc != DEVICE_STATUS_SUCCESS) {
-				WARNING ("Failed to read the memory page.");
+			if (rc != DC_STATUS_SUCCESS) {
+				ERROR (abstract->context, "Failed to read the memory page.");
 				return rc;
 			}
 
 			// Update and emit a progress event.
 			progress.current += len;
-			device_event_emit (abstract, DEVICE_EVENT_PROGRESS, &progress);
+			device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 			nbytes += len;
 		}
@@ -416,15 +419,15 @@ zeagle_n2ition3_device_foreach (device_t *abstract, dive_callback_t callback, vo
 		unsigned char *p = buffer + offset + available;
 
 		if (memcmp (p, device->fingerprint, sizeof (device->fingerprint)) == 0)
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 
 		if (callback && !callback (p, length, p, sizeof (device->fingerprint), userdata))
-			return DEVICE_STATUS_SUCCESS;
+			return DC_STATUS_SUCCESS;
 
 		if (idx == RB_LOGBOOK_BEGIN)
 			idx = RB_LOGBOOK_END;
 		idx--;
 	}
 
-	return DEVICE_STATUS_SUCCESS;
+	return DC_STATUS_SUCCESS;
 }

@@ -38,25 +38,13 @@
 #endif
 
 #include "irda.h"
-#include "utils.h"
+#include "context-private.h"
 #include "array.h"
 
 #ifdef _WIN32
-#define TRACE(expr) \
-{ \
-	DWORD error = WSAGetLastError (); \
-	message ("TRACE (%s:%d, %s): %s (%d)\n", __FILE__, __LINE__, \
-		expr, irda_errmsg (), error); \
-	WSASetLastError (error); \
-}
+#define ERRNO WSAGetLastError ()
 #else
-#define TRACE(expr) \
-{ \
-	int error = errno; \
-	message ("TRACE (%s:%d, %s): %s (%d)\n", __FILE__, __LINE__, \
-		expr, strerror (errno), errno); \
-	errno = error; \
-}
+#define ERRNO errno
 #endif
 
 #ifdef _MSC_VER
@@ -64,6 +52,7 @@
 #endif
 
 struct irda_t {
+	dc_context_t *context;
 #ifdef _WIN32
 	SOCKET fd;
 #else
@@ -73,86 +62,8 @@ struct irda_t {
 };
 
 
-int irda_errcode (void)
-{
-#ifdef _WIN32
-	return WSAGetLastError ();
-#else
-	return errno;
-#endif
-}
-
-
-const char* irda_errmsg (void)
-{
-#ifdef _WIN32
-	static char buffer[256] = {0};
-	unsigned int size = sizeof (buffer) / sizeof (char);
-
-	DWORD errcode = WSAGetLastError ();
-	DWORD rc = FormatMessageA (FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-			NULL, errcode, 0, buffer, size, NULL);
-	// Remove certain characters ('\r', '\n' and '.')
-	// at the end of the error message.
-	while (rc > 0 && (
-			buffer[rc-1] == '\n' ||
-			buffer[rc-1] == '\r' ||
-			buffer[rc-1] == '.')) {
-		buffer[rc-1] = '\0';
-		rc--;
-	}
-	if (rc) {
-		return buffer;
-	} else {
-		return NULL;
-	}
-#else
-	return strerror (errno);
-#endif
-}
-
-
-int irda_init (void)
-{
-#ifdef _WIN32
-	WSADATA wsaData;
-	WORD wVersionRequested = MAKEWORD (2, 2);
-	if (WSAStartup (wVersionRequested, &wsaData) != 0) {
-		TRACE ("WSAStartup");
-		return -1;
-	}
-
-	// Confirm that the WinSock DLL supports 2.2.
-	// Note that if the DLL supports versions greater
-	// than 2.2 in addition to 2.2, it will still return
-	// 2.2 in wVersion since that is the version we requested.
-	if (LOBYTE (wsaData.wVersion) != 2 || 
-		HIBYTE (wsaData.wVersion) != 2) {
-		TRACE ("wsaData.wVersion");
-		WSACleanup ();
-		return -1; 
-	}
-#endif
-
-	return 0;
-}
-
-
-int irda_cleanup (void)
-{
-#ifdef _WIN32
-	if (WSACleanup () != 0) {
-		TRACE ("WSACleanup");
-		return -1;
-	}
-#endif
-
-	return 0;
-}
-
-
 int
-irda_socket_open (irda_t **out)
+irda_socket_open (irda_t **out, dc_context_t *context)
 {
 	if (out == NULL)
 		return -1; // EINVAL (Invalid argument)
@@ -160,12 +71,41 @@ irda_socket_open (irda_t **out)
 	// Allocate memory.
 	irda_t *device = (irda_t *) malloc (sizeof (irda_t));
 	if (device == NULL) {
-		TRACE ("malloc");
+#ifdef _WIN32
+		SYSERROR (context, ERROR_OUTOFMEMORY);
+#else
+		SYSERROR (context, errno);
+#endif
 		return -1; // ENOMEM (Not enough space)
 	}
 
+	// Library context.
+	device->context = context;
+
 	// Default to blocking reads.
 	device->timeout = -1;
+
+#ifdef _WIN32
+	// Initialize the winsock dll.
+	WSADATA wsaData;
+	WORD wVersionRequested = MAKEWORD (2, 2);
+	if (WSAStartup (wVersionRequested, &wsaData) != 0) {
+		SYSERROR (context, ERRNO);
+		free (device);
+		return -1;
+	}
+
+	// Confirm that the winsock dll supports version 2.2.
+	// Note that if the dll supports versions greater than 2.2 in addition to
+	// 2.2, it will still return 2.2 since that is the version we requested.
+	if (LOBYTE (wsaData.wVersion) != 2 || 
+		HIBYTE (wsaData.wVersion) != 2) {
+		ERROR (context, "Incorrect winsock version.");
+		WSACleanup ();
+		free (device);
+		return -1; 
+	}
+#endif
 
 	// Open the socket.
 	device->fd = socket (AF_IRDA, SOCK_STREAM, 0);
@@ -174,7 +114,10 @@ irda_socket_open (irda_t **out)
 #else
 	if (device->fd == -1) {
 #endif
-		TRACE ("socket");
+		SYSERROR (context, ERRNO);
+#ifdef _WIN32
+		WSACleanup ();
+#endif
 		free (device);
 		return -1;
 	}
@@ -197,14 +140,25 @@ irda_socket_close (irda_t *device)
 	// Close the socket.
 #ifdef _WIN32
 	if (closesocket (device->fd) != 0) {
-		TRACE ("closesocket");
 #else
 	if (close (device->fd) != 0) {
-		TRACE ("close");
+#endif
+		SYSERROR (device->context, ERRNO);
+#ifdef _WIN32
+		WSACleanup ();
 #endif
 		free (device);
 		return -1;
 	}
+
+#ifdef _WIN32
+	// Terminate the winsock dll.
+	if (WSACleanup () != 0) {
+		SYSERROR (device->context, ERRNO);
+		free (device);
+		return -1;
+	}
+#endif
 
 	// Free memory.	
 	free (device);
@@ -270,7 +224,7 @@ irda_socket_discover (irda_t *device, irda_callback_t callback, void *userdata)
 #else
 			if (errno != EAGAIN) {
 #endif
-				TRACE ("getsockopt");
+				SYSERROR (device->context, ERRNO);
 				return -1; // Error during getsockopt call.
 			}
 		}
@@ -346,7 +300,7 @@ irda_socket_connect_name (irda_t *device, unsigned int address, const char *name
 #endif
 
 	if (connect (device->fd, (struct sockaddr *) &peer, sizeof (peer)) != 0) {
-		TRACE ("connect");
+		SYSERROR (device->context, ERRNO);
 		return -1;
 	}
 
@@ -376,7 +330,7 @@ irda_socket_connect_lsap (irda_t *device, unsigned int address, unsigned int lsa
 #endif
 
 	if (connect (device->fd, (struct sockaddr *) &peer, sizeof (peer)) != 0) {
-		TRACE ("connect");
+		SYSERROR (device->context, ERRNO);
 		return -1;
 	}
 
@@ -393,12 +347,11 @@ irda_socket_available (irda_t *device)
 #ifdef _WIN32
 	unsigned long bytes = 0;
 	if (ioctlsocket (device->fd, FIONREAD, &bytes) != 0) {
-		TRACE ("ioctlsocket");
 #else
 	int bytes = 0;
 	if (ioctl (device->fd, FIONREAD, &bytes) != 0) {
-		TRACE ("ioctl");
 #endif
+		SYSERROR (device->context, ERRNO);
 		return -1;
 	}
 
@@ -426,7 +379,7 @@ irda_socket_read (irda_t *device, void *data, unsigned int size)
 	while (nbytes < size) {
 		int rc = select (device->fd + 1, &fds, NULL, NULL, (device->timeout >= 0 ? &tv : NULL));
 		if (rc < 0) {
-			TRACE ("select");
+			SYSERROR (device->context, ERRNO);
 			return -1; // Error during select call.
 		} else if (rc == 0) {
 			break; // Timeout.
@@ -434,7 +387,7 @@ irda_socket_read (irda_t *device, void *data, unsigned int size)
 
 		int n = recv (device->fd, (char*) data + nbytes, size - nbytes, 0);
 		if (n < 0) {
-			TRACE ("recv");
+			SYSERROR (device->context, ERRNO);
 			return -1; // Error during recv call.
 		} else if (n == 0) {
 			break; // EOF reached.
@@ -457,7 +410,7 @@ irda_socket_write (irda_t *device, const void *data, unsigned int size)
 	while (nbytes < size) {
 		int n = send (device->fd, (char*) data + nbytes, size - nbytes, 0);
 		if (n < 0) {
-			TRACE ("send");
+			SYSERROR (device->context, ERRNO);
 			return -1; // Error during send call.
 		}
 
