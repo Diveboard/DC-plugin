@@ -23,22 +23,22 @@ ComputerMares::ComputerMares(std::string filename)
 	status.nbDivesTotal = -1;
 
 	memset(map, 0, 256);
-	map['0'] = 0;
-	map['1'] = 1;
-	map['2'] = 2;
-	map['3'] = 3;
-	map['4'] = 4;
-	map['5'] = 5;
-	map['6'] = 6;
-	map['7'] = 7;
-	map['8'] = 8;
-	map['9'] = 9;
-	map['A'] = 10;
-	map['B'] = 11;
-	map['C'] = 12;
-	map['D'] = 13;
-	map['E'] = 14;
-	map['F'] = 15;
+	map[(int)'0'] = 0;
+	map[(int)'1'] = 1;
+	map[(int)'2'] = 2;
+	map[(int)'3'] = 3;
+	map[(int)'4'] = 4;
+	map[(int)'5'] = 5;
+	map[(int)'6'] = 6;
+	map[(int)'7'] = 7;
+	map[(int)'8'] = 8;
+	map[(int)'9'] = 9;
+	map[(int)'A'] = 10;
+	map[(int)'B'] = 11;
+	map[(int)'C'] = 12;
+	map[(int)'D'] = 13;
+	map[(int)'E'] = 14;
+	map[(int)'F'] = 15;
 }
 
 
@@ -275,8 +275,8 @@ int ComputerMares::list_dives(std::vector<DiveData> &dives)
 
 				std::string alarm;
 				if (map[profilePos[2]]>0) alarm += str(boost::format("%d") % (int)(map[profilePos[2]]));
-				if (map[profilePos[3]] && 8) alarm += "  F_8  ";
-				if (map[profilePos[3]] && 4) alarm += "  F_4  ";
+				if (map[profilePos[3]] & 8) alarm += "  F_8  ";
+				if (map[profilePos[3]] & 4) alarm += "  F_4  ";
 				if (alarm.size() > 0) dive->profile += "<ALARM>" + alarm + "</ALARM>";
 
 				profilePos+=4;

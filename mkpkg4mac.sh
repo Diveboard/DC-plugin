@@ -4,7 +4,7 @@ DIR=$(dirname $(which $0))
 BUILDDIR=$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin/Contents/MacOS
 OUTDIR=$DIR/build/packages
 
-LIBDIVE=$DIR/libdivecomputer/build/Release/liblibdivecomputer.dylib
+LIBDIVE=$DIR/libdivecomputer/.libs/libdivecomputer.0.dylib
 
 TMPDIR=/tmp
 
@@ -23,10 +23,12 @@ then
   rm -fr "$DIR/build"
   cd "$DIR" && firebreath/prepmac.sh projects build
 
-  xcodebuild -configuration Release -project $DIR/libdivecomputer/libdivecomputer.xcodeproj clean
+  cd "$DIR/libdivecomputer" && make clean
   xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 fi
-xcodebuild -configuration Release -project $DIR/libdivecomputer/libdivecomputer.xcodeproj build
+
+cd "$DIR/libdivecomputer" && autoreconf --install && ./configure && make
+
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 
 ####

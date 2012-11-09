@@ -1,8 +1,9 @@
 #pragma once
 #include "Computer.h"
-#include "../../libdivecomputer/src/device.h"
-#include "../../libdivecomputer/src/parser.h"
-#include "../../libdivecomputer/src/buffer.h"
+#include "../../libdivecomputer/include/libdivecomputer/context.h"
+#include "../../libdivecomputer/include/libdivecomputer/device.h"
+#include "../../libdivecomputer/include/libdivecomputer/parser.h"
+#include "../../libdivecomputer/include/libdivecomputer/buffer.h"
 
 //#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\buffer.h"
 //#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\deviceL.h"
@@ -21,43 +22,62 @@
 
 //local types
 typedef struct device_data_t {
-	device_type_t backend;
-	device_devinfo_t devinfo;
-	device_clock_t clock;
+	dc_family_t backend;
+	dc_event_devinfo_t devinfo;
+	dc_event_clock_t clock;
 } device_data_t;
 
 
+typedef struct libdivecomputer_t{
+	typeof(&dc_buffer_append) buffer_append;
+	typeof(&dc_buffer_free) buffer_free;
+	typeof(&dc_buffer_new) buffer_new;
+	typeof(&dc_context_free) context_free;
+	typeof(&dc_context_new) context_new;
+	typeof(&dc_context_set_logfunc) context_set_logfunc;
+	typeof(&dc_context_set_loglevel) context_set_loglevel;
+	typeof(&dc_descriptor_free) descriptor_free;
+	typeof(&dc_descriptor_get_model) descriptor_get_model;
+	typeof(&dc_descriptor_get_product) descriptor_get_product;
+	typeof(&dc_descriptor_get_type) descriptor_get_type;
+	typeof(&dc_descriptor_get_vendor) descriptor_get_vendor;
+	typeof(&dc_descriptor_iterator) descriptor_iterator;
+	typeof(&dc_device_close) device_close;
+	typeof(&dc_device_foreach) device_foreach;
+	typeof(&dc_device_open) device_open;
+	typeof(&dc_device_set_cancel) device_set_cancel;
+	typeof(&dc_device_set_events) device_set_events;
+	typeof(&dc_iterator_free) iterator_free;
+	typeof(&dc_iterator_next) iterator_next;
+	typeof(&dc_parser_destroy) parser_destroy;
+	typeof(&dc_parser_get_datetime) parser_get_datetime;
+	typeof(&dc_parser_new) parser_new;
+	typeof(&dc_parser_samples_foreach) parser_samples_foreach;
+	typeof(&dc_parser_set_data) parser_set_data;
+} libdivecomputer_t;
 
 //For DLL loading
-typedef void (__cdecl LDCSETLOGFILE)(const char* );
-typedef device_status_t (__cdecl LDCOPEN3)(device_t**, const char *, unsigned int);
-typedef device_status_t (__cdecl LDCOPEN2)(device_t**, const char *);
-typedef device_status_t (__cdecl LDCOPEN1)(device_t**);
-typedef parser_status_t (__cdecl LDCPARSER)(parser_t**);
-typedef parser_status_t (__cdecl LDCPARSERDESTROY)(parser_t *);
-typedef parser_status_t (__cdecl LDCPARSERSETDATA)(parser_t *, const unsigned char *, unsigned int );
-typedef parser_status_t (__cdecl LDCPARSERGETDATETIME)(parser_t *, dc_datetime_t *);
-typedef parser_status_t (__cdecl LDCPARSERSAMPLESFOREACH)(parser_t *, sample_callback_t , void *);
-typedef device_status_t (__cdecl LCDDEVFOREACH)(device_t *device, dive_callback_t callback, void *userdata);
-typedef device_status_t (__cdecl LCDDEVCLOSE)(device_t *device);
-typedef void (__cdecl LCDDCBUFFERFREE)(dc_buffer_t *buffer);
-typedef dc_buffer_t * (__cdecl LCDDCBUFFERNEW)(size_t capacity);
-typedef int (__cdecl LCDDCBUFFERAPPEND)(dc_buffer_t *buffer, const unsigned char data[], size_t size);
-typedef device_status_t (__cdecl LDCDEVSETEVENTS)(device_t *, unsigned int, device_event_callback_t, void *);
-typedef device_status_t (__cdecl LDCDEVSETCANCEL)(device_t *, device_cancel_callback_t callback, void *userdata);
-
 
 class ComputerLibdc : public Computer
 {
 protected:
 	std::string devname;
-    device_type_t backend;
+	dc_context_t *context;
+	dc_descriptor_t *descriptor;
 	ComputerStatus status;
 	LIBTYPE libdc;
-	void dowork (device_type_t &backend, const std::string &devname, std ::string &diveXML, dc_buffer_t *fingerprint, ComputerStatus &status);
-	parser_status_t doparse (std::string *out, device_data_t *devdata, const unsigned char data[], unsigned int size);
+	libdivecomputer_t libdc_p;
+	void dowork (std ::string &diveXML);
+	dc_status_t doparse (const unsigned char data[], unsigned int size);
+	dc_status_t search (std::string stdname);
+
+	unsigned int number;
+	dc_buffer_t *fingerprint;
+	std::string *out;
+	dc_device_t *device;
+
 public:
-	int dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize, void *userdata);
+	int dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize);
 	ComputerLibdc(std::string type, std::string filename);
 	virtual ~ComputerLibdc(void);
 	ComputerModel _get_model();
@@ -67,9 +87,10 @@ public:
 };
 
 
-
+/*
 typedef struct dive_data_t {
 	device_data_t *devdata;
+	dc_device_t *device;
 	//FILE* fp;
 	std::string *out;
 	unsigned int number;
@@ -77,17 +98,8 @@ typedef struct dive_data_t {
 	ComputerStatus *status;
 	ComputerLibdc *computer;
 } dive_data_t;
+*/
 
-typedef struct sample_data_t {
-	//FILE* fp;
-	std::string *out;
-	unsigned int nsamples;
-} sample_data_t;
-
-typedef struct backend_table_t {
-	const char *name;
-	device_type_t type;
-} backend_table_t;
 
 typedef struct event_data_t {
 	ComputerStatus *status;

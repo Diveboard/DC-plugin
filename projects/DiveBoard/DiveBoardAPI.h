@@ -20,21 +20,23 @@
 class DiveBoardAPI : public FB::JSAPIAuto
 {
 public:
-    DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host);
-    virtual ~DiveBoardAPI();
+  DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host);
+  virtual ~DiveBoardAPI();
 
-    DiveBoardPtr getPlugin();
+  DiveBoardPtr getPlugin();
 
-    // Read-only property ${PROPERTY.ident}
-    std::string get_version();
+  // Read-only property ${PROPERTY.ident}
+  std::string get_version();
 	std::string get_name();
 	std::string get_nodename();
 	FB::VariantMap get_status();
 	std::string get_logs();
 
 	// Method echo
-    FB::variant echo(const FB::variant& msg);
+  FB::variant echo(const FB::variant& msg);
+  FB::variant fireEvent(const FB::variant& msg);
 	void extract(const std::string& labal, const std::string& sport);
+	void dump(const std::string& strport, const std::string& label);
 	FB::variant detect(const std::string& computerType);
 	FB::VariantMap allports();
 	FB::variant isComputerPluggedin();
@@ -52,6 +54,7 @@ private:
 	static HANDLE mutex;
 
 	static void *asyncfunc(void*);
+	static void *dump_async(void*);
 };
 
 #endif // H_DiveBoardAPI

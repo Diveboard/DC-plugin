@@ -102,6 +102,8 @@ To update the code from libdivecomputer :
 
 
 
+What has been done
+  git remote add -f firebreath_remote git://github.com/firebreath/FireBreath.git
   git checkout -b firebreath_branch firebreath_remote/master
   git checkout master
   git read-tree

@@ -64,6 +64,8 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 
 		//methods
 		registerMethod("echo",    make_method(this, &DiveBoardAPI::echo));
+		registerMethod("fireEvent",    make_method(this, &DiveBoardAPI::fireEvent));
+		registerMethod("dump", make_method(this, &DiveBoardAPI::dump));
 		registerMethod("extract", make_method(this, &DiveBoardAPI::extract));
 		registerMethod("detect",  make_method(this, &DiveBoardAPI::detect));
 		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
@@ -189,6 +191,17 @@ FB::variant DiveBoardAPI::echo(const FB::variant& msg)
 	} catchall()
 }
 
+// Method fireEvent
+FB::variant DiveBoardAPI::fireEvent(const FB::variant& msg)
+{
+	try	{
+		LOGINFO("Method fireEvent called");
+		this->FireEvent("onfired", FB::variant_list_of(FB::variant(msg)));
+		return true;
+	} catchall()
+}
+
+
 
 void *DiveBoardAPI::asyncfunc(void *p)
 {
@@ -273,6 +286,95 @@ void DiveBoardAPI::extract(const std::string& strport, const std::string& label)
 		}
 		else {
 			asyncfunc((void*)this);
+		}
+
+	} catchall()
+}
+
+
+void *DiveBoardAPI::dump_async(void *p)
+{
+	LOGINFO("Start asynchronous treatment for dump");
+	std::string buffer;
+	DiveBoardAPI *plugin = (DiveBoardAPI*)p;
+
+	try{
+		//todo : better use mutex
+		if (plugin->status.state == COMPUTER_RUNNING) DBthrowError("Only one instance of DiveBoard can access to the Computer at the same time");
+		if (!plugin->comp) DBthrowError("computer is null");
+	
+		//Updating the status when starting the computer
+		plugin->status.state = COMPUTER_RUNNING;
+		LOGDEBUG("Running dump on computer");
+		
+		//plugin->comp->dump(buffer);
+
+		LOGDEBUG("dump on computer finished");
+
+		//Updating the status after it's finished
+		plugin->status = plugin->comp->get_status();
+		plugin->status.state = COMPUTER_FINISHED;
+		delete plugin->comp;
+		plugin->comp = NULL;
+
+		LOGDEBUG("triggering onloaded event");
+
+		//todo fix
+		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(buffer)));
+
+	} catch (std::exception &e)
+	{
+		LOGERROR("Caught Exception : %s", e.what());
+		plugin->FireEvent("onerror", FB::variant_list_of(FB::variant(e.what())));
+		plugin->status = plugin->comp->get_status();
+		plugin->status.state = COMPUTER_FINISHED;
+		delete plugin->comp;
+		plugin->comp = NULL;
+	} catch(...)
+	{
+		LOGERROR("Caught Exception Unknown");
+		plugin->FireEvent("onerror", FB::variant_list_of(FB::variant("Undefined exception")));
+		plugin->status = plugin->comp->get_status();
+		plugin->status.state = COMPUTER_FINISHED;
+		delete plugin->comp;
+		plugin->comp = NULL;
+	}
+
+	LOGINFO("End async for dump");
+	
+	return(NULL);
+}
+
+
+void DiveBoardAPI::dump(const std::string& strport, const std::string& label)
+{
+	try {
+		LOGINFO("Dump called with device %s on port %s", label.c_str(), strport.c_str());
+		std::string port;
+
+#ifdef _WIN32
+		port = strport;
+#else
+		port = strport;
+#endif
+		ComputerFactory factory;
+
+		if (comp) throw DBException("Computer already running ?");
+
+		comp = factory.createComputer(label, port);
+
+		//todo : delete because errors should be handled through exceptions
+		if (!comp) throw DBException("No computer found");
+
+		if (alwaysAsync)
+		{
+			//CreateThread(NULL, 0, &DiveBoardAPI::dump_async, this, 0, NULL);
+			boost::thread *th = new boost::thread( boost::bind(&DiveBoardAPI::dump_async, this));
+			//pthread_t threads;
+			//pthread_create(&threads, NULL, &DiveBoardAPI::dump_async, (void *) this);
+		}
+		else {
+			dump_async((void*)this);
 		}
 
 	} catchall()
