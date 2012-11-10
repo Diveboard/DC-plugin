@@ -9,6 +9,9 @@
 //#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\deviceL.h"
 //#include "d:\DATA\My Documents\Personnel\DB_plugins\libdivecomputer\src\parser.h"
 
+#ifdef WIN32
+#define typeof decltype
+#endif
 
 #ifdef WIN32
 #define LIBTYPE HINSTANCE
