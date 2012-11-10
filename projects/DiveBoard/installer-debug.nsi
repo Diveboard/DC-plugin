@@ -135,8 +135,6 @@ IfErrors 0 NoError2
   Goto RMDll2
 NoError2:
 
-FoundInstalled:
-
 RMDll3:
 ClearErrors
 Delete $PREINSTALL\msvcr100.dll
