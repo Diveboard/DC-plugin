@@ -10,6 +10,8 @@ msbuild libdivecomputer\msvc\libdivecomputer.sln /p:Configuration=Release /t:cle
 msbuild build\FireBreath.sln /p:Configuration=Release /t:clean,rebuild
 "C:\Program Files (x86)\NSIS\makensis.exe" projects\DiveBoard\installer.nsi
 
-cd %HOMEPATH%
+explorer build\bin\DiveBoard\Release
 
-exit
+cd %HOMEPATH%
+pause > nul
+exit /b
