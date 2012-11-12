@@ -468,3 +468,36 @@ ComputerStatus ComputerSuunto::get_status()
 {
 	return(status);
 }
+
+
+std::vector<ComputerSupport> *ComputerSuunto::support_list = NULL;
+std::vector<ComputerSupport> *ComputerSuunto::support()
+{
+  if (support_list)
+    return(support_list);
+
+  support_list = new std::vector<ComputerSupport>;
+
+  ComputerSupport sup;
+  sup.label = "Suunto Vyper (Diveboard internal driver)";
+  sup.key_code = "SUUNTO";
+#ifdef _WIN32
+  sup.ports.push_back("Suunto USB Serial Port");
+  sup.ports.push_back("Prolific USB-to-Serial Comm Port");
+#elif defined(__MACH__) || defined(__linux__)
+  sup.ports.push_back("tty.usbserial-PtTFP8W4");
+#else
+#error Platform not supported
+#endif
+
+  ComputerSupport emu;
+  emu.label = "Suunto Emulator";
+  emu.key_code = "SUUNTO EMU";
+  emu.ports.push_back(NO_PORT_NEEDED);
+
+  support_list->push_back(sup);
+  support_list->push_back(emu);
+
+  return(support_list);
+}
+

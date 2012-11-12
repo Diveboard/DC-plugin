@@ -19,11 +19,11 @@ protected:
 	void convertHex2Bin(unsigned char *dst, unsigned char *src, int dst_len);
 	void format_dives(std::vector<DiveData> dives, std::string &xml);
 	ComputerStatus status;
-    bool parse_dive(unsigned char *divebuf,int len,ComputerModel model,DiveData &dive);
+	static std::vector<ComputerSupport> *support_list;
 public:
 	ComputerMares(std::string filename);
 	virtual ~ComputerMares(void);
 	int _get_all_dives(std::string &xml);
-	ComputerModel _get_model(); //todo
 	ComputerStatus get_status();
+  static std::vector<ComputerSupport> *support();
 };

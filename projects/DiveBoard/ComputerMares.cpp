@@ -196,11 +196,6 @@ int ComputerMares::read(int start,unsigned char *retbuffer,int len)
 	return(-1);
 }
 
-ComputerModel ComputerMares::_get_model()
-{
-  return MARES_MODEL_M2;
-}
-
 
 int ComputerMares::list_dives(std::vector<DiveData> &dives)
 {
@@ -335,3 +330,38 @@ ComputerStatus ComputerMares::get_status()
 {
 	return(status);
 }
+
+
+std::vector<ComputerSupport> *ComputerMares::support_list = NULL;
+std::vector<ComputerSupport> *ComputerMares::support()
+{
+	if (support_list)
+		return(support_list);
+
+	support_list = new std::vector<ComputerSupport>;
+	ComputerSupport sup;
+	sup.label = "Mares M2 (DB internal driver)";
+	sup.key_code = "MARES";
+#ifdef _WIN32
+	sup.ports.push_back("Silicon Labs CP210x USB to UART Bridge");
+	sup.ports.push_back("CP210x USB to UART Bridge Controller");
+#elif defined(__MACH__) || defined(__linux__)
+	sup.ports.push_back("tty.SLAB_USBtoUART");
+#else
+#error Platform not supported
+#endif
+
+  ComputerSupport emu;
+  emu.label = "Mares M2 Emulator";
+  emu.key_code = "MARES EMU";
+  emu.ports.push_back(NO_PORT_NEEDED);
+
+  support_list->push_back(sup);
+  support_list->push_back(emu);
+
+	return(support_list);
+}
+
+
+
+

@@ -882,13 +882,6 @@ ComputerLibdc::~ComputerLibdc(void)
 
 
 
-
-//todo
-ComputerModel ComputerLibdc::_get_model()
-{
-	return(COMPUTER_MODEL_UNKNOWN);
-}
-
 ComputerStatus ComputerLibdc::get_status()
 {
 	return(status);
@@ -898,5 +891,129 @@ void ComputerLibdc::cancel()
 {
 	g_cancel = 1;
 }
+
+std::vector<ComputerSupport> *ComputerLibdc::support_list = NULL;
+
+std::vector<ComputerSupport> *ComputerLibdc::support()
+{
+	if (support_list)
+		return(support_list);
+
+	dc_status_t rc = DC_STATUS_SUCCESS;
+	LIBTYPE libdc;
+	libdivecomputer_t libdc_p;
+
+	LOGDEBUG("Opening LibDiveComputer");
+	libdc = openDLLLibrary();
+	fillDLLPointers(libdc, &libdc_p);
+
+	support_list = new std::vector<ComputerSupport>;
+
+	dc_iterator_t *iterator = NULL;
+	rc = libdc_p.descriptor_iterator (&iterator);
+	if (rc != DC_STATUS_SUCCESS) {
+		DBthrowError("Error creating the device descriptor iterator.");
+	}
+
+	dc_descriptor_t *l_descriptor = NULL, *current = NULL;
+	while ((rc = libdc_p.iterator_next (iterator, &l_descriptor)) == DC_STATUS_SUCCESS) {
+		ComputerSupport sup;
+		const char *vendor = libdc_p.descriptor_get_vendor (l_descriptor);
+		const char *product = libdc_p.descriptor_get_product (l_descriptor);
+		dc_family_t family = libdc_p.descriptor_get_type (l_descriptor);
+
+		sup.label += vendor;
+		sup.label += " ";
+		sup.label += product;
+		sup.key_code += "LDC ";
+		sup.key_code += sup.label;
+
+#ifdef _WIN32
+		switch(family)
+		{
+			case DC_FAMILY_SUUNTO_VYPER:
+			case DC_FAMILY_SUUNTO_VYPER2:
+			case DC_FAMILY_SUUNTO_D9:
+				sup.ports.push_back("Suunto USB Serial Port");
+				sup.ports.push_back("Prolific USB-to-Serial Comm Port");
+				break;
+			case DC_FAMILY_UWATEC_SMART:
+				sup.ports.push_back(NO_PORT_NEEDED);
+				break;
+			case DC_FAMILY_OCEANIC_VTPRO:
+			case DC_FAMILY_OCEANIC_VEO250:
+			case DC_FAMILY_OCEANIC_ATOM2:
+				sup.ports.push_back("2002 Design, Inc. USB Download Interface");
+				break;
+			case DC_FAMILY_MARES_NEMO:
+			case DC_FAMILY_MARES_DARWIN:
+				sup.ports.push_back("Silicon Labs CP210x USB to UART Bridge");
+				sup.ports.push_back("CP210x USB to UART Bridge Controller");
+				sup.ports.push_back("CP210x USB to UART Bridge");
+				break;
+			case DC_FAMILY_MARES_ICONHD:
+				sup.ports.push_back("ICON HD COM");
+				break;
+		}
+#elif defined(__MACH__) || defined(__linux__)
+		switch(family)
+		{
+			case DC_FAMILY_SUUNTO_VYPER:
+			case DC_FAMILY_SUUNTO_VYPER2:
+			case DC_FAMILY_SUUNTO_D9:
+			case DC_FAMILY_OCEANIC_VTPRO:
+			case DC_FAMILY_OCEANIC_VEO250:
+				sup.ports.push_back("tty.usbserial-PtTFP8W4");
+				sup.ports.push_back("tty.usbserial-00004006");
+				sup.ports.push_back("tty.usbserial-A60073WV");
+				sup.ports.push_back("tty.usbserial-ST000001");
+				sup.ports.push_back("tty.usbserial-00001004");
+				sup.ports.push_back("tty.usbserial-0000101D");
+				sup.ports.push_back("tty.usbserial-000013FA");
+				sup.ports.push_back("tty.usbserial-000013FD");
+				sup.ports.push_back("tty.usbserial-00004006");
+				sup.ports.push_back("tty.usbserial-20030001");
+				sup.ports.push_back("tty.usbserial-AE00BS2L");
+				sup.ports.push_back("tty.usbserial-ST000001");
+				sup.ports.push_back("tty.usbserial-STUBR4LH");
+				sup.ports.push_back("tty.usbserial-STUFHKD3");
+				sup.ports.push_back("tty.usbserial-STV66B8Y");
+				break;
+			case DC_FAMILY_UWATEC_SMART:
+				sup.ports.push_back(NO_PORT_NEEDED);
+				break;
+			case DC_FAMILY_MARES_NEMO:
+			case DC_FAMILY_MARES_DARWIN:
+				sup.ports.push_back("tty.SLAB_USBtoUART");
+				break;
+			case DC_FAMILY_MARES_ICONHD:
+				sup.ports.push_back("tty.usbmodem01234561");
+				break;
+		}
+#else
+#error Platform not supported
+#endif
+
+		support_list->push_back(sup);
+
+		libdc_p.descriptor_free (l_descriptor);
+	}
+
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_DONE) {
+		libdc_p.descriptor_free (current);
+		libdc_p.iterator_free (iterator);
+		DBthrowError ("Error iterating the device descriptors.");
+	}
+
+	libdc_p.iterator_free (iterator);
+
+
+	LOGDEBUG("Closing LibDiveComputer");
+	closeDLLLibrary(libdc);
+
+	return(support_list);
+}
+
+
 
 

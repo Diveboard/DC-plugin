@@ -79,14 +79,16 @@ protected:
 	std::string *out;
 	dc_device_t *device;
 
+	static std::vector<ComputerSupport> *support_list;
+
 public:
 	int dive_cb (const unsigned char *data, unsigned int size, const unsigned char *fingerprint, unsigned int fsize);
 	ComputerLibdc(std::string type, std::string filename);
 	virtual ~ComputerLibdc(void);
-	ComputerModel _get_model();
 	int _get_all_dives(std::string &xml);
 	virtual ComputerStatus get_status();
 	virtual void cancel();
+  static std::vector<ComputerSupport> *support();
 };
 
 

@@ -40,9 +40,12 @@ public:
 	FB::variant detect(const std::string& computerType);
 	FB::VariantMap allports();
 	FB::variant isComputerPluggedin();
+	FB::VariantList get_support();
 	void cancel();
 	void setLogLevel(const std::string&);
 	void setLogSize(const unsigned long& size);
+	void clearLog();
+
 private:
     DiveBoardWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;

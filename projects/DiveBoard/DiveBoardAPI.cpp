@@ -70,6 +70,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		registerMethod("detect",  make_method(this, &DiveBoardAPI::detect));
 		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
 		registerMethod("isComputerPluggedin",make_method(this, &DiveBoardAPI::isComputerPluggedin));
+		registerMethod("clearLog", make_method(this, &DiveBoardAPI::clearLog));
 		registerMethod("setLogLevel", make_method(this, &DiveBoardAPI::setLogLevel));
 		registerMethod("setLogSize", make_method(this, &DiveBoardAPI::setLogSize));
 		registerMethod("cancel",  make_method(this, &DiveBoardAPI::cancel));
@@ -80,6 +81,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		registerProperty("version",      make_property(this, &DiveBoardAPI::get_version));
 		registerProperty("logs",         make_property(this, &DiveBoardAPI::get_logs));
 		registerProperty("status",       make_property(this, &DiveBoardAPI::get_status));
+		registerProperty("support",      make_property(this, &DiveBoardAPI::get_support));
 
 		//Events    
 		registerEvent("onfired");    
@@ -181,6 +183,28 @@ FB::VariantMap DiveBoardAPI::get_status()
 		return(ret);
 	} catchall()
 }
+
+// Read-only property status
+FB::VariantList DiveBoardAPI::get_support()
+{
+	try	{
+
+		ComputerFactory factory;
+		std::vector<ComputerSupport>::iterator it;
+		FB::VariantList ret;
+
+		for (it = factory.supported.begin(); it != factory.supported.end(); it++) {
+			FB::VariantMap m;
+			m[std::string("label")] = FB::variant(it->label);
+			m[std::string("key_code")] = FB::variant(it->key_code);
+			m[std::string("ports")] = FB::make_variant_list(it->ports);
+			ret.push_back(m);
+		}
+
+		return(ret);
+	} catchall()
+}
+
 
 // Method echo
 FB::variant DiveBoardAPI::echo(const FB::variant& msg)
@@ -307,7 +331,7 @@ void *DiveBoardAPI::dump_async(void *p)
 		plugin->status.state = COMPUTER_RUNNING;
 		LOGDEBUG("Running dump on computer");
 		
-		//plugin->comp->dump(buffer);
+		plugin->comp->dump(buffer);
 
 		LOGDEBUG("dump on computer finished");
 
@@ -431,6 +455,14 @@ void DiveBoardAPI::cancel()
 {
 	if (comp) comp->cancel();
 }
+
+void DiveBoardAPI::clearLog()
+{
+	Logger::clear();
+	LOGINFO(get_version());
+}
+
+
 
 void DiveBoardAPI::setLogLevel(const std::string& level)
 {

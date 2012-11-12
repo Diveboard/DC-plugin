@@ -272,3 +272,8 @@ bool Logger::checkLevel(const std::string &req)
 	
 	return(true);
 }
+
+void Logger::clear()
+{
+	logs.clear();        
+}

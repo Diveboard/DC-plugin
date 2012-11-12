@@ -52,6 +52,7 @@ public:
 	static void binary(const std::string &type, const std::string &data);
 	static void setLogLevel(const std::string&);
 	static bool checkLevel(const std::string &req);
+	static void clear();
 };
 
 

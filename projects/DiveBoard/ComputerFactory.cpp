@@ -21,76 +21,40 @@
 #endif
 
 
-#define NO_PORT_NEEDED "NO PORT NEEDED"
-
-
 
 ComputerFactory::ComputerFactory(void)
 {
-#ifdef _WIN32
-	recognisedPorts["Emu Suunto"].push_back(NO_PORT_NEEDED);
-	recognisedPorts["Emu Mares M2"].push_back(NO_PORT_NEEDED);
+	std::vector<ComputerSupport> *support_list;
+	std::vector<ComputerSupport>::iterator it1;
+	std::vector<std::string>::iterator it2;
 
-	recognisedPorts["Suunto"].push_back("Suunto USB Serial Port");
-	recognisedPorts["LDC vyper"].push_back("Suunto USB Serial Port");
-	recognisedPorts["LDC vyper2"].push_back("Suunto USB Serial Port");
-	recognisedPorts["LDC solution"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC eon"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC d9"].push_back("Suunto USB Serial Port");
-	recognisedPorts["LDC aladin"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC memomouse"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC smart"].push_back(NO_PORT_NEEDED);
-	recognisedPorts["LDC sensus"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC sensuspro"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC sensusultra"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC vtpro"].push_back("2002 Design, Inc. USB Download Interface");
-	recognisedPorts["LDC veo250"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC atom2"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["Mares M2"].push_back("Silicon Labs CP210x USB to UART Bridge");
-	recognisedPorts["Mares M2"].push_back("CP210x USB to UART Bridge Controller");
-	recognisedPorts["LDC nemo"].push_back("Silicon Labs CP210x USB to UART Bridge");
-	recognisedPorts["LDC nemo"].push_back("CP210x USB to UART Bridge Controller");
-	recognisedPorts["LDC darwin"].push_back("Silicon Labs CP210x USB to UART Bridge");
-	recognisedPorts["LDC darwin"].push_back("CP210x USB to UART Bridge Controller");
-	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC iconhd"].push_back("ICON HD COM");
-	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
+	supported.clear();
 
-#elif defined(__MACH__) || defined(__linux__)
-	recognisedPorts["Emu Suunto"].push_back(NO_PORT_NEEDED);
-	recognisedPorts["Emu Mares M2"].push_back(NO_PORT_NEEDED);
+	support_list = ComputerLibdc::support();
+  for ( it1=support_list->begin() ; it1 < support_list->end(); it1++ ){
+  	supported.push_back(*it1);
+	  for ( it2=it1->ports.begin() ; it2 < it1->ports.end(); it2++ ){
+			recognisedPorts[it1->key_code].push_back(*it2);
+		}
+  }
 
-	recognisedPorts["Suunto"].push_back("tty.usbserial-PtTFP8W4");
-	recognisedPorts["LDC vyper"].push_back("tty.usbserial-PtTFP8W4");
-	recognisedPorts["LDC vyper2"].push_back("tty.usbserial-PtTFP8W4");
-	recognisedPorts["LDC vyper"].push_back("tty.usbserial-00004006");
-	recognisedPorts["LDC vyper2"].push_back("tty.usbserial-00004006");
-	recognisedPorts["LDC vyper"].push_back("tty.usbserial-A60073WV");
-	recognisedPorts["LDC vyper2"].push_back("tty.usbserial-A60073WV");
-	recognisedPorts["LDC solution"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC eon"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC d9"].push_back("tty.usbserial-ST000001");
-	recognisedPorts["LDC aladin"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC memomouse"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC smart"].push_back(NO_PORT_NEEDED);
-	recognisedPorts["LDC sensus"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC sensuspro"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC sensusultra"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC vtpro"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC veo250"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC atom2"].push_back("tty.usbserial-20030001");
-	recognisedPorts["Mares M2"].push_back("tty.SLAB_USBtoUART");
-	recognisedPorts["LDC nemo"].push_back("tty.SLAB_USBtoUART");
-	recognisedPorts["LDC darwin"].push_back("tty.SLAB_USBtoUART");
-	recognisedPorts["LDC puck"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC ostc"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC edy"].push_back("XXXXXXXXXXXXXX");
-	recognisedPorts["LDC iconhd"].push_back("tty.usbmodem01234561");
-							 
-#else
-#error Platform not supported
-#endif
+	support_list = ComputerSuunto::support();
+  for ( it1=support_list->begin() ; it1 < support_list->end(); it1++ ){
+  	supported.push_back(*it1);
+	  for ( it2=it1->ports.begin() ; it2 < it1->ports.end(); it2++ ){
+			recognisedPorts[it1->key_code].push_back(*it2);
+		}
+  }
+
+	support_list = ComputerMares::support();
+  for ( it1=support_list->begin() ; it1 < support_list->end(); it1++ ){
+  	supported.push_back(*it1);
+	  for ( it2=it1->ports.begin() ; it2 < it1->ports.end(); it2++ ){
+			recognisedPorts[it1->key_code].push_back(*it2);
+		}
+  }
+
+
 }
 
 
