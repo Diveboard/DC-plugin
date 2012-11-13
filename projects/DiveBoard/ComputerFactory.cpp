@@ -417,16 +417,16 @@ bool ComputerFactory::isComputerPluggedin()
 
 Computer *ComputerFactory::createComputer(const std::string &type, const std::string &filename)
 {
-	if (!type.compare("Suunto")){
+	if (!type.compare("SUUNTO")){
 		return new ComputerSuunto(filename);
 	}
-	else if (!type.compare("Emu Suunto")){
+	else if (!type.compare("SUUNTO EMU")){
 		return new ComputerSuunto("");
 	}
-	else if (!type.compare("Mares M2")){
+	else if (!type.compare("MARES")){
 		return new ComputerMares(filename);
 	}
-	else if (!type.compare("Emu Mares M2")){
+	else if (!type.compare("MARES EMU")){
 		return new ComputerMares("");
 	}
 	else if (!type.compare(0,4,"LDC ")){
