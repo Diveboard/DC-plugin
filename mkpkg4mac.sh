@@ -47,7 +47,7 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 ###
 
 # Copy libdivecomputer into Diveboard.plugin directory
-cp "$LIBDIVE" "$BUILDDIR"
+cp "$LIBDIVE" "$BUILDDIR/liblibdivecomputer.dylib"
 
 # Create the package
 echo "Launching packagemaker"
