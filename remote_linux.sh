@@ -1,33 +1,4 @@
+#!/bin/bash
 
-
-echo '
-tmpbuild=$(mktemp -d /tmp/diveboard-db.XXXXXXXX)
-
-echo $tmpbuild
-
-cd $tmpbuild
-
-git clone git@diveboard.plan.io:diveboard-db.git
-
-cd "$tmpbuild"/diveboard-db/libdivecomputer
-autoreconf --install
-./configure
-make
-
-cd "$tmpbuild"/diveboard-db
-./firebreath/prepcodeblocks.sh projects build
-
-cd "$tmpbuild"/diveboard-db/build
-make
-
-"$tmpbuild"/diveboard-db/mktgz4linux.sh
-"$tmpbuild"/diveboard-db/mkdeb4ubuntu.sh
-"$tmpbuild"/diveboard-db/mkrpm4linux.sh
-
-echo "Build done in $tmpbuild/diveboard-db/build/packages"
-find "$tmpbuild/diveboard-db/build/packages"
-
-' | ssh "$1"
-
-
-
+scp mkpkg4linux.sh $1:/tmp/
+ssh $1 "bash -c 'screen -S compil -d -m /tmp/mkpkg4linux.sh'"

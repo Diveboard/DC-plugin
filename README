@@ -5,63 +5,91 @@
   Debian/Ubuntu : apt-get install cmake
 
 - Make sure dependencies are there :
-  Mac : xcode
-  Windows : Visual studio (we're using verion 10)
-  Linux : sudo apt-get install libgtk2.0-dev automake autoconf libtool
+  Linux : 
+    sudo apt-get install libgtk2.0-dev automake autoconf libtool
+  Windows : 
+    Visual studio (we're using verion 10)
+    NSIS (for packaging)
+  Mac : 
+    xcode
+    PackageMaker : Since xcode 4.3, command line tools are no longer part of xcode. To install PackageMaker command line : 
+        -> launch xcode, menu XCode/Open developper tools/More developper tools
+        -> Download "auxiliary tools for xcode"
+        -> Copy PackageMaker to your Applications folder (yeah Apple didn't provide any installer.....)
+        -> run : sudo ln -s /Applications/PackageMaker.app/Contents/MacOS/PackageMaker /Applications/Xcode.app/Contents/Developer/usr/bin/packagemaker
 
 - Configure globally Xcode for mac
   For mac, make sure that the build location can be configured on a project basis :
   XCode > Preferences > Locations > Advanced > Build Location = Location Specified By Targets
 
-- Get Boost for firebreath
-  git submodule update --recursive --init
 
-
-1/ Build the main plugin :
+1/ Compiling for development environment
 
 - in a shell, place yourself in the same folder as this readme
+
+- Get Firebreath from github:
+  git submodule update --init
+  
+  Note: Firebreath has been included as a submodule, and Libdivecomputer has been integrated as a subtree merge.
+
 - launch the correct prep... command for your platform with the arguments "projects" and "build" :
 	Mac : ./firebreath/prepmac.sh projects build
 	Linux : ./firebreath/prepcodeblocks.sh projects build
 	Windows : firebreath\prep2010.cmd projects build
 
-- open the project generated in the new "build" directory :
+- you may open the main plugin projects in your favorite IDE :
 	Mac : FireBreath.xcode
 	Linux : FireBreath.cbp
 	Windows : FireBreath.sln
 
-Note for Mac build: in case of error with lipo, it might be because of parallel build. To disactivate that feature in xcode, go to "Project/Edit Project settings" and uncheck "Build independant targets in parallel"
+- To compile the main plugin with Debug symbols, run, go in the build/ directory and run :
+  Mac : 
+    xcodebuild -configuration Debug -project FireBreath.xcodeproj build
+  Linux : 
+    make
+  Windows : 
+    "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\vcvarsall.bat"
+    msbuild FireBreath.sln /p:Configuration=Debug /t:clean,rebuild
+
+
+
+  Note for Mac build: in case of error with lipo, it might be because of parallel build. To disactivate that feature in xcode, go to "Project/Edit Project settings" and uncheck "Build independant targets in parallel"
+
+
+- To build the libdivecomputer library, go in the libdivecomputer directory and run :
+  Mac:
+    autoreconf --install && ./configure && make
+  Linux:
+    autoreconf --install && ./configure && make
+  Windows:
+    "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\vcvarsall.bat"
+    msbuild msvc\libdivecomputer.sln /p:Configuration=Release /t:clean,rebuild
+
 
 WARNING ! On Linux you must build on both a 32-bit platform and a 64-bit platform - you must build really 2 times on 2 platforms, no kidding.
 
-Note for Linux build: it is also possible to build the plugin by running "make" directly in the "build" directory
 
-2/ Build the library libdivecomputer :
-
-- Open the project file
-	Mac : libdivecomputer/libdivecomputer.xcodeproj
-	Windows : libdivecomputer/libdivecomputer.sdf
-
-- Linux build:
-	./configure
-	make
-WARNING ! On Linux you must build on both a 32-bit platform and a 64-bit platform - you must build really 2 times on 2 platforms, no kidding.
-
-- The built library will be :
-	Mac : libdivecomputer/build/Release/liblibdivecomputer.dylib 
-	Linux : libdivecomputer/src/.libs/libdivecomputer.so
-	Windows : build\bin\DiveBoard\Release
+- The built binaries will be :
+	Mac:
+    build/projects/DiveBoard/Release/DiveBoard_x86_64.plugin/Contents/MacOS/DiveBoard_x86_64
+    libdivecomputer/src/.libs/libdivecomputer.0.dylib
+	Linux:
+    
+    libdivecomputer/src/.libs/libdivecomputer.so
+	Windows:
+    build\bin\DiveBoard\Release\npDiveBoard.dll
+    libdivecomputer\msvc\Release\libdivecomputer.dll
 
 
-3/ Build the package
+2/ Build the release package
 
 - To build the package run
-	Windows : compile with NSIS (Nullsoft Installer) projects\diveboard\installer.nsi
-	Mac : mkpkg4mac.sh
-  Linux 32bit- deb package : mkdeb4ubuntu.sh
-  Linux 32bit- tgz package : mktgz4linux.sh
-  Linux 64bit- deb package : mkdeb4ubuntu64.sh
-  Linux 64bit- tgz package : mktgz4linux64.sh
+	Windows: 
+    mkexewin32.bat
+	Mac: 
+    mkpkg4mac.sh
+  Linux:
+    mkpkg4linux.sh
 
 - The installation package will be placed in
 	Mac : build/packages/diveboard.dmg
@@ -93,22 +121,3 @@ Good luck !
 
 CODE UPDATE FOR LIBDIVECOMPUTER
 
-libdivecomputer has been integrated as a subtree merge.
-
-To update the code from libdivecomputer :
-
-  git pull -s subtree libdivecomputer_remote master
-  git pull -s subtree firebreath_remote master
-
-
-
-What has been done
-  git remote add -f firebreath_remote git://github.com/firebreath/FireBreath.git
-  git checkout -b firebreath_branch firebreath_remote/master
-  git checkout master
-  git read-tree
-  git rm -fr firebreath
-  git checkout firebreath
-  git add firebreath
-  git pull -s subtree firebreath_remote master
-  git submodule update --recursive --init

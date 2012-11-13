@@ -1,64 +1,79 @@
+#!/bin/bash
 
-DIR=$(dirname $(which $0))
-
-BUILDDIR=$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin/Contents/MacOS
-OUTDIR=$DIR/build/packages
-
-LIBDIVE=$DIR/libdivecomputer/.libs/libdivecomputer.0.dylib
-
-TMPDIR=/tmp
-
+BASEDIR=$(mktemp -d /tmp/diveboard-db.XXXXXXXX)
+DIR="$BASEDIR/plugin"
+PLUGINDIR="$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin"
+BUILDDIR="$PLUGINDIR/Contents/MacOS"
+OUTDIR="$DIR/build/packages"
+LIBDIVE="$DIR/libdivecomputer/src/.libs/libdivecomputer.0.dylib"
+LOCTMPDIR=/tmp
 PKGNAME=diveboard.pkg
+
+
+
+####
+#### Fetch source from git
+####
+echo "$BASEDIR"
+cd "$BASEDIR"
+git clone git@diveboard.plan.io:diveboard-db.git plugin
+cd "$DIR"
+git submodule update --init
+##this one fails so we let prepmac.sh fetch boost by itself #git submodule update --recursive --init
+#
 
 VERSION=`cat "$DIR/VERSION"`
 
-mkdir -p $OUTDIR
+
+###
+### Force rebuild of the software
+###
+rm -fr "$DIR/build"
+cd "$DIR" 
+firebreath/prepmac.sh projects build
+cd "$DIR/libdivecomputer" && make clean
+xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 
 
 ###
-### Rebuilds the software
+### Build everything
 ###
-if [ "X$1" == "X--clean" ] 
-then
-  rm -fr "$DIR/build"
-  cd "$DIR" && firebreath/prepmac.sh projects build
-
-  cd "$DIR/libdivecomputer" && make clean
-  xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
-fi
-
 cd "$DIR/libdivecomputer" && autoreconf --install && ./configure && make
-
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 
-####
-#### Create package of Diveboard.plugin directory
-####
+###
+### Create package of Diveboard.plugin directory
+###
 
 # Copy libdivecomputer into Diveboard.plugin directory
 cp "$LIBDIVE" "$BUILDDIR"
 
 # Create the package
-/Developer/usr/bin/packagemaker --root "$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin" --install-to "/Library/Internet Plug-Ins" --out "$TMPDIR/$PKGNAME" --id com.diveboard.plugin.pkg --title "Diveboard plugin" --root-volume-only --domain system
+echo "Launching packagemaker"
+cd $DIR
+/Applications/Xcode.app/Contents/Developer/usr/bin/packagemaker --root "$PLUGINDIR" --install-to "/Library/Internet Plug-Ins" --out "$LOCTMPDIR/$PKGNAME" --id com.diveboard.plugin.pkg --title "Diveboard plugin" --root-volume-only --domain system
 
 ####
 #### Assemble full package
 ####
 
 # Initialize the final package
-rm -fr $OUTDIR/Diveboard.mpkg
-cp -a $DIR/drivers/mac/Diveboard.mpkg $OUTDIR/
+echo "Initializing the final package"
+mkdir -p "$OUTDIR"
+rm -fr "$OUTDIR/Diveboard.mpkg"
+cp -a "$DIR/drivers/mac/Diveboard.mpkg" "$OUTDIR/Diveboard.mpkg"
 rm -fr "$OUTDIR/Diveboard.mpkg/Contents/Packages/$PKGNAME"
 
 # Place the Diveboard package into the big package
-cp -a "$TMPDIR/$PKGNAME" "$OUTDIR/Diveboard.mpkg/Contents/Packages/$PKGNAME"
+echo "Putting everything into the big package"
+cp -a "$LOCTMPDIR/$PKGNAME" "$OUTDIR/Diveboard.mpkg/Contents/Packages/$PKGNAME"
 
 ####
 #### xar-ing the archive or creating a DMG file
 ####
 
 # getting the space used 
-SIZE=$(($(du -ks build/packages/Diveboard.mpkg/ | sed 's/[^0-9].*//') + 500 ))
+SIZE=$(($(du -ks "$DIR/build/packages/Diveboard.mpkg/" | sed 's/[^0-9].*//') + 500 ))
 
 # Creating a dmg image
 DMGFILE=/tmp/pack.temp.dmg
