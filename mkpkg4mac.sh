@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEDIR=$(mktemp -d /tmp/diveboard-db.XXXXXXXX)
+BASEDIR=/tmp/diveboard_plugin.$(date '+%Y%m%d_%H%M%S')
 DIR="$BASEDIR/plugin"
 PLUGINDIR="$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin"
 BUILDDIR="$PLUGINDIR/Contents/MacOS"
@@ -15,8 +15,9 @@ PKGNAME=diveboard.pkg
 #### Fetch source from git
 ####
 echo "$BASEDIR"
+mkdir -p "$BASEDIR"
 cd "$BASEDIR"
-git clone git@diveboard.plan.io:diveboard-db.git plugin
+git clone --depth 1 git@diveboard.plan.io:diveboard-db.git plugin
 cd "$DIR"
 git submodule update --init
 ##this one fails so we let prepmac.sh fetch boost by itself #git submodule update --recursive --init
