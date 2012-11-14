@@ -34,5 +34,5 @@ then
   VERSION=`cat "$tmpbuild/diveboard-db/VERSION"`
   DROPDIR="$HOME/Dropbox/Plugin Builds/V$VERSION/linux_$(arch)_$(date '+%Y%m%d_%H%M%S_%N')"
   mkdir -p "$DROPDIR"
-  cp -a "$tmpbuild/diveboard-db/build/packages/*" "$DROPDIR"
+  cp -a "$tmpbuild/diveboard-db/build/packages"/* "$DROPDIR"
 fi
