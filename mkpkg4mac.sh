@@ -47,7 +47,7 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 ###
 
 # Copy libdivecomputer into Diveboard.plugin directory
-cp "$LIBDIVE" "$BUILDDIR"
+cp "$LIBDIVE" "$BUILDDIR/liblibdivecomputer.dylib"
 
 # Create the package
 echo "Launching packagemaker"
@@ -122,3 +122,10 @@ rm -f "$DMGFILE"
 #  zip -j "$DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip" $DMGFINALFILE
 #  echo "Zip file has been updated in $DIR/../diveboard-web/public/plugin/latest/mac/diveboard.zip"
 #fi
+
+if [[ -x "$HOME/Dropbox/Plugin Builds" ]]
+then
+  DROPDIR="$HOME/Dropbox/Plugin Builds/V$VERSION/mac_$(date '+%Y%m%d_%H%M%S')"
+  mkdir -p "$DROPDIR"
+  cp -a "$DMGFINALFILE" "$DROPDIR"
+fi

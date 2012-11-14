@@ -1,6 +1,6 @@
 #/**********************************************************\ 
 # Auto-generated Mac project definition file for the
-# pplopp project
+# DiveBoard project
 #\**********************************************************/
 
 # Mac template platform definition CMake file
@@ -30,12 +30,9 @@ set(PLIST "Mac/bundle_template/Info.plist")
 set(STRINGS "Mac/bundle_template/InfoPlist.strings")
 set(LOCALIZED "Mac/bundle_template/Localized.r")
 
-add_mac_plugin(${PROJECT_NAME} ${PLIST} ${STRINGS} ${LOCALIZED} SOURCES)
+add_mac_plugin(${PROJNAME} ${PLIST} ${STRINGS} ${LOCALIZED} SOURCES)
 
 # add library dependencies here; leave ${PLUGIN_INTERNAL_DEPS} there unless you know what you're doing!
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJNAME}
     ${PLUGIN_INTERNAL_DEPS}
     )
-
-#To create a DMG, include the following file
-#include(Mac/installer.cmake)

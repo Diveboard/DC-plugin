@@ -26,3 +26,13 @@ make
 
 echo "Build done in $tmpbuild/diveboard-db/build/packages"
 find "$tmpbuild/diveboard-db/build/packages"
+
+
+
+if [[ -x "$HOME/Dropbox/Plugin Builds" ]]
+then
+  VERSION=`cat "$tmpbuild/diveboard-db/VERSION"`
+  DROPDIR="$HOME/Dropbox/Plugin Builds/V$VERSION/linux_$(arch)_$(date '+%Y%m%d_%H%M%S_%N')"
+  mkdir -p "$DROPDIR"
+  cp -a "$tmpbuild/diveboard-db/build/packages/*" "$DROPDIR"
+fi
