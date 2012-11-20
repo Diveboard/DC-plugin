@@ -194,7 +194,7 @@ SectionEnd
 Section /o "FTDI" Driver1
         SetOutPath $TEMP\DB_FTDI
 	File /r "..\..\drivers\ftdi_win"
-	ExecWait 'rundll32 syssetup,SetupInfObjectInstallAction DefaultInstall 128 "$TEMP\DB_FTDI\ftdi_win\ftdibus.inf"' $0
+	ExecWait '"$TEMP\DB_FTDI\ftdi_win\CDM20824_Setup.exe"'
 	# MessageBox MB_OK "FTDI Driver installed. Installer returned $0.\n $TEMP" IDOK 0
 
 	Delete "$TEMP\DB_FTDI"
@@ -203,7 +203,11 @@ SectionEnd
 Section /o "SiliconLabs CP210x" Driver2
         SetOutPath $TEMP\DB_SILABS
 	File /r "..\..\drivers\Silabs_windows"
-	ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210x_VCP_Win2K.exe"' $0
+	${If} ${RunningX64}
+	   ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210xVCPInstaller_x64.exe"' $0
+	${Else}
+	   ExecWait '"$TEMP\DB_SILABS\Silabs_windows\CP210xVCPInstaller_x86.exe"' $0
+	${EndIf}
 
 	# MessageBox MB_OK "SiliconLabs CP210x Driver installed. Installer returned $0.\n $TEMP" IDOK 0
 
