@@ -5,7 +5,7 @@ DIR="$BASEDIR/plugin"
 PLUGINDIR="$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin"
 BUILDDIR="$PLUGINDIR/Contents/MacOS"
 OUTDIR="$DIR/build/packages"
-LIBDIVE="$DIR/libdivecomputer/src/.libs/libdivecomputer.0.dylib"
+LIBDIVE="$DIR/build/libdivecomputer/lib/libdivecomputer.dylib"
 LOCTMPDIR=/tmp
 PKGNAME=diveboard.pkg
 
@@ -39,7 +39,12 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 ###
 ### Build everything
 ###
-cd "$DIR/libdivecomputer" && autoreconf --install && ./configure && make
+cd "$DIR/libdivecomputer" 
+autoreconf --install 
+make clean && ./configure CFLAGS='-arch i386' --target=i386 --prefix="$DIR/build/libdivecomputer/i386" && make && make install
+make clean && ./configure CFLAGS='-arch x86_64' --target=x86_64 --prefix="$DIR/build/libdivecomputer/x86_64" && make && make install
+lipo -create "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib" -output "$LIBDIVE"
+
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 
 ###
