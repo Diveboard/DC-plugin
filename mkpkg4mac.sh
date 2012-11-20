@@ -5,7 +5,7 @@ DIR="$BASEDIR/plugin"
 PLUGINDIR="$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin"
 BUILDDIR="$PLUGINDIR/Contents/MacOS"
 OUTDIR="$DIR/build/packages"
-LIBDIVE="$DIR/build/libdivecomputer/lib/libdivecomputer.dylib"
+LIBDIVE="$DIR/build/libdivecomputer/libdivecomputer.dylib"
 LOCTMPDIR=/tmp
 PKGNAME=diveboard.pkg
 
