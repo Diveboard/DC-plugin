@@ -753,140 +753,147 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
       LOGDEBUG("Logging into %s", ldc_logfile);
   }
 
-  // Open the device.
-  LOGINFO ("Opening the device (%s %s, %s).\n",
-    libdc_p.descriptor_get_vendor (descriptor),
-    libdc_p.descriptor_get_product (descriptor),
-    devname.empty() ? devname.c_str() : "null");
-  rc = libdc_p.device_open (&device, context, descriptor, devname.c_str());
-  if (rc != DC_STATUS_SUCCESS) {
-    LOGWARNING ("Error opening device.");
-    //TODO: ldc_setlogfile(NULL);
-    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-    DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
-  }
-
-  //Register the event handler.
-  LOGINFO("Registering the event handler.");
-  int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK | DC_EVENT_VENDOR;
-  event_data_t evdata;
-  evdata.devdata = &devdata;
-  evdata.status = &status;
-  rc = libdc_p.device_set_events (device, events, event_cb, &evdata);
-  if (rc != DC_STATUS_SUCCESS) {
-    LOGDEBUG("Error registering the event handler.");
-    libdc_p.device_close (device);
-    //TODO: ldc_setlogfile(NULL);
-    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-    DBthrowError("Error registering the event handler ");
-  }
-
-  // Register the cancellation handler.
-  LOGINFO("Registering the cancellation handler.");
-  rc = libdc_p.device_set_cancel (device, cancel_cb, NULL);
-  if (rc != DC_STATUS_SUCCESS) {
-    LOGINFO("Error registering the cancellation handler.");
-    libdc_p.device_close (device);
-    //TODO: ldc_setlogfile(NULL);
-    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-    DBthrowError("Error registering the cancellation handler ");
-  }
-
-  // todo Register the fingerprint data.
-  /*if (fingerprint) {
-    LOGINFO("Registering the fingerprint data.");
-    rc = device_set_fingerprint (device, dc_buffer_get_data (fingerprint), dc_buffer_get_size (fingerprint));
-    if (rc != DEVICE_STATUS_SUCCESS) {
-      LOGINFO("Error registering the fingerprint data.");
-      device_close (device);
-      return rc;
-    }
-  }
-  */
-
-
-  if (dumpData) {
-    //Dump the data
-    // Allocate a memory buffer.
-    dc_buffer_t *buffer = libdc_p.buffer_new (0);
-
-    // Download the memory dump.
-    LOGINFO ("Downloading the memory dump.");
-    rc = libdc_p.device_dump (device, buffer);
+  try {
+    // Open the device.
+    LOGINFO ("Opening the device (%s %s, %s).\n",
+      libdc_p.descriptor_get_vendor (descriptor),
+      libdc_p.descriptor_get_product (descriptor),
+      devname.empty() ? devname.c_str() : "null");
+    rc = libdc_p.device_open (&device, context, descriptor, devname.c_str());
     if (rc != DC_STATUS_SUCCESS) {
-      LOGINFO ("Error downloading the memory dump");
-      libdc_p.buffer_free (buffer);
-      libdc_p.device_close (device);
-      if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-      DBthrowError("Error downloading the memory dump");
-    }
-
-    unsigned char *data_p = libdc_p.buffer_get_data(buffer);
-    unsigned long max_i = libdc_p.buffer_get_size(buffer);
-    dumpData->resize(max_i*2);
-    for (unsigned long i = 0; i < max_i; i++){
-      unsigned char c = data_p[i];
-      if ((c>>4) >= 10)
-        dumpData->at(2*i) = 'A' - 10 + (c>>4);
-      else
-        dumpData->at(2*i) = '0' + (c>>4);
-
-      if ((c & 0x0F) >= 10)
-        dumpData->at(2*i+1) = 'A' - 10 + (c & 0x0F);
-      else
-        dumpData->at(2*i+1) = '0' + (c & 0x0F);
-    }
-
-    // Free the memory buffer.
-    libdc_p.buffer_free (buffer);
-  }
-
-  if (diveXML) {
-    // Initialize the dive data.
-    //dive_data_t divedata = {0};
-    //divedata.devdata = devdata;
-    //divedata.device = device;
-    fingerprint = NULL;
-    number = 0;
-    out = diveXML;
-    //divedata.computer = this;
-
-    diveXML->append("<profile udcf='1'><device><model>");
-    // TODO ???????diveXML->append(lookup_name(backend));
-    diveXML->append("</model></device><REPGROUP>");
-
-    // Download the dives.
-    LOGINFO("Downloading the dives.");
-
-    rc = libdc_p.device_foreach (device, G_dive_cb, this);
-    if (rc != DC_STATUS_SUCCESS) {
-      LOGDEBUG("Error downloading the dives.");
-      libdc_p.buffer_free (fingerprint);
-      libdc_p.device_close (device);
+      LOGWARNING ("Error opening device.");
       //TODO: ldc_setlogfile(NULL);
       if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
       DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
     }
 
-    // todo Store the fingerprint data.
-    /*if (g_cachedir) {
-      fpwrite (divedata.fingerprint, g_cachedir, devdata.backend, devdata.devinfo.serial);
-    }*/
+    //Register the event handler.
+    LOGINFO("Registering the event handler.");
+    int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK | DC_EVENT_VENDOR;
+    event_data_t evdata;
+    evdata.devdata = &devdata;
+    evdata.status = &status;
+    rc = libdc_p.device_set_events (device, events, event_cb, &evdata);
+    if (rc != DC_STATUS_SUCCESS) {
+      LOGDEBUG("Error registering the event handler.");
+      libdc_p.device_close (device);
+      //TODO: ldc_setlogfile(NULL);
+      if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+      DBthrowError("Error registering the event handler ");
+    }
 
-    // todo Free the fingerprint buffer.
-    //dc_buffer_free (divedata.fingerprint);
+    // Register the cancellation handler.
+    LOGINFO("Registering the cancellation handler.");
+    rc = libdc_p.device_set_cancel (device, cancel_cb, NULL);
+    if (rc != DC_STATUS_SUCCESS) {
+      LOGINFO("Error registering the cancellation handler.");
+      libdc_p.device_close (device);
+      //TODO: ldc_setlogfile(NULL);
+      if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+      DBthrowError("Error registering the cancellation handler ");
+    }
 
-    diveXML->append("</REPGROUP></profile>");
+    // todo Register the fingerprint data.
+    /*if (fingerprint) {
+      LOGINFO("Registering the fingerprint data.");
+      rc = device_set_fingerprint (device, dc_buffer_get_data (fingerprint), dc_buffer_get_size (fingerprint));
+      if (rc != DEVICE_STATUS_SUCCESS) {
+        LOGINFO("Error registering the fingerprint data.");
+        device_close (device);
+        return rc;
+      }
+    }
+    */
+
+
+    if (dumpData) {
+      //Dump the data
+      // Allocate a memory buffer.
+      dc_buffer_t *buffer = libdc_p.buffer_new (0);
+
+      // Download the memory dump.
+      LOGINFO ("Downloading the memory dump.");
+      rc = libdc_p.device_dump (device, buffer);
+      if (rc != DC_STATUS_SUCCESS) {
+        LOGINFO ("Error downloading the memory dump");
+        libdc_p.buffer_free (buffer);
+        libdc_p.device_close (device);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+        DBthrowError("Error downloading the memory dump");
+      }
+
+      unsigned char *data_p = libdc_p.buffer_get_data(buffer);
+      unsigned long max_i = libdc_p.buffer_get_size(buffer);
+      dumpData->resize(max_i*2);
+      for (unsigned long i = 0; i < max_i; i++){
+        unsigned char c = data_p[i];
+        if ((c>>4) >= 10)
+          dumpData->at(2*i) = 'A' - 10 + (c>>4);
+        else
+          dumpData->at(2*i) = '0' + (c>>4);
+
+        if ((c & 0x0F) >= 10)
+          dumpData->at(2*i+1) = 'A' - 10 + (c & 0x0F);
+        else
+          dumpData->at(2*i+1) = '0' + (c & 0x0F);
+      }
+
+      // Free the memory buffer.
+      libdc_p.buffer_free (buffer);
+    }
+
+    if (diveXML) {
+      // Initialize the dive data.
+      //dive_data_t divedata = {0};
+      //divedata.devdata = devdata;
+      //divedata.device = device;
+      fingerprint = NULL;
+      number = 0;
+      out = diveXML;
+      //divedata.computer = this;
+
+      diveXML->append("<profile udcf='1'><device><model>");
+      // TODO ???????diveXML->append(lookup_name(backend));
+      diveXML->append("</model></device><REPGROUP>");
+
+      // Download the dives.
+      LOGINFO("Downloading the dives.");
+
+      rc = libdc_p.device_foreach (device, G_dive_cb, this);
+      if (rc != DC_STATUS_SUCCESS) {
+        LOGDEBUG("Error downloading the dives.");
+        libdc_p.buffer_free (fingerprint);
+        libdc_p.device_close (device);
+        //TODO: ldc_setlogfile(NULL);
+        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+        DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
+      }
+
+      // todo Store the fingerprint data.
+      /*if (g_cachedir) {
+        fpwrite (divedata.fingerprint, g_cachedir, devdata.backend, devdata.devinfo.serial);
+      }*/
+
+      // todo Free the fingerprint buffer.
+      //dc_buffer_free (divedata.fingerprint);
+
+      diveXML->append("</REPGROUP></profile>");
+    }
+
+    //TODO: ldc_setlogfile(NULL);
+    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+
+    // Close the device.
+    LOGINFO("Closing the device.");
+    rc = libdc_p.device_close (device);
+    if (rc != DC_STATUS_SUCCESS)
+      LOGWARNING("Error closing the device. %s", errmsg(rc));
+
+  } catch (...) {
+    //TODO: ldc_setlogfile(NULL);
+    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
+    throw;
   }
-
-  //TODO: ldc_setlogfile(NULL);
-  if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-
-  // Close the device.
-  LOGINFO("Closing the device.");
-  rc = libdc_p.device_close (device);
-  if (rc != DC_STATUS_SUCCESS)
-    LOGWARNING("Error closing the device. %s", errmsg(rc));
 }
 
 
