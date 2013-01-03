@@ -51,6 +51,7 @@ suunto_common2_device_init (suunto_common2_device_t *device, dc_context_t *conte
 
 	// Set the default values.
 	device->layout = NULL;
+	memset (device->version, 0, sizeof (device->version));
 	memset (device->fingerprint, 0, sizeof (device->fingerprint));
 }
 
@@ -138,9 +139,6 @@ suunto_common2_device_reset_maxdepth (dc_device_t *abstract)
 dc_status_t
 suunto_common2_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
-	// The data transmission is split in packages
-	// of maximum $SZ_PACKET bytes.
-
 	unsigned int nbytes = 0;
 	while (nbytes < size) {
 		// Calculate the package size.
@@ -174,9 +172,6 @@ suunto_common2_device_read (dc_device_t *abstract, unsigned int address, unsigne
 dc_status_t
 suunto_common2_device_write (dc_device_t *abstract, unsigned int address, const unsigned char data[], unsigned int size)
 {
-	// The data transmission is split in packages
-	// of maximum $SZ_PACKET bytes.
-
 	unsigned int nbytes = 0;
 	while (nbytes < size) {
 		// Calculate the package size.
@@ -221,6 +216,12 @@ suunto_common2_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 		return DC_STATUS_NOMEMORY;
 	}
 
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->version;
+	vendor.size = sizeof (device->version);
+	device_event_emit (abstract, DC_EVENT_VENDOR, &vendor);
+
 	return device_dump_read (abstract, dc_buffer_get_data (buffer),
 		dc_buffer_get_size (buffer), SZ_PACKET);
 }
@@ -242,24 +243,18 @@ suunto_common2_device_foreach (dc_device_t *abstract, dc_dive_callback_t callbac
 	// Enable progress notifications.
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
 	progress.maximum = layout->rb_profile_end - layout->rb_profile_begin +
-		8 + SZ_VERSION + (SZ_MINIMUM > 4 ? SZ_MINIMUM : 4);
+		8 + (SZ_MINIMUM > 4 ? SZ_MINIMUM : 4);
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
-	// Read the version info.
-	unsigned char version[SZ_VERSION] = {0};
-	dc_status_t rc = suunto_common2_device_version (abstract, version, sizeof (version));
-	if (rc != DC_STATUS_SUCCESS) {
-		ERROR (abstract->context, "Failed to read the memory header.");
-		return rc;
-	}
-
-	// Update and emit a progress event.
-	progress.current += sizeof (version);
-	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->version;
+	vendor.size = sizeof (device->version);
+	device_event_emit (abstract, DC_EVENT_VENDOR, &vendor);
 
 	// Read the serial number.
 	unsigned char serial[SZ_MINIMUM > 4 ? SZ_MINIMUM : 4] = {0};
-	rc = suunto_common2_device_read (abstract, layout->serial, serial, sizeof (serial));
+	dc_status_t rc = suunto_common2_device_read (abstract, layout->serial, serial, sizeof (serial));
 	if (rc != DC_STATUS_SUCCESS) {
 		ERROR (abstract->context, "Failed to read the memory header.");
 		return rc;
@@ -271,8 +266,8 @@ suunto_common2_device_foreach (dc_device_t *abstract, dc_dive_callback_t callbac
 
 	// Emit a device info event.
 	dc_event_devinfo_t devinfo;
-	devinfo.model = version[0];
-	devinfo.firmware = array_uint24_be (version + 1);
+	devinfo.model = device->version[0];
+	devinfo.firmware = array_uint24_be (device->version + 1);
 	devinfo.serial = array_uint32_be (serial);
 	device_event_emit (abstract, DC_EVENT_DEVINFO, &devinfo);
 

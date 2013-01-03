@@ -36,6 +36,8 @@
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
 )
 
+#define SZ_MEMORY 0x900
+
 typedef struct suunto_eon_device_t {
 	suunto_common_device_t base;
 	serial_t *port;
@@ -48,7 +50,6 @@ static dc_status_t suunto_eon_device_close (dc_device_t *abstract);
 static const device_backend_t suunto_eon_device_backend = {
 	DC_FAMILY_SUUNTO_EON,
 	suunto_common_device_set_fingerprint, /* set_fingerprint */
-	NULL, /* version */
 	NULL, /* read */
 	NULL, /* write */
 	suunto_eon_device_dump, /* dump */
@@ -59,7 +60,7 @@ static const device_backend_t suunto_eon_device_backend = {
 static const suunto_common_layout_t suunto_eon_layout = {
 	0, /* eop */
 	0x100, /* rb_profile_begin */
-	SUUNTO_EON_MEMORY_SIZE, /* rb_profile_end */
+	SZ_MEMORY, /* rb_profile_end */
 	6, /* fp_offset */
 	3 /* peek */
 };
@@ -164,14 +165,14 @@ suunto_eon_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 
 	// Erase the current contents of the buffer and
 	// pre-allocate the required amount of memory.
-	if (!dc_buffer_clear (buffer) || !dc_buffer_reserve (buffer, SUUNTO_EON_MEMORY_SIZE)) {
+	if (!dc_buffer_clear (buffer) || !dc_buffer_reserve (buffer, SZ_MEMORY)) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_NOMEMORY;
 	}
 
 	// Enable progress notifications.
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
-	progress.maximum = SUUNTO_EON_MEMORY_SIZE + 1;
+	progress.maximum = SZ_MEMORY + 1;
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Send the command.
@@ -183,7 +184,7 @@ suunto_eon_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 	}
 
 	// Receive the answer.
-	unsigned char answer[SUUNTO_EON_MEMORY_SIZE + 1] = {0};
+	unsigned char answer[SZ_MEMORY + 1] = {0};
 	rc = serial_read (device->port, answer, sizeof (answer));
 	if (rc != sizeof (answer)) {
 		ERROR (abstract->context, "Failed to receive the answer.");
@@ -202,7 +203,7 @@ suunto_eon_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 		return DC_STATUS_PROTOCOL;
 	}
 
-	dc_buffer_append (buffer, answer, SUUNTO_EON_MEMORY_SIZE);
+	dc_buffer_append (buffer, answer, SZ_MEMORY);
 
 	return DC_STATUS_SUCCESS;
 }
@@ -211,7 +212,7 @@ suunto_eon_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 static dc_status_t
 suunto_eon_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata)
 {
-	dc_buffer_t *buffer = dc_buffer_new (SUUNTO_EON_MEMORY_SIZE);
+	dc_buffer_t *buffer = dc_buffer_new (SZ_MEMORY);
 	if (buffer == NULL)
 		return DC_STATUS_NOMEMORY;
 
@@ -290,7 +291,7 @@ suunto_eon_extract_dives (dc_device_t *abstract, const unsigned char data[], uns
 	if (abstract && !device_is_suunto_eon (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < SUUNTO_EON_MEMORY_SIZE)
+	if (size < SZ_MEMORY)
 		return DC_STATUS_DATAFORMAT;
 
 	return suunto_common_extract_dives (device, &suunto_eon_layout, data, callback, userdata);

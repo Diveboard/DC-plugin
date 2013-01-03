@@ -221,6 +221,7 @@ void fillDLLPointers(LIBTYPE libdc, libdivecomputer_t *libdc_p)
   libdc_p->iterator_next = reinterpret_cast<typeof(&dc_iterator_next)>(getDLLFunction(libdc, "dc_iterator_next"));
   libdc_p->parser_destroy = reinterpret_cast<typeof(&dc_parser_destroy)>(getDLLFunction(libdc, "dc_parser_destroy"));
   libdc_p->parser_get_datetime = reinterpret_cast<typeof(&dc_parser_get_datetime)>(getDLLFunction(libdc, "dc_parser_get_datetime"));
+  libdc_p->parser_get_field = reinterpret_cast<typeof(&dc_parser_get_field)>(getDLLFunction(libdc, "dc_parser_get_field"));
   libdc_p->parser_new = reinterpret_cast<typeof(&dc_parser_new)>(getDLLFunction(libdc, "dc_parser_new"));
   libdc_p->parser_samples_foreach = reinterpret_cast<typeof(&dc_parser_samples_foreach)>(getDLLFunction(libdc, "dc_parser_samples_foreach"));
   libdc_p->parser_set_data = reinterpret_cast<typeof(&dc_parser_set_data)>(getDLLFunction(libdc, "dc_parser_set_data"));
@@ -336,7 +337,10 @@ void sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
       "violation", "bookmark", "surface", "safety stop", "gaschange",
       "safety stop (voluntary)", "safety stop (mandatory)", "deepstop",
       "ceiling (safety stop)", "unknown", "divetime", "maxdepth",
-      "OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning"};
+      "OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning",
+      "gaschange2"};
+    static const char *decostop[] = {
+      "ndl", "deco", "deep", "safety"};
 
     unsigned int nsamples = 0;
     struct sample_cb_data *data = (struct sample_cb_data *) userdata;
@@ -383,6 +387,18 @@ void sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
         vendor += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
 
       LOGINFO(vendor);
+      break;
+    case DC_SAMPLE_SETPOINT:
+      data->sampleXML += str(boost::format("<setpoint>%.2f</setpoint>") % value.setpoint);
+      break;
+    case DC_SAMPLE_PPO2:
+      data->sampleXML += str(boost::format("<ppo2>%.2f</ppo2>") % value.ppo2);
+      break;
+    case DC_SAMPLE_CNS:
+      data->sampleXML += str(boost::format("<cns>%.2f</cns>") % value.cns);
+      break;
+    case DC_SAMPLE_DECO:
+      data->sampleXML += str(boost::format("<deco time=\"%u\" depth=\"%.2f\">%s</deco>") % value.deco.time % value.deco.depth % decostop[value.deco.type]);
       break;
     default:
       LOGWARNING("Received an element of unknown type '%d'", type);
@@ -435,6 +451,69 @@ dc_status_t ComputerLibdc::doparse (const unsigned char data[], unsigned int siz
     *out += str(boost::format("<DATE>%04i-%02i-%02i</DATE><TIME>%02i:%02i:%02i</TIME>")
       % dt.year % dt.month % dt.day
       % dt.hour % dt.minute % dt.second);
+
+    // Parse the gas mixes.
+    LOGINFO("Parsing the gas mixes.");
+    unsigned int ngases = 0;
+    rc = libdc_p.parser_get_field (parser, DC_FIELD_GASMIX_COUNT, 0, &ngases);
+    if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
+        LOGDEBUG ("Error parsing the gas mix count.");
+        libdc_p.parser_destroy (parser);
+        DBthrowError(str(boost::format("Error parsing the gas mix count - Error code : %1%") % rc));
+    }
+
+    LOGDEBUG ("Gas mixes found: %u", ngases);
+    if (ngases > 0) *out += "<gases>";
+
+    for (unsigned int i = 0; i < ngases; ++i) {
+      dc_gasmix_t gasmix = {0};
+      rc = libdc_p.parser_get_field (parser, DC_FIELD_GASMIX, i, &gasmix);
+      if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
+        LOGDEBUG ("Error parsing the gas mix.");
+        libdc_p.parser_destroy (parser);
+        DBthrowError(str(boost::format("Error parsing the gas mix - Error code : %1%") % rc));
+      }
+
+      *out += str(boost::format(
+        "<mix><mixname>%u</mixname><o2>%.3f</o2><n2>%.3f</n2><he>%.3f</he></mix>")
+        % i
+        % (gasmix.oxygen)
+        % (gasmix.nitrogen)
+        % (gasmix.helium));
+    }
+
+    if (ngases > 0) *out += "</gases>";
+
+
+    // Parse the salinity.
+    LOGINFO ("Parsing the salinity.");
+    dc_salinity_t salinity = {DC_WATER_FRESH, 0.0};
+    rc = libdc_p.parser_get_field (parser, DC_FIELD_SALINITY, 0, &salinity);
+    if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
+      LOGDEBUG ("Error parsing the salinity.");
+      libdc_p.parser_destroy (parser);
+      DBthrowError(str(boost::format("Error parsing the salinity - Error code : %1%") % rc));
+    }
+
+    if (rc != DC_STATUS_UNSUPPORTED) {
+      *out += str(boost::format("<salinity type=\"%u\">%.1f</salinity>") % salinity.type % salinity.density);
+    }
+
+
+    // Parse the atmospheric pressure.
+    LOGINFO ("Parsing the atmospheric pressure.");
+    double atmospheric = 0.0;
+    rc = libdc_p.parser_get_field (parser, DC_FIELD_ATMOSPHERIC, 0, &atmospheric);
+    if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
+      LOGDEBUG ("Error parsing the atmospheric pressure.");
+      libdc_p.parser_destroy (parser);
+      DBthrowError(str(boost::format("Error parsing the atmospheric pressure - Error code : %1%") % rc));
+    }
+
+    if (rc != DC_STATUS_UNSUPPORTED) {
+      *out += str(boost::format("<atmospheric>%.5f</atmospheric>") % atmospheric);
+    }
+
 
     // Initialize the sample data.
 
@@ -498,6 +577,7 @@ static void event_cb (dc_device_t *device, dc_event_type_t event, const void *da
     const dc_event_progress_t *progress = (dc_event_progress_t *) data;
     const dc_event_devinfo_t *devinfo = (dc_event_devinfo_t *) data;
     const dc_event_clock_t *clock = (dc_event_clock_t *) data;
+    const dc_event_vendor_t *vendor = (dc_event_vendor_t *) data;
 
     event_data_t *evdata = (event_data_t *)userdata;
 
@@ -542,6 +622,11 @@ static void event_cb (dc_device_t *device, dc_event_type_t event, const void *da
       devdata->clock = *clock;
       LOGDEBUG("Event: systime=" DC_TICKS_FORMAT ", devtime=%u",
         clock->systime, clock->devtime);
+      break;
+    case DC_EVENT_VENDOR:
+      LOGDEBUG ("Event: vendor=");
+      for (unsigned int i = 0; i < vendor->size; ++i)
+        LOGDEBUG ("%02X", vendor->data[i]);
       break;
     default:
       LOGWARNING("unsupported kind of event received '%d'", event);
@@ -683,7 +768,7 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
 
   //Register the event handler.
   LOGINFO("Registering the event handler.");
-  int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK;
+  int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK | DC_EVENT_VENDOR;
   event_data_t evdata;
   evdata.devdata = &devdata;
   evdata.status = &status;

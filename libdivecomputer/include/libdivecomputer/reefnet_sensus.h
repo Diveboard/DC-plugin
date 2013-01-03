@@ -30,14 +30,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define REEFNET_SENSUS_MEMORY_SIZE 32768
 #define REEFNET_SENSUS_HANDSHAKE_SIZE 10
 
 dc_status_t
 reefnet_sensus_device_open (dc_device_t **device, dc_context_t *context, const char *name);
-
-dc_status_t
-reefnet_sensus_device_set_timestamp (dc_device_t *device, unsigned int timestamp);
 
 dc_status_t
 reefnet_sensus_device_get_handshake (dc_device_t *device, unsigned char data[], unsigned int size);

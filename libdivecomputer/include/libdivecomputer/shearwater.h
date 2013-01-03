@@ -1,7 +1,7 @@
 /*
  * libdivecomputer
  *
- * Copyright (C) 2010 Jef Driesen
+ * Copyright (C) 2012 Jef Driesen
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,27 +19,9 @@
  * MA 02110-1301 USA
  */
 
-#ifndef MARES_ICONHD_H
-#define MARES_ICONHD_H
+#ifndef SHEARWATER_H
+#define SHEARWATER_H
 
-#include "context.h"
-#include "device.h"
-#include "parser.h"
+#include "shearwater_predator.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
-dc_status_t
-mares_iconhd_device_open (dc_device_t **device, dc_context_t *context, const char *name, unsigned int model);
-
-dc_status_t
-mares_iconhd_extract_dives (dc_device_t *device, const unsigned char data[], unsigned int size, dc_dive_callback_t callback, void *userdata);
-
-dc_status_t
-mares_iconhd_parser_create (dc_parser_t **parser, dc_context_t *context, unsigned int model);
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-#endif /* MARES_ICONHD_H */
+#endif /* SHEARWATER_H */

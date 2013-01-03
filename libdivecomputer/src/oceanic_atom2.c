@@ -45,10 +45,8 @@
 typedef struct oceanic_atom2_device_t {
 	oceanic_common_device_t base;
 	serial_t *port;
-	unsigned char version[PAGESIZE];
 } oceanic_atom2_device_t;
 
-static dc_status_t oceanic_atom2_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size);
 static dc_status_t oceanic_atom2_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
 static dc_status_t oceanic_atom2_device_write (dc_device_t *abstract, unsigned int address, const unsigned char data[], unsigned int size);
 static dc_status_t oceanic_atom2_device_close (dc_device_t *abstract);
@@ -56,7 +54,6 @@ static dc_status_t oceanic_atom2_device_close (dc_device_t *abstract);
 static const device_backend_t oceanic_atom2_device_backend = {
 	DC_FAMILY_OCEANIC_ATOM2,
 	oceanic_common_device_set_fingerprint, /* set_fingerprint */
-	oceanic_atom2_device_version, /* version */
 	oceanic_atom2_device_read, /* read */
 	oceanic_atom2_device_write, /* write */
 	oceanic_common_device_dump, /* dump */
@@ -64,29 +61,65 @@ static const device_backend_t oceanic_atom2_device_backend = {
 	oceanic_atom2_device_close /* close */
 };
 
-static const unsigned char aeris_manta_version[]   = "MANTA  R\0\0  512K";
-static const unsigned char aeris_atmosai_version[] = "ATMOSAI R\0\0 512K";
-static const unsigned char aeris_epic_version[]  = "2M EPIC r\0\0 512K";
-static const unsigned char aeris_f10_version[] = "FREEWAER \0\0 512K";
-static const unsigned char oceanic_proplus2_version[] = "PROPLUS2 \0\0 512K";
-static const unsigned char oceanic_atom1_version[] = "ATOM rev\0\0  256K";
-static const unsigned char oceanic_atom2_version[] = "2M ATOM r\0\0 512K";
-static const unsigned char oceanic_atom3_version[] = "OCEATOM3 \0\0 1024";
-static const unsigned char oceanic_atom31_version[] = "ATOM31  \0\0  1024";
-static const unsigned char oceanic_vt4_version[]   = "OCEANVT4 \0\0 1024";
-static const unsigned char oceanic_vt41_version[]  = "OCEAVT41 \0\0 1024";
-static const unsigned char oceanic_geo2_version[]  = "OCEGEO20 \0\0 512K";
-static const unsigned char oceanic_oc1a_version[]  = "OCWATCH R\0\0 1024";
-static const unsigned char oceanic_oc1b_version[]  = "OC1WATCH \0\0 1024";
-static const unsigned char oceanic_ocs_version[]   = "OCSWATCH \0\0 1024";
-static const unsigned char oceanic_veo1_version[]  = "OCEVEO10 \0\0   8K";
-static const unsigned char oceanic_veo2_version[]  = "OCEVEO20 \0\0 512K";
-static const unsigned char oceanic_veo3_version[]  = "OCEVEO30 \0\0 512K";
-static const unsigned char sherwood_insight_version[] = "INSIGHT2 \0\0 512K";
-static const unsigned char sherwood_wisdom2_version[] = "WISDOM R\0\0  512K";
-static const unsigned char tusa_element2_version[] = "ELEMENT2 \0\0 512K";
-static const unsigned char tusa_zen_version[]      = "TUSAZEN \0\0  512K";
-static const unsigned char tusa_zenair_version[]   = "TUZENAIR \0\0 512K";
+static const oceanic_common_version_t aeris_f10_version[] = {
+	{"FREEWAER \0\0 512K"},
+};
+
+static const oceanic_common_version_t oceanic_atom1_version[] = {
+	{"ATOM rev\0\0  256K"},
+};
+
+static const oceanic_common_version_t oceanic_atom2_version[] = {
+	{"2M ATOM r\0\0 512K"},
+};
+
+static const oceanic_common_version_t oceanic_atom2a_version[] = {
+	{"MANTA  R\0\0  512K"},
+	{"WISDOM R\0\0  512K"},
+	{"INSIGHT2 \0\0 512K"},
+	{"OCEVEO30 \0\0 512K"},
+	{"ATMOSAI R\0\0 512K"},
+	{"PROPLUS2 \0\0 512K"},
+	{"OCEGEO20 \0\0 512K"},
+};
+
+static const oceanic_common_version_t oceanic_atom2b_version[] = {
+	{"ELEMENT2 \0\0 512K"},
+	{"OCEVEO20 \0\0 512K"},
+	{"TUSAZEN \0\0  512K"},
+};
+
+static const oceanic_common_version_t oceanic_atom2c_version[] = {
+	{"2M EPIC r\0\0 512K"},
+	{"EPIC1  R\0\0  512K"},
+};
+
+static const oceanic_common_version_t oceanic_default_version[] = {
+	{"OCE VT3 R\0\0 512K"},
+	{"ELITET3 R\0\0 512K"},
+	{"DATAMASK \0\0 512K"},
+	{"COMPMASK \0\0 512K"},
+	{"HOLLDG03 \0\0 512K"},
+};
+
+static const oceanic_common_version_t tusa_zenair_version[] = {
+	{"TUZENAIR \0\0 512K"},
+};
+
+static const oceanic_common_version_t oceanic_oc1_version[] = {
+	{"OCWATCH R\0\0 1024"},
+	{"OCEANVT4 \0\0 1024"},
+	{"OC1WATCH \0\0 1024"},
+	{"OCEATOM3 \0\0 1024"},
+	{"OCSWATCH \0\0 1024"},
+	{"OCEAVT41 \0\0 1024"},
+	{"ATOM31  \0\0  1024"},
+	{"AERISAIR \0\0 1024"},
+};
+
+static const oceanic_common_version_t oceanic_veo1_version[] = {
+	{"OCEVEO10 \0\0   8K"},
+};
 
 static const oceanic_common_layout_t aeris_f10_layout = {
 	0x10000, /* memsize */
@@ -327,7 +360,6 @@ oceanic_atom2_device_open (dc_device_t **out, dc_context_t *context, const char 
 
 	// Set the default values.
 	device->port = NULL;
-	memset (device->version, 0, sizeof (device->version));
 
 	// Open the device.
 	int rc = serial_open (&device->port, context, name);
@@ -363,7 +395,7 @@ oceanic_atom2_device_open (dc_device_t **out, dc_context_t *context, const char 
 	// Switch the device from surface mode into download mode. Before sending
 	// this command, the device needs to be in PC mode (automatically activated
 	// by connecting the device), or already in download mode.
-	dc_status_t status = oceanic_atom2_device_version ((dc_device_t *) device, device->version, sizeof (device->version));
+	dc_status_t status = oceanic_atom2_device_version ((dc_device_t *) device, device->base.version, sizeof (device->base.version));
 	if (status != DC_STATUS_SUCCESS) {
 		serial_close (device->port);
 		free (device);
@@ -371,41 +403,31 @@ oceanic_atom2_device_open (dc_device_t **out, dc_context_t *context, const char 
 	}
 
 	// Override the base class values.
-	if (oceanic_common_match (oceanic_oc1a_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_oc1b_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_ocs_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_atom3_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_atom31_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_vt4_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_vt41_version, device->version, sizeof (device->version)))
-		device->base.layout = &oceanic_oc1_layout;
-	else if (oceanic_common_match (aeris_f10_version, device->version, sizeof (device->version)))
+	if (OCEANIC_COMMON_MATCH (device->base.version, aeris_f10_version)) {
 		device->base.layout = &aeris_f10_layout;
-	else if (oceanic_common_match (tusa_zenair_version, device->version, sizeof (device->version)))
-		device->base.layout = &tusa_zenair_layout;
-	else if (oceanic_common_match (oceanic_atom1_version, device->version, sizeof (device->version)))
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_atom1_version)) {
 		device->base.layout = &oceanic_atom1_layout;
-	else if (oceanic_common_match (sherwood_insight_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (sherwood_wisdom2_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (aeris_manta_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (aeris_atmosai_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_geo2_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_veo3_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_proplus2_version, device->version, sizeof (device->version)) ||
-		(oceanic_common_match (oceanic_atom2_version, device->version, sizeof (device->version)) &&
-		 array_uint16_be (device->version + 0x09) >= 0x3349))
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_atom2_version)) {
+		if (array_uint16_be (device->base.version + 0x09) >= 0x3349) {
+			device->base.layout = &oceanic_atom2a_layout;
+		} else {
+			device->base.layout = &oceanic_atom2c_layout;
+		}
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_atom2a_version)) {
 		device->base.layout = &oceanic_atom2a_layout;
-	else if (oceanic_common_match (oceanic_veo2_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (tusa_element2_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (tusa_zen_version, device->version, sizeof (device->version)))
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_atom2b_version)) {
 		device->base.layout = &oceanic_atom2b_layout;
-	else if (oceanic_common_match (aeris_epic_version, device->version, sizeof (device->version)) ||
-		oceanic_common_match (oceanic_atom2_version, device->version, sizeof (device->version)))
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_atom2c_version)) {
 		device->base.layout = &oceanic_atom2c_layout;
-	else if (oceanic_common_match (oceanic_veo1_version, device->version, sizeof (device->version)))
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, tusa_zenair_version)) {
+		device->base.layout = &tusa_zenair_layout;
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_oc1_version)) {
+		device->base.layout = &oceanic_oc1_layout;
+	} else if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_veo1_version)) {
 		device->base.layout = &oceanic_veo1_layout;
-	else
+	} else {
 		device->base.layout = &oceanic_default_layout;
+	}
 
 	*out = (dc_device_t*) device;
 
@@ -455,7 +477,7 @@ oceanic_atom2_device_keepalive (dc_device_t *abstract)
 }
 
 
-static dc_status_t
+dc_status_t
 oceanic_atom2_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size)
 {
 	oceanic_atom2_device_t *device = (oceanic_atom2_device_t*) abstract;
@@ -489,9 +511,6 @@ oceanic_atom2_device_read (dc_device_t *abstract, unsigned int address, unsigned
 	if ((address % PAGESIZE != 0) ||
 		(size    % PAGESIZE != 0))
 		return DC_STATUS_INVALIDARGS;
-	
-	// The data transmission is split in packages
-	// of maximum $PAGESIZE bytes.
 
 	unsigned int nbytes = 0;
 	while (nbytes < size) {
@@ -528,9 +547,6 @@ oceanic_atom2_device_write (dc_device_t *abstract, unsigned int address, const u
 	if ((address % PAGESIZE != 0) ||
 		(size    % PAGESIZE != 0))
 		return DC_STATUS_INVALIDARGS;
-
-	// The data transmission is split in packages
-	// of maximum $PAGESIZE bytes.
 
 	unsigned int nbytes = 0;
 	while (nbytes < size) {

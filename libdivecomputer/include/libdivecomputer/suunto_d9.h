@@ -30,12 +30,13 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define SUUNTO_D9_MEMORY_SIZE 0x8000
-#define SUUNTO_D9_PACKET_SIZE 0x78
 #define SUUNTO_D9_VERSION_SIZE 0x04
 
 dc_status_t
 suunto_d9_device_open (dc_device_t **device, dc_context_t *context, const char *name, unsigned int model);
+
+dc_status_t
+suunto_d9_device_version (dc_device_t *device, unsigned char data[], unsigned int size);
 
 dc_status_t
 suunto_d9_device_reset_maxdepth (dc_device_t *device);

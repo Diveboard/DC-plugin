@@ -101,6 +101,7 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Oceanic", "Veo 250",   DC_FAMILY_OCEANIC_VEO250, 0x424C},
 	{"Oceanic", "Veo 180",   DC_FAMILY_OCEANIC_VEO250, 0x4252},
 	{"Aeris",   "XR-2",      DC_FAMILY_OCEANIC_VEO250, 0x4255},
+	{"Sherwood", "Insight",  DC_FAMILY_OCEANIC_VEO250, 0x425A},
 	/* Oceanic Atom 2.0 */
 	{"Oceanic",  "Atom 1.0",            DC_FAMILY_OCEANIC_ATOM2, 0x4250},
 	{"Aeris",    "Epic",                DC_FAMILY_OCEANIC_ATOM2, 0x4257},
@@ -114,7 +115,7 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Aeris",    "F10",                 DC_FAMILY_OCEANIC_ATOM2, 0x434D},
 	{"Oceanic",  "OC1",                 DC_FAMILY_OCEANIC_ATOM2, 0x434E},
 	{"Sherwood", "Wisdom 2",            DC_FAMILY_OCEANIC_ATOM2, 0x4350},
-	{"Sherwood", "Insight",             DC_FAMILY_OCEANIC_ATOM2, 0x4353},
+	{"Sherwood", "Insight 2",           DC_FAMILY_OCEANIC_ATOM2, 0x4353},
 	{"Tusa",     "Element II (IQ-750)", DC_FAMILY_OCEANIC_ATOM2, 0x4357},
 	{"Oceanic",  "Veo 1.0",             DC_FAMILY_OCEANIC_ATOM2, 0x4358},
 	{"Oceanic",  "Veo 2.0",             DC_FAMILY_OCEANIC_ATOM2, 0x4359},
@@ -130,8 +131,10 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Hollis",   "DG03",                DC_FAMILY_OCEANIC_ATOM2, 0x444D},
 	{"Oceanic",  "OCS",                 DC_FAMILY_OCEANIC_ATOM2, 0x4450},
 	{"Oceanic",  "VT 4.1",              DC_FAMILY_OCEANIC_ATOM2, 0x4452},
+	{"Aeris",    "Epic",                DC_FAMILY_OCEANIC_ATOM2, 0x4453},
 	{"Oceanic",  "Atom 3.1",            DC_FAMILY_OCEANIC_ATOM2, 0x4456},
-	{"Sherwood", "Wisdom 3",            DC_FAMILY_OCEANIC_ATOM2, 0x4358},
+	{"Aeris",    "A300 AI",             DC_FAMILY_OCEANIC_ATOM2, 0x4457},
+	{"Sherwood", "Wisdom 3",            DC_FAMILY_OCEANIC_ATOM2, 0x4458},
 	/* Mares Nemo */
 	{"Mares", "Nemo",         DC_FAMILY_MARES_NEMO, 0},
 	{"Mares", "Nemo Excel",   DC_FAMILY_MARES_NEMO, 17},
@@ -149,8 +152,11 @@ static const dc_descriptor_t g_descriptors[] = {
 	/* Mares Icon HD */
 	{"Mares", "Icon HD",           DC_FAMILY_MARES_ICONHD , 0x14},
 	{"Mares", "Icon HD Net Ready", DC_FAMILY_MARES_ICONHD , 0x15},
+	{"Mares", "Nemo Wide 2",       DC_FAMILY_MARES_ICONHD , 0x19},
 	/* Heinrichs Weikamp */
-	{"Heinrichs Weikamp", "OSTC", DC_FAMILY_HW_OSTC, 0},
+	{"Heinrichs Weikamp", "OSTC",     DC_FAMILY_HW_OSTC, 0},
+	{"Heinrichs Weikamp", "OSTC Mk2", DC_FAMILY_HW_OSTC, 1},
+	{"Heinrichs Weikamp", "OSTC 2N",  DC_FAMILY_HW_OSTC, 2},
 	{"Heinrichs Weikamp", "Frog", DC_FAMILY_HW_FROG, 0},
 	/* Cressi Edy */
 	{"Cressi", "Edy", DC_FAMILY_CRESSI_EDY, 0},
@@ -160,6 +166,9 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"DiveRite", "NiTek Trio", DC_FAMILY_ZEAGLE_N2ITION3, 0},
 	/* Atomic Aquatics Cobalt */
 	{"Atomic Aquatics", "Cobalt", DC_FAMILY_ATOMICS_COBALT, 0},
+	/* Shearwater Predator */
+	{"Shearwater", "Predator", DC_FAMILY_SHEARWATER_PREDATOR, 2},
+	{"Shearwater", "Petrel",   DC_FAMILY_SHEARWATER_PREDATOR, 3},
 };
 
 typedef struct dc_descriptor_iterator_t {

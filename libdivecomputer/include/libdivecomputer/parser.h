@@ -39,7 +39,11 @@ typedef enum dc_sample_type_t {
 	DC_SAMPLE_RBT,
 	DC_SAMPLE_HEARTBEAT,
 	DC_SAMPLE_BEARING,
-	DC_SAMPLE_VENDOR
+	DC_SAMPLE_VENDOR,
+	DC_SAMPLE_SETPOINT,
+	DC_SAMPLE_PPO2,
+	DC_SAMPLE_CNS,
+	DC_SAMPLE_DECO
 } dc_sample_type_t;
 
 typedef enum dc_field_type_t {
@@ -47,7 +51,9 @@ typedef enum dc_field_type_t {
 	DC_FIELD_MAXDEPTH,
 	DC_FIELD_AVGDEPTH,
 	DC_FIELD_GASMIX_COUNT,
-	DC_FIELD_GASMIX
+	DC_FIELD_GASMIX,
+	DC_FIELD_SALINITY,
+	DC_FIELD_ATMOSPHERIC
 } dc_field_type_t;
 
 typedef enum parser_sample_event_t {
@@ -62,7 +68,7 @@ typedef enum parser_sample_event_t {
 	SAMPLE_EVENT_BOOKMARK,
 	SAMPLE_EVENT_SURFACE,
 	SAMPLE_EVENT_SAFETYSTOP,
-	SAMPLE_EVENT_GASCHANGE,
+	SAMPLE_EVENT_GASCHANGE, /* The event value contains the O2 percentage. */
 	SAMPLE_EVENT_SAFETYSTOP_VOLUNTARY,
 	SAMPLE_EVENT_SAFETYSTOP_MANDATORY,
 	SAMPLE_EVENT_DEEPSTOP,
@@ -75,7 +81,10 @@ typedef enum parser_sample_event_t {
 	SAMPLE_EVENT_AIRTIME,
 	SAMPLE_EVENT_RGBM,
 	SAMPLE_EVENT_HEADING,
-	SAMPLE_EVENT_TISSUELEVEL
+	SAMPLE_EVENT_TISSUELEVEL,
+	SAMPLE_EVENT_GASCHANGE2, /* The event value contains the O2 and He
+	                            percentages, packed as two 16bit integers in
+	                            respectively the low and high part. */
 } parser_sample_event_t;
 
 typedef enum parser_sample_flags_t {
@@ -92,6 +101,23 @@ typedef enum parser_sample_vendor_t {
 	SAMPLE_VENDOR_OCEANIC_VEO250,
 	SAMPLE_VENDOR_OCEANIC_ATOM2
 } parser_sample_vendor_t;
+
+typedef enum dc_water_t {
+	DC_WATER_FRESH,
+	DC_WATER_SALT
+} dc_water_t;
+
+typedef enum dc_deco_type_t {
+	DC_DECO_NDL,
+	DC_DECO_SAFETYSTOP,
+	DC_DECO_DECOSTOP,
+	DC_DECO_DEEPSTOP
+} dc_deco_type_t;
+
+typedef struct dc_salinity_t {
+	dc_water_t type;
+	double density;
+} dc_salinity_t;
 
 typedef struct dc_gasmix_t {
 	double helium;
@@ -121,6 +147,14 @@ typedef union dc_sample_value_t {
 		unsigned int size;
 		const void *data;
 	} vendor;
+	double setpoint;
+	double ppo2;
+	double cns;
+	struct {
+		unsigned int type;
+		unsigned int time;
+		double depth;
+	} deco;
 } dc_sample_value_t;
 
 typedef struct dc_parser_t dc_parser_t;

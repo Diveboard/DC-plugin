@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 LDADD = $(top_builddir)/src/libdivecomputer.la
 
 bin_PROGRAMS = \
@@ -23,7 +23,8 @@ bin_PROGRAMS = \
 	ostc \
 	frog \
 	edy \
-	n2ition3
+	n2ition3 \
+	predator
 
 if IRDA
 bin_PROGRAMS += smart
@@ -75,6 +76,8 @@ frog_SOURCES = hw_frog_test.c $(COMMON)
 edy_SOURCES = cressi_edy_test.c $(COMMON)
 
 n2ition3_SOURCES = zeagle_n2ition3_test.c $(COMMON)
+
+predator_SOURCES = shearwater_predator_test.c $(COMMON)
 
 if IRDA
 smart_SOURCES = uwatec_smart_test.c $(COMMON)

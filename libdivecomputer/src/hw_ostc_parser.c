@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include <libdivecomputer/hw_ostc.h>
+#include "libdivecomputer/units.h"
 
 #include "context-private.h"
 #include "parser-private.h"
@@ -211,6 +212,8 @@ hw_ostc_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned 
 		data += 6;
 
 	dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
+	dc_salinity_t *water = (dc_salinity_t *) value;
+	unsigned int salinity = data[43];
 
 	if (value) {
 		switch (type) {
@@ -233,6 +236,19 @@ hw_ostc_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned 
 			else
 				gasmix->helium = data[20 + 2 * flags] / 100.0;
 			gasmix->nitrogen = 1.0 - gasmix->oxygen - gasmix->helium;
+			break;
+		case DC_FIELD_SALINITY:
+			if (salinity < 100 || salinity > 104)
+				return DC_STATUS_UNSUPPORTED;
+
+			if (salinity == 100)
+				water->type = DC_WATER_FRESH;
+			else
+				water->type = DC_WATER_SALT;
+			water->density = salinity * 10.0;
+			break;
+		case DC_FIELD_ATMOSPHERIC:
+			*((double *) value) = array_uint16_le (data + 15) / 1000.0;
 			break;
 		default:
 			return DC_STATUS_UNSUPPORTED;
@@ -276,18 +292,31 @@ hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t call
 	// Get the sample rate.
 	unsigned int samplerate = data[36];
 
+	// Get the salinity factor.
+	unsigned int salinity = data[43];
+	if (salinity < 100 || salinity > 104)
+		salinity = 100;
+	double hydrostatic = GRAVITY * salinity * 10.0;
+
 	// Get the extended sample configuration.
 	hw_ostc_sample_info_t info[NINFO];
 	for (unsigned int i = 0; i < NINFO; ++i) {
 		info[i].divisor = (data[37 + i] & 0x0F);
 		info[i].size    = (data[37 + i] & 0xF0) >> 4;
-		switch (i) {
-		case 0: // Temperature
-			if (info[i].size != 2)
-				return DC_STATUS_DATAFORMAT;
-			break;
-		default: // Not yet used.
-			break;
+		if (info[i].divisor) {
+			switch (i) {
+			case 0: // Temperature
+			case 1: // Deco / NDL
+				if (info[i].size != 2)
+					return DC_STATUS_DATAFORMAT;
+				break;
+			case 5: // CNS
+				if (info[i].size != 1)
+					return DC_STATUS_DATAFORMAT;
+				break;
+			default: // Not yet used.
+				break;
+			}
 		}
 	}
 
@@ -305,9 +334,22 @@ hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t call
 		sample.time = time;
 		if (callback) callback (DC_SAMPLE_TIME, sample, userdata);
 
+		// Initial gas mix.
+		if (time == samplerate) {
+			unsigned int idx = data[31];
+			if (idx < 1 || idx > 5)
+				return DC_STATUS_DATAFORMAT;
+			idx--; /* Convert to a zero based index. */
+			sample.event.type = SAMPLE_EVENT_GASCHANGE2;
+			sample.event.time = 0;
+			sample.event.flags = 0;
+			sample.event.value = data[19 + 2 * idx] | (data[20 + 2 * idx] << 16);
+			if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
+		}
+
 		// Depth (mbar).
 		unsigned int depth = array_uint16_le (data + offset);
-		sample.depth = depth / 100.0;
+		sample.depth = (depth * BAR / 1000.0) / hydrostatic;
 		if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 		offset += 2;
 
@@ -326,25 +368,62 @@ hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t call
 		}
 
 		// Alarms
+		sample.event.type = 0;
+		sample.event.time = 0;
+		sample.event.flags = 0;
+		sample.event.value = 0;
 		switch (events & 0x0F) {
 		case 0: // No Alarm
+			break;
 		case 1: // Slow
+			sample.event.type = SAMPLE_EVENT_ASCENT;
+			break;
 		case 2: // Deco Stop missed
+			sample.event.type = SAMPLE_EVENT_CEILING;
+			break;
 		case 3: // Deep Stop missed
+			sample.event.type = SAMPLE_EVENT_CEILING;
+			break;
 		case 4: // ppO2 Low Warning
+			sample.event.type = SAMPLE_EVENT_PO2;
+			break;
 		case 5: // ppO2 High Warning
+			sample.event.type = SAMPLE_EVENT_PO2;
+			break;
 		case 6: // Manual Marker
+			sample.event.type = SAMPLE_EVENT_BOOKMARK;
+			break;
 		case 7: // Low Battery
 			break;
 		}
+		if (sample.event.type && callback)
+			callback (DC_SAMPLE_EVENT, sample, userdata);
 
-		// Manual Gas Set
+		// Manual Gas Set & Change
 		if (events & 0x10) {
+			if (offset + 2 > size)
+				return DC_STATUS_DATAFORMAT;
+			sample.event.type = SAMPLE_EVENT_GASCHANGE2;
+			sample.event.time = 0;
+			sample.event.flags = 0;
+			sample.event.value = data[offset] | (data[offset + 1] << 16);
+			if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
 			offset += 2;
 		}
 
 		// Gas Change
 		if (events & 0x20) {
+			if (offset + 1 > size)
+				return DC_STATUS_DATAFORMAT;
+			unsigned int idx = data[offset];
+			if (idx < 1 || idx > 5)
+				return DC_STATUS_DATAFORMAT;
+			idx--; /* Convert to a zero based index. */
+			sample.event.type = SAMPLE_EVENT_GASCHANGE2;
+			sample.event.time = 0;
+			sample.event.flags = 0;
+			sample.event.value = data[19 + 2 * idx] | (data[20 + 2 * idx] << 16);
+			if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
 			offset++;
 		}
 
@@ -358,6 +437,21 @@ hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t call
 					sample.temperature = value / 10.0;
 					if (callback) callback (DC_SAMPLE_TEMPERATURE, sample, userdata);
 					break;
+				case 1: // Deco / NDL
+					if (data[offset]) {
+						sample.deco.type = DC_DECO_DECOSTOP;
+						sample.deco.depth = data[offset];
+					} else {
+						sample.deco.type = DC_DECO_NDL;
+						sample.deco.depth = 0.0;
+					}
+					sample.deco.time = data[offset + 1] * 60;
+					if (callback) callback (DC_SAMPLE_DECO, sample, userdata);
+					break;
+				case 5: // CNS
+					sample.cns = data[offset] / 100.0;
+					if (callback) callback (DC_SAMPLE_CNS, sample, userdata);
+					break;
 				default: // Not yet used.
 					break;
 				}
@@ -368,6 +462,10 @@ hw_ostc_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t call
 
 		// SetPoint Change
 		if (events & 0x40) {
+			if (offset + 1 > size)
+				return DC_STATUS_DATAFORMAT;
+			sample.setpoint = data[offset] / 100.0;
+			if (callback) callback (DC_SAMPLE_SETPOINT, sample, userdata);
 			offset++;
 		}
 	}

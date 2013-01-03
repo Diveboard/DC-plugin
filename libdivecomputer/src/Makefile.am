@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 AM_CFLAGS = $(LIBUSB_CFLAGS)
 
 lib_LTLIBRARIES = libdivecomputer.la
@@ -44,6 +44,7 @@ libdivecomputer_la_SOURCES = \
 	cressi_edy.c cressi_edy_parser.c \
 	zeagle_n2ition3.c \
 	atomics_cobalt.c atomics_cobalt_parser.c \
+	shearwater_predator.c shearwater_predator_parser.c \
 	ringbuffer.h ringbuffer.c \
 	checksum.h checksum.c \
 	array.h array.c \
@@ -75,6 +76,8 @@ libdivecomputer.exp: libdivecomputer.symbols
 
 .rc.lo:
 	$(AM_V_GEN) $(LIBTOOL) --silent --tag=RC --mode=compile $(RC) $< -o $@
+
+libdivecomputer.lo: revision.h
 
 FORCE:
 $(top_srcdir)/revision: FORCE

@@ -62,7 +62,6 @@ static dc_status_t hw_ostc_device_close (dc_device_t *abstract);
 static const device_backend_t hw_ostc_device_backend = {
 	DC_FAMILY_HW_OSTC,
 	hw_ostc_device_set_fingerprint, /* set_fingerprint */
-	NULL, /* version */
 	NULL, /* read */
 	NULL, /* write */
 	hw_ostc_device_dump, /* dump */
@@ -323,9 +322,14 @@ hw_ostc_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void
 	// Emit a device info event.
 	unsigned char *data = dc_buffer_get_data (buffer);
 	dc_event_devinfo_t devinfo;
-	devinfo.model = 0;
 	devinfo.firmware = array_uint16_be (data + 264);
 	devinfo.serial = array_uint16_le (data + 6);
+	if (devinfo.serial > 2048)
+		devinfo.model = 2; // OSTC 2N
+	else if (devinfo.serial > 300)
+		devinfo.model = 1; // OSTC Mk2
+	else
+		devinfo.model = 0; // OSTC
 	device_event_emit (abstract, DC_EVENT_DEVINFO, &devinfo);
 
 	rc = hw_ostc_extract_dives (abstract, dc_buffer_get_data (buffer),

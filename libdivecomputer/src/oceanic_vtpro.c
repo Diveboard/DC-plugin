@@ -46,17 +46,14 @@
 typedef struct oceanic_vtpro_device_t {
 	oceanic_common_device_t base;
 	serial_t *port;
-	unsigned char version[PAGESIZE];
 } oceanic_vtpro_device_t;
 
-static dc_status_t oceanic_vtpro_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size);
 static dc_status_t oceanic_vtpro_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
 static dc_status_t oceanic_vtpro_device_close (dc_device_t *abstract);
 
 static const device_backend_t oceanic_vtpro_device_backend = {
 	DC_FAMILY_OCEANIC_VTPRO,
 	oceanic_common_device_set_fingerprint, /* set_fingerprint */
-	oceanic_vtpro_device_version, /* version */
 	oceanic_vtpro_device_read, /* read */
 	NULL, /* write */
 	oceanic_common_device_dump, /* dump */
@@ -64,8 +61,16 @@ static const device_backend_t oceanic_vtpro_device_backend = {
 	oceanic_vtpro_device_close /* close */
 };
 
-static const unsigned char oceanic_vtpro_version[]  = "VTPRO  r\0\0  256K";
-static const unsigned char oceanic_wisdom_version[] = "WISDOM r\0\0  256K";
+static const oceanic_common_version_t oceanic_vtpro_version[] = {
+	{"VERSAPRO \0\0 256K"},
+	{"PROPLUS2 \0\0 256K"},
+	{"ATMOSAIR \0\0 256K"},
+	{"VTPRO  r\0\0  256K"},
+};
+
+static const oceanic_common_version_t oceanic_wisdom_version[] = {
+	{"WISDOM r\0\0  256K"},
+};
 
 static const oceanic_common_layout_t oceanic_vtpro_layout = {
 	0x8000, /* memsize */
@@ -272,7 +277,6 @@ oceanic_vtpro_device_open (dc_device_t **out, dc_context_t *context, const char 
 
 	// Set the default values.
 	device->port = NULL;
-	memset (device->version, 0, sizeof (device->version));
 
 	// Open the device.
 	int rc = serial_open (&device->port, context, name);
@@ -325,7 +329,7 @@ oceanic_vtpro_device_open (dc_device_t **out, dc_context_t *context, const char 
 	// Switch the device from surface mode into download mode. Before sending
 	// this command, the device needs to be in PC mode (manually activated by
 	// the user), or already in download mode.
-	status = oceanic_vtpro_device_version ((dc_device_t *) device, device->version, sizeof (device->version));
+	status = oceanic_vtpro_device_version ((dc_device_t *) device, device->base.version, sizeof (device->base.version));
 	if (status != DC_STATUS_SUCCESS) {
 		serial_close (device->port);
 		free (device);
@@ -343,10 +347,11 @@ oceanic_vtpro_device_open (dc_device_t **out, dc_context_t *context, const char 
 	}
 
 	// Override the base class values.
-	if (oceanic_common_match (oceanic_wisdom_version, device->version, sizeof (device->version)))
+	if (OCEANIC_COMMON_MATCH (device->base.version, oceanic_wisdom_version)) {
 		device->base.layout = &oceanic_wisdom_layout;
-	else
+	} else {
 		device->base.layout = &oceanic_vtpro_layout;
+	}
 
 	*out = (dc_device_t*) device;
 
@@ -403,7 +408,7 @@ oceanic_vtpro_device_keepalive (dc_device_t *abstract)
 }
 
 
-static dc_status_t
+dc_status_t
 oceanic_vtpro_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size)
 {
 	oceanic_vtpro_device_t *device = (oceanic_vtpro_device_t*) abstract;
@@ -475,9 +480,6 @@ oceanic_vtpro_device_read (dc_device_t *abstract, unsigned int address, unsigned
 	if ((address % PAGESIZE != 0) ||
 		(size    % PAGESIZE != 0))
 		return DC_STATUS_INVALIDARGS;
-
-	// The data transmission is split in packages
-	// of maximum $PAGESIZE bytes.
 
 	unsigned int nbytes = 0;
 	while (nbytes < size) {

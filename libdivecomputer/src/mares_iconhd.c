@@ -42,18 +42,23 @@
 
 #define ICONHD    0x14
 #define ICONHDNET 0x15
+#define NEMOWIDE2 0x19
 
 #define ACK 0xAA
 #define EOF 0xEA
 
+#define SZ_MEMORY 0x100000
+#define SZ_PACKET 0x000100
+
 #define RB_PROFILE_BEGIN 0xA000
-#define RB_PROFILE_END   MARES_ICONHD_MEMORY_SIZE
+#define RB_PROFILE_END   SZ_MEMORY
 
 typedef struct mares_iconhd_device_t {
 	dc_device_t base;
 	serial_t *port;
 	unsigned char fingerprint[10];
 	unsigned char version[140];
+	unsigned int packetsize;
 } mares_iconhd_device_t;
 
 static dc_status_t mares_iconhd_device_set_fingerprint (dc_device_t *abstract, const unsigned char data[], unsigned int size);
@@ -65,7 +70,6 @@ static dc_status_t mares_iconhd_device_close (dc_device_t *abstract);
 static const device_backend_t mares_iconhd_device_backend = {
 	DC_FAMILY_MARES_ICONHD,
 	mares_iconhd_device_set_fingerprint, /* set_fingerprint */
-	NULL, /* version */
 	mares_iconhd_device_read, /* read */
 	NULL, /* write */
 	mares_iconhd_device_dump, /* dump */
@@ -103,16 +107,9 @@ static dc_status_t
 mares_iconhd_transfer (mares_iconhd_device_t *device,
 	const unsigned char command[], unsigned int csize,
 	unsigned char answer[], unsigned int asize,
-	unsigned int events)
+	dc_event_progress_t *progress)
 {
 	dc_device_t *abstract = (dc_device_t *) device;
-
-	// Enable progress notifications.
-	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
-	if (events) {
-		progress.maximum = asize;
-		device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
-	}
 
 	// Send the command to the dive computer.
 	int n = serial_write (device->port, command, csize);
@@ -157,9 +154,9 @@ mares_iconhd_transfer (mares_iconhd_device_t *device,
 		}
 
 		// Update and emit a progress event.
-		if (events) {
-			progress.current += len;
-			device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
+		if (progress) {
+			progress->current += len;
+			device_event_emit (abstract, DC_EVENT_PROGRESS, progress);
 		}
 
 		nbytes += len;
@@ -187,28 +184,46 @@ static dc_status_t
 mares_iconhd_version (mares_iconhd_device_t *device, unsigned char data[], unsigned int size)
 {
 	unsigned char command[] = {0xC2, 0x67};
-	return mares_iconhd_transfer (device, command, sizeof (command), data, size, 0);
+	return mares_iconhd_transfer (device, command, sizeof (command), data, size, NULL);
 }
 
 
 static dc_status_t
-mares_iconhd_read (mares_iconhd_device_t *device, unsigned int address, unsigned char data[], unsigned int size, int events)
+mares_iconhd_read (mares_iconhd_device_t *device, unsigned int address, unsigned char data[], unsigned int size, dc_event_progress_t *progress)
 {
-	unsigned char command[] = {0xE7, 0x42,
-				(address      ) & 0xFF,
-				(address >>  8) & 0xFF,
-				(address >> 16) & 0xFF,
-				(address >> 24) & 0xFF,
-				(size      ) & 0xFF,
-				(size >>  8) & 0xFF,
-				(size >> 16) & 0xFF,
-				(size >> 24) & 0xFF};
-	return mares_iconhd_transfer (device, command, sizeof (command), data, size, events);
+	dc_status_t rc = DC_STATUS_SUCCESS;
+
+	unsigned int nbytes = 0;
+	while (nbytes < size) {
+		// Calculate the packet size.
+		unsigned int len = size - nbytes;
+		if (device->packetsize && len > device->packetsize)
+			len = device->packetsize;
+
+		// Read the packet.
+		unsigned char command[] = {0xE7, 0x42,
+			(address      ) & 0xFF,
+			(address >>  8) & 0xFF,
+			(address >> 16) & 0xFF,
+			(address >> 24) & 0xFF,
+			(len      ) & 0xFF,
+			(len >>  8) & 0xFF,
+			(len >> 16) & 0xFF,
+			(len >> 24) & 0xFF};
+		rc = mares_iconhd_transfer (device, command, sizeof (command), data, len, progress);
+		if (rc != DC_STATUS_SUCCESS)
+			return rc;
+
+		nbytes += len;
+		address += len;
+		data += len;
+	}
+
+	return rc;
 }
 
-
 dc_status_t
-mares_iconhd_device_open (dc_device_t **out, dc_context_t *context, const char *name)
+mares_iconhd_device_open (dc_device_t **out, dc_context_t *context, const char *name, unsigned int model)
 {
 	if (out == NULL)
 		return DC_STATUS_INVALIDARGS;
@@ -227,6 +242,11 @@ mares_iconhd_device_open (dc_device_t **out, dc_context_t *context, const char *
 	device->port = NULL;
 	memset (device->fingerprint, 0, sizeof (device->fingerprint));
 	memset (device->version, 0, sizeof (device->version));
+	if (model == NEMOWIDE2) {
+		device->packetsize = SZ_PACKET;
+	} else {
+		device->packetsize = 0;
+	}
 
 	// Open the device.
 	int rc = serial_open (&device->port, context, name);
@@ -237,7 +257,11 @@ mares_iconhd_device_open (dc_device_t **out, dc_context_t *context, const char *
 	}
 
 	// Set the serial communication protocol (256000 8N1).
-	rc = serial_configure (device->port, BAUDRATE, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
+	if (model == NEMOWIDE2) {
+		rc = serial_configure (device->port, 115200, 8, SERIAL_PARITY_EVEN, 1, SERIAL_FLOWCONTROL_NONE);
+	} else {
+		rc = serial_configure (device->port, BAUDRATE, 8, SERIAL_PARITY_NONE, 1, SERIAL_FLOWCONTROL_NONE);
+	}
 	if (rc == -1) {
 		ERROR (context, "Failed to set the terminal attributes.");
 		serial_close (device->port);
@@ -323,7 +347,7 @@ mares_iconhd_device_read (dc_device_t *abstract, unsigned int address, unsigned 
 {
 	mares_iconhd_device_t *device = (mares_iconhd_device_t *) abstract;
 
-	return mares_iconhd_read (device, address, data, size, 0);
+	return mares_iconhd_read (device, address, data, size, NULL);
 }
 
 
@@ -334,13 +358,24 @@ mares_iconhd_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 
 	// Erase the current contents of the buffer and
 	// pre-allocate the required amount of memory.
-	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, MARES_ICONHD_MEMORY_SIZE)) {
+	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, SZ_MEMORY)) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_NOMEMORY;
 	}
 
+	// Enable progress notifications.
+	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
+	progress.maximum = SZ_MEMORY;
+	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
+
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->version;
+	vendor.size = sizeof (device->version);
+	device_event_emit (abstract, DC_EVENT_VENDOR, &vendor);
+
 	return mares_iconhd_read (device, 0, dc_buffer_get_data (buffer),
-		dc_buffer_get_size (buffer), 1);
+		dc_buffer_get_size (buffer), &progress);
 }
 
 
@@ -349,7 +384,7 @@ mares_iconhd_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback,
 {
 	mares_iconhd_device_t *device = (mares_iconhd_device_t *) abstract;
 
-	dc_buffer_t *buffer = dc_buffer_new (MARES_ICONHD_MEMORY_SIZE);
+	dc_buffer_t *buffer = dc_buffer_new (SZ_MEMORY);
 	if (buffer == NULL)
 		return DC_STATUS_NOMEMORY;
 
@@ -385,7 +420,7 @@ mares_iconhd_extract_dives (dc_device_t *abstract, const unsigned char data[], u
 	if (abstract && !device_is_mares_iconhd (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < MARES_ICONHD_MEMORY_SIZE)
+	if (size < SZ_MEMORY)
 		return DC_STATUS_DATAFORMAT;
 
 	// Get the model code.

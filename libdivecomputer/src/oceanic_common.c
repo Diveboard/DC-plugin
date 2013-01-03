@@ -92,15 +92,27 @@ get_profile_last (const unsigned char data[], const oceanic_common_layout_t *lay
 }
 
 
-int
-oceanic_common_match (const unsigned char *pattern, const unsigned char *string, unsigned int n)
+static int
+oceanic_common_match_pattern (const unsigned char *string, const unsigned char *pattern)
 {
-	for (unsigned int i = 0; i < n; ++i, ++pattern, ++string) {
+	for (unsigned int i = 0; i < PAGESIZE; ++i, ++pattern, ++string) {
 		if (*pattern != '\0' && *pattern != *string)
 			return 0;
 	}
 
 	return 1;
+}
+
+
+int
+oceanic_common_match (const unsigned char *version, const oceanic_common_version_t patterns[], unsigned int n)
+{
+	for (unsigned int i = 0; i < n; ++i) {
+		if (oceanic_common_match_pattern (version, patterns[i]))
+			return 1;
+	}
+
+	return 0;
 }
 
 
@@ -113,6 +125,7 @@ oceanic_common_device_init (oceanic_common_device_t *device, dc_context_t *conte
 	device_init (&device->base, context, backend);
 
 	// Set the default values.
+	memset (device->version, 0, sizeof (device->version));
 	memset (device->fingerprint, 0, sizeof (device->fingerprint));
 	device->layout = NULL;
 	device->multipage = 1;
@@ -157,6 +170,12 @@ oceanic_common_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 		return DC_STATUS_NOMEMORY;
 	}
 
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->version;
+	vendor.size = sizeof (device->version);
+	device_event_emit (abstract, DC_EVENT_VENDOR, &vendor);
+
 	return device_dump_read (abstract, dc_buffer_get_data (buffer),
 		dc_buffer_get_size (buffer), PAGESIZE * device->multipage);
 }
@@ -179,6 +198,12 @@ oceanic_common_device_foreach (dc_device_t *abstract, dc_dive_callback_t callbac
 		(layout->rb_profile_end - layout->rb_profile_begin) +
 		(layout->rb_logbook_end - layout->rb_logbook_begin);
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
+
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->version;
+	vendor.size = sizeof (device->version);
+	device_event_emit (abstract, DC_EVENT_VENDOR, &vendor);
 
 	// Read the device id.
 	unsigned char id[PAGESIZE] = {0};

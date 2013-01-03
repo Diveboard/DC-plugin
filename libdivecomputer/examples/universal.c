@@ -95,7 +95,8 @@ static const backend_table_t g_backends[] = {
 	{"frog",        DC_FAMILY_HW_FROG},
 	{"edy",         DC_FAMILY_CRESSI_EDY},
 	{"n2ition3",    DC_FAMILY_ZEAGLE_N2ITION3},
-	{"cobalt",      DC_FAMILY_ATOMICS_COBALT}
+	{"cobalt",      DC_FAMILY_ATOMICS_COBALT},
+	{"predator",	DC_FAMILY_SHEARWATER_PREDATOR}
 };
 
 static dc_family_t
@@ -238,7 +239,10 @@ sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
 		"violation", "bookmark", "surface", "safety stop", "gaschange",
 		"safety stop (voluntary)", "safety stop (mandatory)", "deepstop",
 		"ceiling (safety stop)", "unknown", "divetime", "maxdepth",
-		"OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning"};
+		"OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning",
+		"gaschange2"};
+	static const char *decostop[] = {
+		"ndl", "deco", "deep", "safety"};
 
 	sample_data_t *sampledata = (sample_data_t *) userdata;
 
@@ -276,6 +280,19 @@ sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
 		for (unsigned int i = 0; i < value.vendor.size; ++i)
 			fprintf (sampledata->fp, "%02X", ((unsigned char *) value.vendor.data)[i]);
 		fprintf (sampledata->fp, "</vendor>\n");
+		break;
+	case DC_SAMPLE_SETPOINT:
+		fprintf (sampledata->fp, "   <setpoint>%.2f</setpoint>\n", value.setpoint);
+		break;
+	case DC_SAMPLE_PPO2:
+		fprintf (sampledata->fp, "   <ppo2>%.2f</ppo2>\n", value.ppo2);
+		break;
+	case DC_SAMPLE_CNS:
+		fprintf (sampledata->fp, "   <cns>%.2f</cns>\n", value.cns);
+		break;
+	case DC_SAMPLE_DECO:
+		fprintf (sampledata->fp, "   <deco time=\"%u\" depth=\"%.2f\">%s</deco>\n",
+			value.deco.time, value.deco.depth, decostop[value.deco.type]);
 		break;
 	default:
 		break;
@@ -374,6 +391,36 @@ doparse (FILE *fp, dc_device_t *device, const unsigned char data[], unsigned int
 			gasmix.nitrogen * 100.0);
 	}
 
+	// Parse the salinity.
+	message ("Parsing the salinity.\n");
+	dc_salinity_t salinity = {DC_WATER_FRESH, 0.0};
+	rc = dc_parser_get_field (parser, DC_FIELD_SALINITY, 0, &salinity);
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
+		WARNING ("Error parsing the salinity.");
+		dc_parser_destroy (parser);
+		return rc;
+	}
+
+	if (rc != DC_STATUS_UNSUPPORTED) {
+		fprintf (fp, "<salinity type=\"%u\">%.1f</salinity>\n",
+			salinity.type, salinity.density);
+	}
+
+	// Parse the atmospheric pressure.
+	message ("Parsing the atmospheric pressure.\n");
+	double atmospheric = 0.0;
+	rc = dc_parser_get_field (parser, DC_FIELD_ATMOSPHERIC, 0, &atmospheric);
+	if (rc != DC_STATUS_SUCCESS && rc != DC_STATUS_UNSUPPORTED) {
+		WARNING ("Error parsing the atmospheric pressure.");
+		dc_parser_destroy (parser);
+		return rc;
+	}
+
+	if (rc != DC_STATUS_UNSUPPORTED) {
+		fprintf (fp, "<atmospheric>%.5f</atmospheric>\n",
+			atmospheric);
+	}
+
 	// Initialize the sample data.
 	sample_data_t sampledata = {0};
 	sampledata.nsamples = 0;
@@ -408,6 +455,7 @@ event_cb (dc_device_t *device, dc_event_type_t event, const void *data, void *us
 	const dc_event_progress_t *progress = (dc_event_progress_t *) data;
 	const dc_event_devinfo_t *devinfo = (dc_event_devinfo_t *) data;
 	const dc_event_clock_t *clock = (dc_event_clock_t *) data;
+	const dc_event_vendor_t *vendor = (dc_event_vendor_t *) data;
 
 	device_data_t *devdata = (device_data_t *) userdata;
 
@@ -438,6 +486,12 @@ event_cb (dc_device_t *device, dc_event_type_t event, const void *data, void *us
 		devdata->clock = *clock;
 		message ("Event: systime=" DC_TICKS_FORMAT ", devtime=%u\n",
 			clock->systime, clock->devtime);
+		break;
+	case DC_EVENT_VENDOR:
+		message ("Event: vendor=");
+		for (unsigned int i = 0; i < vendor->size; ++i)
+			message ("%02X", vendor->data[i]);
+		message ("\n");
 		break;
 	default:
 		break;
@@ -607,7 +661,7 @@ dowork (dc_context_t *context, dc_descriptor_t *descriptor, const char *devname,
 
 	// Register the event handler.
 	message ("Registering the event handler.\n");
-	int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK;
+	int events = DC_EVENT_WAITING | DC_EVENT_PROGRESS | DC_EVENT_DEVINFO | DC_EVENT_CLOCK | DC_EVENT_VENDOR;
 	rc = dc_device_set_events (device, events, event_cb, &devdata);
 	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error registering the event handler.");

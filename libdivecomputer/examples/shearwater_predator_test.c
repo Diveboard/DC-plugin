@@ -1,18 +1,18 @@
-/* 
+/*
  * libdivecomputer
- * 
- * Copyright (C) 2008 Jef Driesen
- * 
+ *
+ * Copyright (C) 2012 Jef Driesen
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
  * version 2.1 of the License, or (at your option) any later version.
- * 
+ *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
@@ -21,51 +21,10 @@
 
 #include <stdio.h>	// fopen, fwrite, fclose
 
-#include <libdivecomputer/suunto_d9.h>
+#include <libdivecomputer/shearwater_predator.h>
 
 #include "utils.h"
 #include "common.h"
-
-dc_status_t
-test_dump_sdm (const char* name)
-{
-	dc_context_t *context = NULL;
-	dc_device_t *device = NULL;
-
-	dc_context_new (&context);
-	dc_context_set_loglevel (context, DC_LOGLEVEL_ALL);
-	dc_context_set_logfunc (context, logfunc, NULL);
-
-	message ("suunto_d9_device_open\n");
-	dc_status_t rc = suunto_d9_device_open (&device, context, name, 0);
-	if (rc != DC_STATUS_SUCCESS) {
-		WARNING ("Error opening serial port.");
-		dc_context_free (context);
-		return rc;
-	}
-
-	message ("dc_device_foreach\n");
-	rc = dc_device_foreach (device, NULL, NULL);
-	if (rc != DC_STATUS_SUCCESS) {
-		WARNING ("Cannot read dives.");
-		dc_device_close (device);
-		dc_context_free (context);
-		return rc;
-	}
-
-	message ("dc_device_close\n");
-	rc = dc_device_close (device);
-	if (rc != DC_STATUS_SUCCESS) {
-		WARNING ("Cannot close device.");
-		dc_context_free (context);
-		return rc;
-	}
-
-	dc_context_free (context);
-
-	return DC_STATUS_SUCCESS;
-}
-
 
 dc_status_t
 test_dump_memory (const char* name, const char* filename)
@@ -77,8 +36,8 @@ test_dump_memory (const char* name, const char* filename)
 	dc_context_set_loglevel (context, DC_LOGLEVEL_ALL);
 	dc_context_set_logfunc (context, logfunc, NULL);
 
-	message ("suunto_d9_device_open\n");
-	dc_status_t rc = suunto_d9_device_open (&device, context, name, 0);
+	message ("shearwater_predator_device_open\n");
+	dc_status_t rc = shearwater_predator_device_open (&device, context, name);
 	if (rc != DC_STATUS_SUCCESS) {
 		WARNING ("Error opening serial port.");
 		dc_context_free (context);
@@ -122,7 +81,7 @@ test_dump_memory (const char* name, const char* filename)
 
 int main(int argc, char *argv[])
 {
-	message_set_logfile ("D9.LOG");
+	message_set_logfile ("PREDATOR.LOG");
 
 #ifdef _WIN32
 	const char* name = "COM1";
@@ -136,13 +95,11 @@ int main(int argc, char *argv[])
 
 	message ("DEVICE=%s\n", name);
 
-	dc_status_t a = test_dump_memory (name, "D9.DMP");
-	dc_status_t b = test_dump_sdm (name);
+	dc_status_t a = test_dump_memory (name, "PREDATOR.DMP");
 
-	message ("\nSUMMARY\n");
+	message ("SUMMARY\n");
 	message ("-------\n");
-	message ("test_dump_memory: %s\n", errmsg (a));
-	message ("test_dump_sdm:    %s\n", errmsg (b));
+	message ("test_dump_memory:          %s\n", errmsg (a));
 
 	message_set_logfile (NULL);
 

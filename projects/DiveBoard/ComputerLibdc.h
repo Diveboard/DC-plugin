@@ -57,6 +57,7 @@ typedef struct libdivecomputer_t{
 	typeof(&dc_iterator_next) iterator_next;
 	typeof(&dc_parser_destroy) parser_destroy;
 	typeof(&dc_parser_get_datetime) parser_get_datetime;
+	typeof(&dc_parser_get_field) parser_get_field;
 	typeof(&dc_parser_new) parser_new;
 	typeof(&dc_parser_samples_foreach) parser_samples_foreach;
 	typeof(&dc_parser_set_data) parser_set_data;

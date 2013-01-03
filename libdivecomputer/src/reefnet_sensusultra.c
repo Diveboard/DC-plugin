@@ -36,6 +36,13 @@
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
 )
 
+#define SZ_PACKET    512
+#define SZ_MEMORY    2080768
+#define SZ_USER      16384
+#define SZ_HANDSHAKE 24
+#define SZ_SENSE     6
+
+#define MAXRETRIES 2
 #define PROMPT 0xA5
 #define ACCEPT PROMPT
 #define REJECT 0x00
@@ -43,8 +50,7 @@
 typedef struct reefnet_sensusultra_device_t {
 	dc_device_t base;
 	serial_t *port;
-	unsigned char handshake[REEFNET_SENSUSULTRA_HANDSHAKE_SIZE];
-	unsigned int maxretries;
+	unsigned char handshake[SZ_HANDSHAKE];
 	unsigned int timestamp;
 	unsigned int devtime;
 	dc_ticks_t systime;
@@ -58,7 +64,6 @@ static dc_status_t reefnet_sensusultra_device_close (dc_device_t *abstract);
 static const device_backend_t reefnet_sensusultra_device_backend = {
 	DC_FAMILY_REEFNET_SENSUSULTRA,
 	reefnet_sensusultra_device_set_fingerprint, /* set_fingerprint */
-	NULL, /* version */
 	NULL, /* read */
 	NULL, /* write */
 	reefnet_sensusultra_device_dump, /* dump */
@@ -94,7 +99,6 @@ reefnet_sensusultra_device_open (dc_device_t **out, dc_context_t *context, const
 
 	// Set the default values.
 	device->port = NULL;
-	device->maxretries = 2;
 	device->timestamp = 0;
 	device->systime = (dc_ticks_t) -1;
 	device->devtime = 0;
@@ -163,40 +167,12 @@ reefnet_sensusultra_device_get_handshake (dc_device_t *abstract, unsigned char d
 	if (! device_is_reefnet_sensusultra (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < REEFNET_SENSUSULTRA_HANDSHAKE_SIZE) {
+	if (size < SZ_HANDSHAKE) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_INVALIDARGS;
 	}
 
-	memcpy (data, device->handshake, REEFNET_SENSUSULTRA_HANDSHAKE_SIZE);
-
-	return DC_STATUS_SUCCESS;
-}
-
-
-dc_status_t
-reefnet_sensusultra_device_set_maxretries (dc_device_t *abstract, unsigned int maxretries)
-{
-	reefnet_sensusultra_device_t *device = (reefnet_sensusultra_device_t*) abstract;
-
-	if (! device_is_reefnet_sensusultra (abstract))
-		return DC_STATUS_INVALIDARGS;
-
-	device->maxretries = maxretries;
-
-	return DC_STATUS_SUCCESS;
-}
-
-
-dc_status_t
-reefnet_sensusultra_device_set_timestamp (dc_device_t *abstract, unsigned int timestamp)
-{
-	reefnet_sensusultra_device_t *device = (reefnet_sensusultra_device_t*) abstract;
-
-	if (! device_is_reefnet_sensusultra (abstract))
-		return DC_STATUS_INVALIDARGS;
-
-	device->timestamp = timestamp;
+	memcpy (data, device->handshake, SZ_HANDSHAKE);
 
 	return DC_STATUS_SUCCESS;
 }
@@ -304,7 +280,7 @@ static dc_status_t
 reefnet_sensusultra_handshake (reefnet_sensusultra_device_t *device, unsigned short value)
 {
 	// Wake-up the device.
-	unsigned char handshake[REEFNET_SENSUSULTRA_HANDSHAKE_SIZE + 2] = {0};
+	unsigned char handshake[SZ_HANDSHAKE + 2] = {0};
 	dc_status_t rc = reefnet_sensusultra_packet (device, handshake, sizeof (handshake), 0);
 	if (rc != DC_STATUS_SUCCESS)
 		return rc;
@@ -314,7 +290,7 @@ reefnet_sensusultra_handshake (reefnet_sensusultra_device_t *device, unsigned sh
 	device->devtime = array_uint32_le (handshake + 4);
 
 	// Store the handshake packet.
-	memcpy (device->handshake, handshake, REEFNET_SENSUSULTRA_HANDSHAKE_SIZE);
+	memcpy (device->handshake, handshake, SZ_HANDSHAKE);
 
 	// Emit a clock event.
 	dc_event_clock_t clock;
@@ -328,6 +304,12 @@ reefnet_sensusultra_handshake (reefnet_sensusultra_device_t *device, unsigned sh
 	devinfo.firmware = handshake[0];
 	devinfo.serial = array_uint16_le (handshake + 2);
 	device_event_emit (&device->base, DC_EVENT_DEVINFO, &devinfo);
+
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->handshake;
+	vendor.size = sizeof (device->handshake);
+	device_event_emit (&device->base, DC_EVENT_VENDOR, &vendor);
 
 	// Send the instruction code to the device.
 	rc = reefnet_sensusultra_send_ushort (device, value);
@@ -343,7 +325,7 @@ reefnet_sensusultra_page (reefnet_sensusultra_device_t *device, unsigned char *d
 {
 	dc_device_t *abstract = (dc_device_t *) device;
 
-	assert (size >= REEFNET_SENSUSULTRA_PACKET_SIZE + 4);
+	assert (size >= SZ_PACKET + 4);
 
 	unsigned int nretries = 0;
 	dc_status_t rc = DC_STATUS_SUCCESS;
@@ -354,7 +336,7 @@ reefnet_sensusultra_page (reefnet_sensusultra_device_t *device, unsigned char *d
 			return rc;
 
 		// Abort if the maximum number of retries is reached.
-		if (nretries++ >= device->maxretries)
+		if (nretries++ >= MAXRETRIES)
 			return rc;
 
 		// Reject the packet.
@@ -390,7 +372,7 @@ reefnet_sensusultra_send (reefnet_sensusultra_device_t *device, unsigned short c
 			return rc;
 
 		// Abort if the maximum number of retries is reached.
-		if (nretries++ >= device->maxretries)
+		if (nretries++ >= MAXRETRIES)
 			return rc;
 
 		// According to the developers guide, a 250 ms delay is suggested to
@@ -416,14 +398,14 @@ reefnet_sensusultra_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 
 	// Erase the current contents of the buffer and
 	// pre-allocate the required amount of memory.
-	if (!dc_buffer_clear (buffer) || !dc_buffer_reserve (buffer, REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE)) {
+	if (!dc_buffer_clear (buffer) || !dc_buffer_reserve (buffer, SZ_MEMORY)) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_NOMEMORY;
 	}
 
 	// Enable progress notifications.
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
-	progress.maximum = REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE;
+	progress.maximum = SZ_MEMORY;
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Wake-up the device and send the instruction code.
@@ -433,19 +415,19 @@ reefnet_sensusultra_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 
 	unsigned int nbytes = 0;
 	unsigned int npages = 0;
-	while (nbytes < REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE) {
+	while (nbytes < SZ_MEMORY) {
 		// Receive the packet.
-		unsigned char packet[REEFNET_SENSUSULTRA_PACKET_SIZE + 4] = {0};
+		unsigned char packet[SZ_PACKET + 4] = {0};
 		rc = reefnet_sensusultra_page (device, packet, sizeof (packet), npages);
 		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		// Update and emit a progress event.
-		progress.current += REEFNET_SENSUSULTRA_PACKET_SIZE;
+		progress.current += SZ_PACKET;
 		device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 		// Prepend the packet to the buffer.
-		if (!dc_buffer_prepend (buffer, packet + 2, REEFNET_SENSUSULTRA_PACKET_SIZE)) {
+		if (!dc_buffer_prepend (buffer, packet + 2, SZ_PACKET)) {
 			ERROR (abstract->context, "Insufficient buffer space available.");
 			return DC_STATUS_NOMEMORY;
 		}
@@ -455,7 +437,7 @@ reefnet_sensusultra_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
-		nbytes += REEFNET_SENSUSULTRA_PACKET_SIZE;
+		nbytes += SZ_PACKET;
 		npages++;
 	}
 
@@ -471,7 +453,7 @@ reefnet_sensusultra_device_read_user (dc_device_t *abstract, unsigned char *data
 	if (! device_is_reefnet_sensusultra (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < REEFNET_SENSUSULTRA_MEMORY_USER_SIZE) {
+	if (size < SZ_USER) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_INVALIDARGS;
 	}
@@ -483,22 +465,22 @@ reefnet_sensusultra_device_read_user (dc_device_t *abstract, unsigned char *data
 
 	unsigned int nbytes = 0;
 	unsigned int npages = 0;
-	while (nbytes < REEFNET_SENSUSULTRA_MEMORY_USER_SIZE) {
+	while (nbytes < SZ_USER) {
 		// Receive the packet.
-		unsigned char packet[REEFNET_SENSUSULTRA_PACKET_SIZE + 4] = {0};
+		unsigned char packet[SZ_PACKET + 4] = {0};
 		rc = reefnet_sensusultra_page (device, packet, sizeof (packet), npages);
 		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
 		// Append the packet to the buffer.
-		memcpy (data + nbytes, packet + 2, REEFNET_SENSUSULTRA_PACKET_SIZE);
+		memcpy (data + nbytes, packet + 2, SZ_PACKET);
 
 		// Accept the packet.
 		rc = reefnet_sensusultra_send_uchar (device, ACCEPT);
 		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
-		nbytes += REEFNET_SENSUSULTRA_PACKET_SIZE;
+		nbytes += SZ_PACKET;
 		npages++;
 	}
 
@@ -514,14 +496,14 @@ reefnet_sensusultra_device_write_user (dc_device_t *abstract, const unsigned cha
 	if (! device_is_reefnet_sensusultra (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < REEFNET_SENSUSULTRA_MEMORY_USER_SIZE) {
+	if (size < SZ_USER) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_INVALIDARGS;
 	}
 
 	// Enable progress notifications.
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
-	progress.maximum = REEFNET_SENSUSULTRA_MEMORY_USER_SIZE + 2;
+	progress.maximum = SZ_USER + 2;
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Wake-up the device and send the instruction code.
@@ -530,7 +512,7 @@ reefnet_sensusultra_device_write_user (dc_device_t *abstract, const unsigned cha
 		return rc;
 
 	// Send the data to the device.
-	for (unsigned int i = 0; i < REEFNET_SENSUSULTRA_MEMORY_USER_SIZE; ++i) {
+	for (unsigned int i = 0; i < SZ_USER; ++i) {
 		rc = reefnet_sensusultra_send_uchar (device, data[i]);
 		if (rc != DC_STATUS_SUCCESS)
 			return rc;
@@ -541,7 +523,7 @@ reefnet_sensusultra_device_write_user (dc_device_t *abstract, const unsigned cha
 	}
 
 	// Send the checksum to the device.
-	unsigned short crc = checksum_crc_ccitt_uint16 (data, REEFNET_SENSUSULTRA_MEMORY_USER_SIZE);
+	unsigned short crc = checksum_crc_ccitt_uint16 (data, SZ_USER);
 	rc = reefnet_sensusultra_send_ushort (device, crc);
 	if (rc != DC_STATUS_SUCCESS)
 		return rc;
@@ -611,7 +593,7 @@ reefnet_sensusultra_device_sense (dc_device_t *abstract, unsigned char *data, un
 	if (! device_is_reefnet_sensusultra (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < REEFNET_SENSUSULTRA_SENSE_SIZE) {
+	if (size < SZ_SENSE) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_INVALIDARGS;
 	}
@@ -622,12 +604,12 @@ reefnet_sensusultra_device_sense (dc_device_t *abstract, unsigned char *data, un
 		return rc;
 
 	// Receive the packet.
-	unsigned char package[REEFNET_SENSUSULTRA_SENSE_SIZE + 2] = {0};
+	unsigned char package[SZ_SENSE + 2] = {0};
 	rc = reefnet_sensusultra_packet (device, package, sizeof (package), 0);
 	if (rc != DC_STATUS_SUCCESS)
 		return rc;
 
-	memcpy (data, package, REEFNET_SENSUSULTRA_SENSE_SIZE);
+	memcpy (data, package, SZ_SENSE);
 
 	return DC_STATUS_SUCCESS;
 }
@@ -711,7 +693,7 @@ reefnet_sensusultra_device_foreach (dc_device_t *abstract, dc_dive_callback_t ca
 	if (! device_is_reefnet_sensusultra (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	dc_buffer_t *buffer = dc_buffer_new (REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE);
+	dc_buffer_t *buffer = dc_buffer_new (SZ_MEMORY);
 	if (buffer == NULL) {
 		ERROR (abstract->context, "Failed to allocate memory.");
 		return DC_STATUS_NOMEMORY;
@@ -719,7 +701,7 @@ reefnet_sensusultra_device_foreach (dc_device_t *abstract, dc_dive_callback_t ca
 
 	// Enable progress notifications.
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
-	progress.maximum = REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE;
+	progress.maximum = SZ_MEMORY;
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Wake-up the device and send the instruction code.
@@ -735,9 +717,9 @@ reefnet_sensusultra_device_foreach (dc_device_t *abstract, dc_dive_callback_t ca
 
 	unsigned int nbytes = 0;
 	unsigned int npages = 0;
-	while (nbytes < REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE) {
+	while (nbytes < SZ_MEMORY) {
 		// Receive the packet.
-		unsigned char packet[REEFNET_SENSUSULTRA_PACKET_SIZE + 4] = {0};
+		unsigned char packet[SZ_PACKET + 4] = {0};
 		rc = reefnet_sensusultra_page (device, packet, sizeof (packet), npages);
 		if (rc != DC_STATUS_SUCCESS) {
 			dc_buffer_free (buffer);
@@ -745,22 +727,22 @@ reefnet_sensusultra_device_foreach (dc_device_t *abstract, dc_dive_callback_t ca
 		}
 
 		// Update and emit a progress event.
-		progress.current += REEFNET_SENSUSULTRA_PACKET_SIZE;
+		progress.current += SZ_PACKET;
 		device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 		// Abort the transfer if the page contains no useful data.
-		if (array_isequal (packet + 2, REEFNET_SENSUSULTRA_PACKET_SIZE, 0xFF) && nbytes != 0)
+		if (array_isequal (packet + 2, SZ_PACKET, 0xFF) && nbytes != 0)
 			break;
 
 		// Prepend the packet to the buffer.
-		if (!dc_buffer_prepend (buffer, packet + 2, REEFNET_SENSUSULTRA_PACKET_SIZE)) {
+		if (!dc_buffer_prepend (buffer, packet + 2, SZ_PACKET)) {
 			ERROR (abstract->context, "Insufficient buffer space available.");
 			return DC_STATUS_NOMEMORY;
 		}
 
 		// Update the parser state.
-		remaining += REEFNET_SENSUSULTRA_PACKET_SIZE;
-		previous += REEFNET_SENSUSULTRA_PACKET_SIZE;
+		remaining += SZ_PACKET;
+		previous += SZ_PACKET;
 
 		// Parse the page data.
 		int aborted = 0;
@@ -780,7 +762,7 @@ reefnet_sensusultra_device_foreach (dc_device_t *abstract, dc_dive_callback_t ca
 			return rc;
 		}
 
-		nbytes += REEFNET_SENSUSULTRA_PACKET_SIZE;
+		nbytes += SZ_PACKET;
 		npages++;
 	}
 

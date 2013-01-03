@@ -32,6 +32,7 @@
 #include <libdivecomputer/cressi.h>
 #include <libdivecomputer/zeagle.h>
 #include <libdivecomputer/atomics.h>
+#include <libdivecomputer/shearwater.h>
 
 #include "device-private.h"
 #include "context-private.h"
@@ -117,7 +118,7 @@ dc_device_open (dc_device_t **out, dc_context_t *context, dc_descriptor_t *descr
 		rc = mares_darwin_device_open (&device, context, name, dc_descriptor_get_model (descriptor));
 		break;
 	case DC_FAMILY_MARES_ICONHD:
-		rc = mares_iconhd_device_open (&device, context, name);
+		rc = mares_iconhd_device_open (&device, context, name, dc_descriptor_get_model (descriptor));
 		break;
 	case DC_FAMILY_HW_OSTC:
 		rc = hw_ostc_device_open (&device, context, name);
@@ -133,6 +134,9 @@ dc_device_open (dc_device_t **out, dc_context_t *context, dc_descriptor_t *descr
 		break;
 	case DC_FAMILY_ATOMICS_COBALT:
 		rc = atomics_cobalt_device_open (&device, context);
+		break;
+	case DC_FAMILY_SHEARWATER_PREDATOR:
+		rc = shearwater_predator_device_open (&device, context, name);
 		break;
 	default:
 		return DC_STATUS_INVALIDARGS;
@@ -190,19 +194,6 @@ dc_device_set_fingerprint (dc_device_t *device, const unsigned char data[], unsi
 		return DC_STATUS_UNSUPPORTED;
 
 	return device->backend->set_fingerprint (device, data, size);
-}
-
-
-dc_status_t
-dc_device_version (dc_device_t *device, unsigned char data[], unsigned int size)
-{
-	if (device == NULL)
-		return DC_STATUS_UNSUPPORTED;
-
-	if (device->backend->version == NULL)
-		return DC_STATUS_UNSUPPORTED;
-
-	return device->backend->version (device, data, size);
 }
 
 

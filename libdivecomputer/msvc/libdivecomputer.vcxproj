@@ -145,6 +145,8 @@
     <ClCompile Include="..\src\suunto_eon_parser.c" />
     <ClCompile Include="..\src\suunto_solution.c" />
     <ClCompile Include="..\src\suunto_solution_parser.c" />
+    <ClCompile Include="..\src\shearwater_predator.c" />
+    <ClCompile Include="..\src\shearwater_predator_parser.c" />
     <ClCompile Include="..\src\suunto_vyper.c" />
     <ClCompile Include="..\src\suunto_vyper2.c" />
     <ClCompile Include="..\src\suunto_vyper_parser.c" />
@@ -194,6 +196,8 @@
     <ClInclude Include="..\include\libdivecomputer\reefnet_sensusultra.h" />
     <ClInclude Include="..\include\libdivecomputer\ringbuffer.h" />
     <ClInclude Include="..\include\libdivecomputer\serial.h" />
+    <ClInclude Include="..\include\libdivecomputer\shearwater.h" />
+    <ClInclude Include="..\include\libdivecomputer\shearwater_predator.h" />
     <ClInclude Include="..\include\libdivecomputer\suunto.h" />
     <ClInclude Include="..\include\libdivecomputer\suunto_common.h" />
     <ClInclude Include="..\include\libdivecomputer\suunto_common2.h" />

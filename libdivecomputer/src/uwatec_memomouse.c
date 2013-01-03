@@ -57,7 +57,6 @@ static dc_status_t uwatec_memomouse_device_close (dc_device_t *abstract);
 static const device_backend_t uwatec_memomouse_device_backend = {
 	DC_FAMILY_UWATEC_MEMOMOUSE,
 	uwatec_memomouse_device_set_fingerprint, /* set_fingerprint */
-	NULL, /* version */
 	NULL, /* read */
 	NULL, /* write */
 	uwatec_memomouse_device_dump, /* dump */
@@ -156,20 +155,6 @@ uwatec_memomouse_device_close (dc_device_t *abstract)
 
 	// Free memory.	
 	free (device);
-
-	return DC_STATUS_SUCCESS;
-}
-
-
-dc_status_t
-uwatec_memomouse_device_set_timestamp (dc_device_t *abstract, unsigned int timestamp)
-{
-	uwatec_memomouse_device_t *device = (uwatec_memomouse_device_t*) abstract;
-
-	if (! device_is_uwatec_memomouse (abstract))
-		return DC_STATUS_INVALIDARGS;
-
-	device->timestamp = timestamp;
 
 	return DC_STATUS_SUCCESS;
 }

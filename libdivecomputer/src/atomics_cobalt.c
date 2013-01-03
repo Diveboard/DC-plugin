@@ -27,6 +27,9 @@
 #include <stdlib.h> // malloc, free
 
 #ifdef HAVE_LIBUSB
+#ifdef _WIN32
+#define NOGDI
+#endif
 #include <libusb-1.0/libusb.h>
 #endif
 
@@ -60,14 +63,12 @@ typedef struct atomics_cobalt_device_t {
 } atomics_cobalt_device_t;
 
 static dc_status_t atomics_cobalt_device_set_fingerprint (dc_device_t *abstract, const unsigned char data[], unsigned int size);
-static dc_status_t atomics_cobalt_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size);
 static dc_status_t atomics_cobalt_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t atomics_cobalt_device_close (dc_device_t *abstract);
 
 static const device_backend_t atomics_cobalt_device_backend = {
 	DC_FAMILY_ATOMICS_COBALT,
 	atomics_cobalt_device_set_fingerprint, /* set_fingerprint */
-	atomics_cobalt_device_version, /* version */
 	NULL, /* read */
 	NULL, /* write */
 	NULL, /* dump */
@@ -205,7 +206,7 @@ atomics_cobalt_device_set_simulation (dc_device_t *abstract, unsigned int simula
 }
 
 
-static dc_status_t
+dc_status_t
 atomics_cobalt_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size)
 {
 	atomics_cobalt_device_t *device = (atomics_cobalt_device_t *) abstract;
@@ -356,6 +357,12 @@ atomics_cobalt_device_foreach (dc_device_t *abstract, dc_dive_callback_t callbac
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
 	progress.maximum = SZ_MEMORY + 2;
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
+
+	// Emit a vendor event.
+	dc_event_vendor_t vendor;
+	vendor.data = device->version;
+	vendor.size = sizeof (device->version);
+	device_event_emit (abstract, DC_EVENT_VENDOR, &vendor);
 
 	// Emit a device info event.
 	dc_event_devinfo_t devinfo;

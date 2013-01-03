@@ -45,7 +45,6 @@
 typedef struct suunto_d9_device_t {
 	suunto_common2_device_t base;
 	serial_t *port;
-	unsigned char version[4];
 } suunto_d9_device_t;
 
 static dc_status_t suunto_d9_device_packet (dc_device_t *abstract, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize, unsigned int size);
@@ -55,7 +54,6 @@ static const suunto_common2_device_backend_t suunto_d9_device_backend = {
 	{
 		DC_FAMILY_SUUNTO_D9,
 		suunto_common2_device_set_fingerprint, /* set_fingerprint */
-		suunto_common2_device_version, /* version */
 		suunto_common2_device_read, /* read */
 		suunto_common2_device_write, /* write */
 		suunto_common2_device_dump, /* dump */
@@ -115,7 +113,7 @@ suunto_d9_device_autodetect (suunto_d9_device_t *device, unsigned int model)
 		}
 
 		// Try reading the version info.
-		status = suunto_common2_device_version ((dc_device_t *) device, device->version, sizeof (device->version));
+		status = suunto_common2_device_version ((dc_device_t *) device, device->base.version, sizeof (device->base.version));
 		if (status == DC_STATUS_SUCCESS)
 			break;
 	}
@@ -142,7 +140,6 @@ suunto_d9_device_open (dc_device_t **out, dc_context_t *context, const char *nam
 
 	// Set the default values.
 	device->port = NULL;
-	memset (device->version, 0, sizeof (device->version));
 
 	// Open the device.
 	int rc = serial_open (&device->port, context, name);
@@ -193,7 +190,7 @@ suunto_d9_device_open (dc_device_t **out, dc_context_t *context, const char *nam
 	}
 
 	// Override the base class values.
-	model = device->version[0];
+	model = device->base.version[0];
 	if (model == D4i || model == D6i || model == D9tx)
 		device->base.layout = &suunto_d9tx_layout;
 	else
@@ -296,6 +293,16 @@ suunto_d9_device_packet (dc_device_t *abstract, const unsigned char command[], u
 	}
 
 	return DC_STATUS_SUCCESS;
+}
+
+
+dc_status_t
+suunto_d9_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size)
+{
+	if (! device_is_suunto_d9 (abstract))
+		return DC_STATUS_INVALIDARGS;
+
+	return suunto_common2_device_version (abstract, data, size);
 }
 
 

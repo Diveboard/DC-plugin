@@ -30,10 +30,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define REEFNET_SENSUSULTRA_PACKET_SIZE 512
-#define REEFNET_SENSUSULTRA_MEMORY_USER_SIZE 16384 /* 32 PAGES */
-#define REEFNET_SENSUSULTRA_MEMORY_DATA_SIZE 2080768 /* 4064 PAGES */
-#define REEFNET_SENSUSULTRA_MEMORY_SIZE 2097152 /* USER + DATA */
+#define REEFNET_SENSUSULTRA_USER_SIZE 16384
 #define REEFNET_SENSUSULTRA_HANDSHAKE_SIZE 24
 #define REEFNET_SENSUSULTRA_SENSE_SIZE 6
 
@@ -49,9 +46,6 @@ reefnet_sensusultra_device_open (dc_device_t **device, dc_context_t *context, co
 
 dc_status_t
 reefnet_sensusultra_device_set_maxretries (dc_device_t *device, unsigned int maxretries);
-
-dc_status_t
-reefnet_sensusultra_device_set_timestamp (dc_device_t *device, unsigned int timestamp);
 
 dc_status_t
 reefnet_sensusultra_device_get_handshake (dc_device_t *device, unsigned char data[], unsigned int size);
