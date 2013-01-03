@@ -35,6 +35,8 @@ typedef struct libdivecomputer_t{
 	typeof(&dc_buffer_append) buffer_append;
 	typeof(&dc_buffer_free) buffer_free;
 	typeof(&dc_buffer_new) buffer_new;
+	typeof(&dc_buffer_get_data) buffer_get_data;
+	typeof(&dc_buffer_get_size) buffer_get_size;
 	typeof(&dc_context_free) context_free;
 	typeof(&dc_context_new) context_new;
 	typeof(&dc_context_set_logfunc) context_set_logfunc;
@@ -46,6 +48,7 @@ typedef struct libdivecomputer_t{
 	typeof(&dc_descriptor_get_vendor) descriptor_get_vendor;
 	typeof(&dc_descriptor_iterator) descriptor_iterator;
 	typeof(&dc_device_close) device_close;
+	typeof(&dc_device_dump) device_dump;
 	typeof(&dc_device_foreach) device_foreach;
 	typeof(&dc_device_open) device_open;
 	typeof(&dc_device_set_cancel) device_set_cancel;
@@ -70,7 +73,7 @@ protected:
 	ComputerStatus status;
 	LIBTYPE libdc;
 	libdivecomputer_t libdc_p;
-	void dowork (std ::string &diveXML);
+	void dowork (std::string *diveXML, std::string *dumpData);
 	dc_status_t doparse (const unsigned char data[], unsigned int size);
 	dc_status_t search (std::string stdname);
 
@@ -86,6 +89,7 @@ public:
 	ComputerLibdc(std::string type, std::string filename);
 	virtual ~ComputerLibdc(void);
 	int _get_all_dives(std::string &xml);
+	int _dump(std::string &data);
 	virtual ComputerStatus get_status();
 	virtual void cancel();
   static std::vector<ComputerSupport> *support();

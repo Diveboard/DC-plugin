@@ -65,7 +65,7 @@ DiveBoardAPI::DiveBoardAPI(DiveBoardPtr plugin, FB::BrowserHostPtr host) : m_plu
 		//methods
 		registerMethod("echo",    make_method(this, &DiveBoardAPI::echo));
 		registerMethod("fireEvent",    make_method(this, &DiveBoardAPI::fireEvent));
-		//registerMethod("dump", make_method(this, &DiveBoardAPI::dump));
+		registerMethod("dump", make_method(this, &DiveBoardAPI::dump));
 		registerMethod("extract", make_method(this, &DiveBoardAPI::extract));
 		registerMethod("detect",  make_method(this, &DiveBoardAPI::detect));
 		registerMethod("allports",make_method(this, &DiveBoardAPI::allports));
@@ -342,9 +342,7 @@ void *DiveBoardAPI::dump_async(void *p)
 		plugin->comp = NULL;
 
 		LOGDEBUG("triggering onloaded event");
-
-		//todo fix
-		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(buffer)));
+		plugin->FireEvent("onloaded", FB::variant_list_of(FB::variant(buffer)) );
 
 	} catch (std::exception &e)
 	{
