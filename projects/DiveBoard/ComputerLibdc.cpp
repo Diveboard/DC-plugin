@@ -71,6 +71,19 @@ HRESULT RegGetString(HKEY hKey, LPCTSTR szValueName, LPTSTR * lpszResult) {
 
 #endif
 
+
+static void logger_proxy(dc_context_t *context, dc_loglevel_t loglevel, const char *file, unsigned int line, const char *function, const char *message, void *userdata)
+{
+	const char *short_file  = file;
+
+	for (const char *curs = file; *curs != NULL && curs-file < 1000; curs++)
+		if ((*curs == '/' || *curs == '\\' ) && *(curs+1) != NULL)
+			short_file = curs+1;
+
+	Logger::appendL((unsigned int)line, short_file, "LDC", "In %s: %s", function, message);
+}
+
+
 LIBTYPE openDLLLibrary()
 {
 #ifdef WIN32
@@ -346,58 +359,66 @@ void sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
     struct sample_cb_data *data = (struct sample_cb_data *) userdata;
     std::string vendor;
 
-    LOGDEBUG("Parsing element of type '%d'", type);
-
     switch (type) {
     case DC_SAMPLE_TIME:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_TIME");
       nsamples++;
       if (data->duration < value.time) data->duration = value.time;
       data->sampleXML += str(boost::format("<t>%02u</t>") % value.time);
       break;
     case DC_SAMPLE_DEPTH:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_DEPTH");
       data->sampleXML += str(boost::format("<d>%.2f</d>") % value.depth);
       if (data->max_depth < value.depth) data->max_depth = value.depth;
       break;
     case DC_SAMPLE_PRESSURE:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_PRESSURE");
       //todo
       data->sampleXML += str(boost::format("<pressure tank=\"%u\">%.2f</pressure>") %  value.pressure.tank % value.pressure.value);
       break;
     case DC_SAMPLE_TEMPERATURE:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_TEMPERATURE");
       if (data->min_temp < value.temperature) data->min_temp = value.temperature;
       data->sampleXML += str(boost::format("<temperature>%.2f</temperature>") % value.temperature);
       break;
     case DC_SAMPLE_EVENT:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_EVENT");
       data->sampleXML += str(boost::format("<ALARM type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</ALARM>")
         % value.event.type % value.event.time % value.event.flags % value.event.value % events[value.event.type]);
       break;
     case DC_SAMPLE_RBT:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_RBT");
       data->sampleXML += str(boost::format("<rbt>%u</rbt>") % value.rbt);
       break;
     case DC_SAMPLE_HEARTBEAT:
-      //todo
+      LOGDEBUG("Parsing element of type DC_SAMPLE_HEARTBEAT");
       data->sampleXML += str(boost::format("<heartbeat>%u</heartbeat>") % value.heartbeat);
       break;
     case DC_SAMPLE_BEARING:
-      //todo
+      LOGDEBUG("Parsing element of type DC_SAMPLE_BEARING");
       data->sampleXML += str(boost::format("<bearing>%u</bearing>") % value.bearing);
       break;
     case DC_SAMPLE_VENDOR:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_VENDOR");
       vendor += str(boost::format("vendor type=\"%u\" size=\"%u\"") % value.vendor.type % value.vendor.size);
       for (unsigned int i = 0; i < value.vendor.size; ++i)
         vendor += str(boost::format("%02X") % (((unsigned char *) value.vendor.data)[i]));
-
       LOGINFO(vendor);
       break;
     case DC_SAMPLE_SETPOINT:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_SETPOINT");
       data->sampleXML += str(boost::format("<setpoint>%.2f</setpoint>") % value.setpoint);
       break;
     case DC_SAMPLE_PPO2:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_PPO2");
       data->sampleXML += str(boost::format("<ppo2>%.2f</ppo2>") % value.ppo2);
       break;
     case DC_SAMPLE_CNS:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_CNS");
       data->sampleXML += str(boost::format("<cns>%.2f</cns>") % value.cns);
       break;
     case DC_SAMPLE_DECO:
+      LOGDEBUG("Parsing element of type DC_SAMPLE_DECO");
       data->sampleXML += str(boost::format("<deco time=\"%u\" depth=\"%.2f\">%s</deco>") % value.deco.time % value.deco.depth % decostop[value.deco.type]);
       break;
     default:
@@ -742,18 +763,10 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
 {
   LOGINFO("Starting dowork");
   dc_status_t rc = DC_STATUS_SUCCESS;
-  char ldc_logfile[L_tmpnam];
 
   // Initialize the device data.
   device_data_t devdata;
 
-  if (Logger::logLevel.compare("DEBUG") == 0) {
-      tmpnam(ldc_logfile);
-      //TODO: ldc_setlogfile(ldc_logfile);
-      LOGDEBUG("Logging into %s", ldc_logfile);
-  }
-
-  try {
     // Open the device.
     LOGINFO ("Opening the device (%s %s, %s).\n",
       libdc_p.descriptor_get_vendor (descriptor),
@@ -762,8 +775,6 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
     rc = libdc_p.device_open (&device, context, descriptor, devname.c_str());
     if (rc != DC_STATUS_SUCCESS) {
       LOGWARNING ("Error opening device.");
-      //TODO: ldc_setlogfile(NULL);
-      if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
       DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
     }
 
@@ -777,8 +788,6 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
     if (rc != DC_STATUS_SUCCESS) {
       LOGDEBUG("Error registering the event handler.");
       libdc_p.device_close (device);
-      //TODO: ldc_setlogfile(NULL);
-      if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
       DBthrowError("Error registering the event handler ");
     }
 
@@ -788,8 +797,6 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
     if (rc != DC_STATUS_SUCCESS) {
       LOGINFO("Error registering the cancellation handler.");
       libdc_p.device_close (device);
-      //TODO: ldc_setlogfile(NULL);
-      if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
       DBthrowError("Error registering the cancellation handler ");
     }
 
@@ -818,7 +825,6 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
         LOGINFO ("Error downloading the memory dump");
         libdc_p.buffer_free (buffer);
         libdc_p.device_close (device);
-        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
         DBthrowError("Error downloading the memory dump");
       }
 
@@ -864,8 +870,6 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
         LOGDEBUG("Error downloading the dives.");
         libdc_p.buffer_free (fingerprint);
         libdc_p.device_close (device);
-        //TODO: ldc_setlogfile(NULL);
-        if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
         DBthrowError(std::string("Error opening device - Error code : ") + errmsg(rc));
       }
 
@@ -880,34 +884,12 @@ void ComputerLibdc::dowork (std ::string *diveXML, std::string *dumpData)
       diveXML->append("</REPGROUP></profile>");
     }
 
-    //TODO: ldc_setlogfile(NULL);
-    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-
     // Close the device.
     LOGINFO("Closing the device.");
     rc = libdc_p.device_close (device);
     if (rc != DC_STATUS_SUCCESS)
       LOGWARNING("Error closing the device. %s", errmsg(rc));
-
-  } catch (...) {
-    //TODO: ldc_setlogfile(NULL);
-    if (Logger::logLevel.compare("DEBUG") == 0) LOGFILE(ldc_logfile);
-    throw;
-  }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -992,15 +974,26 @@ ComputerLibdc::ComputerLibdc(std::string type, std::string file)
     DBthrowError(std::string("No matching device found."));
   }
 
-  //TODO ???? message_set_logfile (logfile);
-
   rc = libdc_p.context_new (&context);
   if (rc != DC_STATUS_SUCCESS) {
     DBthrowError(std::string("Error allocating context : ") + errmsg(rc));
   }
 
-  //TODO dc_context_set_loglevel (context, loglevel);
-  //TODO dc_context_set_logfunc (context, logfunc, NULL);
+
+  LOGDEBUG("Setting up logger for libdivecomputer");
+  if (Logger::logLevel.compare("DEBUG") == 0)
+	libdc_p.context_set_loglevel(context, DC_LOGLEVEL_DEBUG);
+  else if (Logger::logLevel.compare("INFO") == 0)
+	libdc_p.context_set_loglevel(context, DC_LOGLEVEL_INFO);
+  else if (Logger::logLevel.compare("WARNING") == 0)
+	libdc_p.context_set_loglevel(context, DC_LOGLEVEL_WARNING);
+  else if (Logger::logLevel.compare("ERROR") == 0)
+	libdc_p.context_set_loglevel(context, DC_LOGLEVEL_ERROR);
+  else if (Logger::logLevel.compare("CRITICAL") == 0)
+	libdc_p.context_set_loglevel(context, DC_LOGLEVEL_ERROR);
+  else
+	libdc_p.context_set_loglevel(context, DC_LOGLEVEL_WARNING);
+  libdc_p.context_set_logfunc(context, logger_proxy, NULL);
 
 
   LOGINFO(str(boost::format("Using type %1% on %2%") % type % file));
