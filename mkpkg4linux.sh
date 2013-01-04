@@ -1,4 +1,5 @@
 #!/bin/bash
+export LC_ALL=C
 
 tmpbuild=/tmp/diveboard_plugin.$(date '+%Y%m%d_%H%M%S_%N')
 mkdir -p "$tmpbuild"

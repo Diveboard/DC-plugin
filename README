@@ -6,7 +6,7 @@
 
 - Make sure dependencies are there :
   Linux : 
-    sudo apt-get install libgtk2.0-dev automake autoconf libtool
+    sudo apt-get install libgtk2.0-dev automake autoconf libtool git screen cmake pkg-config gawk
   Windows : 
     Visual studio (we're using verion 10)
     NSIS (for packaging)
