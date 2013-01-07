@@ -150,8 +150,10 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Mares", "M2",         DC_FAMILY_MARES_DARWIN , 0},
 	{"Mares", "Darwin Air", DC_FAMILY_MARES_DARWIN , 1},
 	/* Mares Icon HD */
+	{"Mares", "Matrix",            DC_FAMILY_MARES_ICONHD , 0x0F},
 	{"Mares", "Icon HD",           DC_FAMILY_MARES_ICONHD , 0x14},
 	{"Mares", "Icon HD Net Ready", DC_FAMILY_MARES_ICONHD , 0x15},
+	{"Mares", "Puck Pro",          DC_FAMILY_MARES_ICONHD , 0x18},
 	{"Mares", "Nemo Wide 2",       DC_FAMILY_MARES_ICONHD , 0x19},
 	/* Heinrichs Weikamp */
 	{"Heinrichs Weikamp", "OSTC",     DC_FAMILY_HW_OSTC, 0},
