@@ -1,6 +1,6 @@
 set HOME=%HOMEPATH%
 cd %TMP%
-rd /S /Q diveboard-plugin
+rd /S /Q "diveboard-plugin"
 "C:\Program Files (x86)\Git\bin\git.exe" clone --depth 1 -- git@diveboard.plan.io:diveboard-db.git "diveboard-plugin"
 
 cd diveboard-plugin
