@@ -34,10 +34,10 @@
 #include <termios.h>
 
 
-void irphy_reset();
-void irphy_send(uint8_t v);
+uint8_t irphy_reset();
+uint8_t irphy_send(uint8_t v);
 uint8_t irphy_wait(int16_t timeout);
-uint8_t irphy_receive(void);
+uint8_t irphy_receive(uint8_t *data);
 uint8_t irphy_set_baud(speed_t baud); //DIVEBOARD
 
 

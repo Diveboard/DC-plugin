@@ -164,7 +164,7 @@ uint16_t irlap_setup_connection(IrLAP_Neg_Param *param_p, size_t param_size);
 
 void irlap_init_context(IrLAP_Context *context_p);
 
-void irlap_send_frame(IrLAP_Frame *frame_p, uint16_t size);
+uint8_t irlap_send_frame(IrLAP_Frame *frame_p, uint16_t size);
 int16_t irlap_receive_frame(IrLAP_Frame *frame_p);
 
 uint8_t irlap1_connect(IrLAP_Context *context_p, IrLAP_Frame *resp_p,

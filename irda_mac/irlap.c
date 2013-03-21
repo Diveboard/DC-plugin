@@ -108,8 +108,7 @@ uint16_t irlap_setup_connection(IrLAP_Neg_Param *param_p, size_t param_size)
   speed_t bauds;
   bauds = irlap_get_neg_baud(param_p, param_size);
   printf("Setting up connection speed to %lu\n", bauds);
-  irphy_set_baud(bauds);
-  return(0);
+  return(irphy_set_baud(bauds));
 }
   
 uint16_t irlap_append_neg_params(uint8_t *info_p)  
@@ -147,9 +146,10 @@ void irlap_init_context(IrLAP_Context *context_p)
   context_p->vs=0;  
 }  
   
-void irlap_send_frame(IrLAP_Frame *frame_p, uint16_t size)  
+uint8_t irlap_send_frame(IrLAP_Frame *frame_p, uint16_t size)  
 {  
-  irphy_send_frame((void*)frame_p, size);
+  uint8_t r = irphy_send_frame((void*)frame_p, size);
+  if (r) return(r);
   printf("\nSENDING (%lu): ", size);
   uint16_t i;
   for (i=0; i<size; i++)
@@ -191,10 +191,13 @@ int16_t irlap_receive_frame(IrLAP_Frame *frame_p)
 {  
   int16_t n;  
   uint8_t fcs0, fcs1, v;  
+  uint8_t r, received;
   do {  
     if(!irphy_wait(IRLAP_TIMEOUT1))  
       return -1;  
-  } while(irphy_receive()!=IRLAP_BOF);  
+    r = irphy_receive(&received);
+    if (r) return(-2);
+  } while(received!=IRLAP_BOF);  
 
   printf("\nRECEIVED: ");
 
@@ -204,12 +207,13 @@ int16_t irlap_receive_frame(IrLAP_Frame *frame_p)
   while(n<sizeof(IrLAP_Frame)) {  
     if(!irphy_wait(IRLAP_TIMEOUT2))  
       return -1;  
-    v=irphy_receive();  
+    r=irphy_receive(&v);  
+    if (r) return(-2);
   
 
     if(v==IRLAP_BOF) {  
       if(n>0)  
-    return -1;  
+        return -1;  
       continue;  
     }  
   
@@ -223,7 +227,9 @@ int16_t irlap_receive_frame(IrLAP_Frame *frame_p)
     if(v==IRLAP_CE) {  
       if(!irphy_wait(IRLAP_TIMEOUT2))  
     return -1;  
-      v=irphy_receive() ^ IRLAP_TRANS;  
+      r=irphy_receive(&v);
+      v=v ^ IRLAP_TRANS;  
+      if (r) return(-2);
     }  
   
     printf("%.2x ", v);
