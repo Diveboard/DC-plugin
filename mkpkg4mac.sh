@@ -32,7 +32,8 @@ VERSION=`cat "$DIR/VERSION"`
 rm -fr "$DIR/build"
 cd "$DIR" 
 firebreath/prepmac.sh projects build
-cd "$DIR/libdivecomputer" && make clean
+cd "$DIR/libdivecomputer"
+make clean
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 
 
@@ -43,11 +44,19 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 cd "$DIR/irda_mac" 
 make
 
+#applying patch for IrDA on Libdivecomputer (will be unpatched after...)
+cd "$DIR/libdivecomputer" 
+patch -N -p1 < "$DIR/irda_mac/libdivecomputer_irda_mac.1.patch"
+
 cd "$DIR/libdivecomputer" 
 autoreconf --install 
 DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch i386' --target=i386 --prefix="$DIR/build/libdivecomputer/i386" && make clean all install
 DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch x86_64' --target=x86_64 --prefix="$DIR/build/libdivecomputer/x86_64" && make clean all install
 lipo -create "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib" -output "$LIBDIVE"
+
+#NOT removing patch for IrDA on Libdivecomputer
+#cd "$DIR/libdivecomputer" 
+#patch -R -p1 < "$DIR/irda_mac/libdivecomputer_irda_mac.1.patch"
 
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 
