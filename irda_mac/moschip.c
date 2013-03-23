@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -23,9 +22,9 @@
 
 #define MAGIC_OPEN    0x20085 //O_NOCTTY|O_RDWR|SYNC //0x20005
 #define MAGIC_IOCTL   0x2000740d
-#define SERVICE_CLASS "AppleIrDA"
-#define dev_name "/dev/cu.IrDA-IrCOMM0"
-#define DEV_NAME "/dev/cu.IrDA-IrCOMM"
+#define SERVICE_CLASS_DRIVER "AppleMCS7780Driver"
+#define SERVICE_CLASS_IRDA "AppleIrDA"
+#define SERVICE_CLASS_COMM "IOSerialBSDClient"
 #define STEP_WAIT     10000 //microseconds
 #define IRLAP_FCS_INIT          0xFF  
 #define IRLAP_EOF           0xC1  
@@ -35,6 +34,7 @@
 //#define kMyDriversIOKitClassName  kIOUSBDeviceClassName
 
 static int dev_fd = -1;
+static io_service_t  irdaServiceObject;
 static io_connect_t  dataPort;
 static uint8_t read_buffer[2048];
 static size_t read_buffer_count = 0;
@@ -87,10 +87,10 @@ uint8_t get_bauds()
                             outbuff, &osize );
 
     if (kernResult != KERN_SUCCESS) {
-        printf("IOConnectCallStructMethod returned %x\n", kernResult);
+        //printf("IOConnectCallStructMethod returned %x\n", kernResult);
         return(1);
     }
-    printf("get_bauds done\n");
+    //printf("get_bauds done\n");
     return(0);
 }
 
@@ -121,10 +121,10 @@ uint8_t irphy_set_baud(speed_t baud)
                           outbuff, &osize );
 
   if (kernResult != KERN_SUCCESS) {
-      printf("IOConnectCallStructMethod returned %x\n", kernResult);
+      //printf("IOConnectCallStructMethod returned %x\n", kernResult);
       return(1);
   }
-  printf("set baud done\n");
+  //printf("set baud done\n");
   return(0);
 }
 
@@ -145,127 +145,124 @@ char unknown_call()
                             outbuff, &osize );
 
     if (kernResult != KERN_SUCCESS) {
-        printf("IOConnectCallStructMethod returned %x\n", kernResult);
+        //printf("IOConnectCallStructMethod returned %x\n", kernResult);
         return(1);
     }
-    printf("unknown_call done\n");
+    //printf("unknown_call done\n");
     return(0);
 }
 
 
-
-
-uint8_t irphy_reset(){
-  kern_return_t kernResult; 
-  mach_port_t   masterPort;
-  io_service_t  serviceObject;
-  io_service_t irdaServiceObject;
-  io_iterator_t   iterator;
-  CFDictionaryRef classToMatch;
-  //DIR *dev;
-  //struct dirent *file;
-  //char dev_name[255] = "";
-
+uint8_t irphy_close(){
   if(dev_fd>=0) {
     IOServiceClose(irdaServiceObject);
     close(dev_fd);  
   }
+}
 
-  //dev = opendir("/dev");
-  //while (file = readdir(dev)) {
-  //  if (!strncmp(DEV_NAME, file->d_name, strnlen(DEV_NAME, 255))) {
-  //    strncpy(file->d_name, dev_name,sizeof(dev_name)-1);
-  //  }
-  //}
-  //closedir("/dev");
+uint8_t irphy_open(){
+  mach_port_t   masterPort;
+  kern_return_t kernResult; 
+  io_iterator_t iterator;
+  io_service_t  serviceObject;
+  io_service_t  driverServiceObject;
+  char          deviceFilePath[255];
 
-  if (!dev_name[0]) {
-    fprintf(stderr, "No device found in /dev like %s*\n", DEV_NAME);
-    return(1);    
+  if(dev_fd>=0) {
+    uint8_t r;
+    r=irphy_close();
   }
-
-  //First we need to open the device and keep it open ! or else it makes the OS crash....
-  dev_fd = open(dev_name, MAGIC_OPEN);
-  if (dev_fd<=0) {
-    fprintf(stderr, "open '%s' failed\n", dev_name);
-    return(1);    
-  }
-
-  if (ioctl(dev_fd, MAGIC_IOCTL) == -1) {
-    fprintf(stderr, "ioctl failed\n");
-    return(1);    
-  }
-
-  tcflush(dev_fd, TCIOFLUSH);
 
   //Get the Master port
   kernResult = IOMasterPort(MACH_PORT_NULL, &masterPort);
   if (kernResult != KERN_SUCCESS) {
-    printf( "IOMasterPort returned %d\n", kernResult);
+    //printf( "IOMasterPort returned %d\n", kernResult);
     return(1);
   }
 
-  //Now iterate through the available services until we find one for AppleIrDA
-  IORegistryCreateIterator(masterPort,
+  //Now iterate through the available services until we find one for the MOSCHIP DRIVER
+  kernResult = IORegistryCreateIterator(masterPort,
     kIOServicePlane,
     kIORegistryIterateRecursively,
     &iterator);
-
-  while (serviceObject = IOIteratorNext(iterator)) {
-    io_name_t totor[255];
-    IOObjectGetClass(serviceObject,totor);
-    printf("Class: %s\n", totor);
-    if (IOObjectConformsTo(serviceObject, SERVICE_CLASS)) {
-      printf("FOUND\n");
-      irdaServiceObject=serviceObject;
-    }
-  }
-  IOObjectRelease(iterator);
-  if (!irdaServiceObject)
-  {
-    printf("Couldn't find any matches for irda.\n");
+  if (kernResult != KERN_SUCCESS) {
+    //printf( "IORegistryCreateIterator returned %d\n", kernResult);
     return(1);
   }
 
+  while (serviceObject = IOIteratorNext(iterator)) {
+    ////Lists all classes with their parent
+    //io_name_t totor[255];
+    //io_name_t totop[255];
+    //io_registry_entry_t parent;
+    //IORegistryEntryGetParentEntry(serviceObject, kIOServicePlane, &parent);
+    //IOObjectGetClass(serviceObject,totor);
+    //IOObjectGetClass(parent,totop);
+    //printf("Class: %s > %s\n", totop, totor);
 
-
-
-
-
-
-  char deviceFilePath[255];
-  CFIndex maxPathSize = 254;
-  CFTypeRef deviceFilePathAsCFString;
-  deviceFilePathAsCFString = IORegistryEntryCreateCFProperty(irdaServiceObject,
-                                CFSTR(kIOCalloutDeviceKey),
-                                kCFAllocatorDefault,
-                                0);
-    printf("YYY\n");
-  if (deviceFilePathAsCFString)
-  {
-    printf("XXX\n");
-    char result;
- 
-    // Convert the path from a CFString to a NULL-terminated C string
-    // for use with the POSIX open() call.
-    result = CFStringGetCString(deviceFilePathAsCFString,
-                                    deviceFilePath,
-                                    maxPathSize,
-                                    kCFStringEncodingASCII);
-    CFRelease(deviceFilePathAsCFString);
-
-    if (result)
-    {
-        printf("BSD path: %s\n", deviceFilePath);
+    if (IOObjectConformsTo(serviceObject, SERVICE_CLASS_IRDA)) {
+      //printf("FOUND\n");
+      irdaServiceObject=serviceObject;
+      IORegistryEntryGetParentEntry(irdaServiceObject, kIOServicePlane, &driverServiceObject);
     }
   }
- 
+  IOObjectRelease(iterator);
+  if (!driverServiceObject || !irdaServiceObject)
+  {
+    //printf("Couldn't find any matches for IrDA MOSCHIP driver.\n");
+    return(1);
+  }
 
+  //Get the /dev/cu.IrDA-IrCOMM* associated with this MOSCHIP instance
+  kernResult = IORegistryEntryCreateIterator(driverServiceObject, kIOServicePlane, kIORegistryIterateRecursively, &iterator);
+  if (kernResult != KERN_SUCCESS) {
+    //printf( "IORegistryEntryCreateIterator returned %d\n", kernResult);
+    return(1);
+  }
 
+  while (serviceObject = IOIteratorNext(iterator)) {
+    CFIndex maxPathSize = 254;
+    CFTypeRef deviceFilePathAsCFString;
+    deviceFilePathAsCFString = IORegistryEntryCreateCFProperty(serviceObject,
+                                  CFSTR(kIOCalloutDeviceKey),
+                                  kCFAllocatorDefault,
+                                  0);
+    if (deviceFilePathAsCFString)
+    {
+      char result;
+      // Convert the path from a CFString to a NULL-terminated C string
+      // for use with the POSIX open() call.
+      result = CFStringGetCString(deviceFilePathAsCFString,
+                                      deviceFilePath,
+                                      maxPathSize,
+                                      kCFStringEncodingASCII);
+      CFRelease(deviceFilePathAsCFString);
+    }
+  } 
 
+  IOObjectRelease(iterator);
 
+  if (!deviceFilePath[0])
+  {
+    //printf("No block device found for IrDA MOSCHIP in /dev.\n");
+    return(1);
+  }
 
+  //printf("Using block device %s\n", deviceFilePath);
 
+  //First we need to open the device and keep it open ! or else it makes the OS crash....
+  dev_fd = open(deviceFilePath, MAGIC_OPEN);
+  if (dev_fd<=0) {
+    //fprintf(stderr, "open '%s' failed\n", deviceFilePath);
+    return(1);    
+  }
+
+  if (ioctl(dev_fd, MAGIC_IOCTL) == -1) {
+    //fprintf(stderr, "ioctl failed\n");
+    return(1);    
+  }
+
+  tcflush(dev_fd, TCIOFLUSH);
 
 
 
@@ -273,7 +270,7 @@ uint8_t irphy_reset(){
   kernResult = IOServiceOpen(irdaServiceObject, mach_task_self(), 123, &dataPort);
   IOObjectRelease(irdaServiceObject);
   if (kernResult != KERN_SUCCESS) {
-      printf("IOServiceOpen returned %x\n", kernResult);
+      //printf("IOServiceOpen returned %x\n", kernResult);
       return(1);
   }
 
@@ -283,7 +280,7 @@ uint8_t irphy_reset(){
 
 uint8_t irphy_send_frame(unsigned char *data, uint16_t size){  
   if (!write(dev_fd, data, size)) {
-    printf("ERROR: write error\n");
+    //printf("ERROR: write error\n");
     return(1);
   }
   return(0);
@@ -306,7 +303,7 @@ uint8_t irphy_wait(int16_t ms_timeout){
 
 uint8_t irphy_receive(uint8_t *data){
   if (read_buffer_count == 0) {
-    printf("ERROR: Read data is empty !!!\n");
+    //printf("ERROR: Read data is empty !!!\n");
     return(2);
   }
   uint8_t ret;
@@ -340,7 +337,7 @@ int receive_char() {
                           read_buffer2, &osize );
 
   if (kernResult != KERN_SUCCESS) {
-      printf("IOConnectCallStructMethod returned %x in receive_char\n", kernResult);
+      //printf("IOConnectCallStructMethod returned %x in receive_char\n", kernResult);
       return(-1);
   }
 
@@ -353,10 +350,10 @@ int receive_char() {
     //reconstructing the frame for IRLAP....
     fcs0=IRLAP_FCS_INIT;  
     fcs1=IRLAP_FCS_INIT;
-    printf("[");
+    //printf("[");
     for (i=0; i<osize; i++) {
       v = read_buffer2[i];
-      printf("%x ", v);
+      //printf("%x ", v);
       v^=fcs0;  
       fcs0=fcs1;  
       fcs1=v;  
@@ -366,7 +363,7 @@ int receive_char() {
       fcs0^=fcs1<<3;  
       fcs1^=fcs1>>5;  
     }
-    printf("] (%lu)\n", osize);
+    //printf("] (%lu)\n", osize);
 
     read_buffer2[osize+0] = ~fcs0;
     read_buffer2[osize+1] = ~fcs1;

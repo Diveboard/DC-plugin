@@ -95,12 +95,12 @@ static uint8_t lmp_connect(IrLAP_Context *context_p, IrLMP_Frame *resp_p,
                     (IrLAP_Frame *)resp_p))<sizeof(IrLMP_Head)+sizeof(IrLMP_Ctl))  
     return 0;  
   
-  printf("first comm LMP_CONNECT received...\n");
+  //printf("first comm LMP_CONNECT received...\n");
 
   if(resp_p->u.ctl.opcode!=(IRLMP_OP_CONNECT | IRLMP_OP_A_MASK))  
     return 0;  
 
-  printf("first comm LMP_CONNECT WORKED\n");
+  //printf("first comm LMP_CONNECT WORKED\n");
   
   /*DIVEBOARD
   //DIVEBOARD req_p->head.dlsap_sel=0;  

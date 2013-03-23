@@ -34,7 +34,8 @@
 #include <termios.h>
 
 
-uint8_t irphy_reset();
+uint8_t irphy_open();
+uint8_t irphy_close();
 uint8_t irphy_send(uint8_t v);
 uint8_t irphy_wait(int16_t timeout);
 uint8_t irphy_receive(uint8_t *data);

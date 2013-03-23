@@ -107,7 +107,7 @@ uint16_t irlap_setup_connection(IrLAP_Neg_Param *param_p, size_t param_size)
 {
   speed_t bauds;
   bauds = irlap_get_neg_baud(param_p, param_size);
-  printf("Setting up connection speed to %lu\n", bauds);
+  //printf("Setting up connection speed to %lu\n", bauds);
   return(irphy_set_baud(bauds));
 }
   
@@ -150,12 +150,12 @@ uint8_t irlap_send_frame(IrLAP_Frame *frame_p, uint16_t size)
 {  
   uint8_t r = irphy_send_frame((void*)frame_p, size);
   if (r) return(r);
-  printf("\nSENDING (%lu): ", size);
+  //printf("\nSENDING (%lu): ", size);
   uint16_t i;
+  /* DIVEBOARD
   for (i=0; i<size; i++)
     printf("%.2x ", ((uint8_t*) frame_p)[i]);
   printf("\n");
-  /* DIVEBOARD
   uint16_t i;  
   uint8_t fcs0, fcs1, v;  
   
@@ -199,7 +199,7 @@ int16_t irlap_receive_frame(IrLAP_Frame *frame_p)
     if (r) return(-2);
   } while(received!=IRLAP_BOF);  
 
-  printf("\nRECEIVED: ");
+  //printf("\nRECEIVED: ");
 
   fcs0=IRLAP_FCS_INIT;  
   fcs1=IRLAP_FCS_INIT;  
@@ -220,7 +220,7 @@ int16_t irlap_receive_frame(IrLAP_Frame *frame_p)
     if(v==IRLAP_EOF) { 
       if(n<2 || fcs0!=IRLAP_FCS_GOOD0 || fcs1!=IRLAP_FCS_GOOD1)  
     return -1;  
-      printf("\n");
+      //printf("\n");
       return n-2;  
     }  
   
@@ -232,7 +232,7 @@ int16_t irlap_receive_frame(IrLAP_Frame *frame_p)
       if (r) return(-2);
     }  
   
-    printf("%.2x ", v);
+    //printf("%.2x ", v);
 
     ((uint8_t *)frame_p)[n++]=v;  
   

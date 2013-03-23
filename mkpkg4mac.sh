@@ -39,10 +39,14 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 ###
 ### Build everything
 ###
+
+cd "$DIR/irda_mac" 
+make
+
 cd "$DIR/libdivecomputer" 
 autoreconf --install 
-./configure CFLAGS='-arch i386' --target=i386 --prefix="$DIR/build/libdivecomputer/i386" && make clean all install
-./configure CFLAGS='-arch x86_64' --target=x86_64 --prefix="$DIR/build/libdivecomputer/x86_64" && make clean all install
+DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch i386' --target=i386 --prefix="$DIR/build/libdivecomputer/i386" && make clean all install
+DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch x86_64' --target=x86_64 --prefix="$DIR/build/libdivecomputer/x86_64" && make clean all install
 lipo -create "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib" -output "$LIBDIVE"
 
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build

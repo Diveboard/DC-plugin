@@ -157,20 +157,20 @@ uint8_t irlap1_connect(IrLAP_Context *context_p, IrLAP_Frame *resp_p,
         goto finished;  
     }
 
-    printf("\nHINT\n");
+    //printf("\nHINT\n");
 
     param_len = old_len;
     req.u.discovery.slot = 0xff;
     irlap_send_frame((IrLAP_Frame *)&req, sizeof(IrLAP_Head)+sizeof(IrLAP_Discovery)+param_len);  
     if((n=wait_response(context_p, resp_p, IRLAP_CTRL_U_MASK, IRLAP_CTRL_U_XID_RESP, 0))>=0)  
       goto finished;  
-    printf("\nEND\n");
+    //printf("\nEND\n");
   }
 finished:  
   if(attempt>=IRLAP_RETRY_ATTEMPTS)  
     return 0;  
   
-  printf("IrLAP detection done\n");
+  //printf("IrLAP detection done\n");
 
   req.head.addr=IRLAP_ADDR_BROADCAST | IRLAP_ADDR_C_TEST;  
   req.head.ctrl=IRLAP_CTRL_U_SNRM_CMD | IRLAP_CTRL_P_F_MASK;  
@@ -193,7 +193,7 @@ finished:
   context_p->vr=0;  
   context_p->vs=0;  
   
-  printf("IrLAP connection done\n");
+  //printf("IrLAP connection done\n");
 
   irlap_setup_connection(resp_p->u.ua.info, n-sizeof(IrLAP_Head)-sizeof(IrLAP_UA));
 
