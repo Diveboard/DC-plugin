@@ -99,6 +99,7 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Genesis", "React Pro", DC_FAMILY_OCEANIC_VEO250, 0x4247},
 	{"Oceanic", "Veo 200",   DC_FAMILY_OCEANIC_VEO250, 0x424B},
 	{"Oceanic", "Veo 250",   DC_FAMILY_OCEANIC_VEO250, 0x424C},
+	{"Seemann", "XP5",       DC_FAMILY_OCEANIC_VEO250, 0x4251},
 	{"Oceanic", "Veo 180",   DC_FAMILY_OCEANIC_VEO250, 0x4252},
 	{"Aeris",   "XR-2",      DC_FAMILY_OCEANIC_VEO250, 0x4255},
 	{"Sherwood", "Insight",  DC_FAMILY_OCEANIC_VEO250, 0x425A},
@@ -132,6 +133,7 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Oceanic",  "OCS",                 DC_FAMILY_OCEANIC_ATOM2, 0x4450},
 	{"Oceanic",  "VT 4.1",              DC_FAMILY_OCEANIC_ATOM2, 0x4452},
 	{"Aeris",    "Epic",                DC_FAMILY_OCEANIC_ATOM2, 0x4453},
+	{"Aeris",    "Elite T3",            DC_FAMILY_OCEANIC_ATOM2, 0x4455},
 	{"Oceanic",  "Atom 3.1",            DC_FAMILY_OCEANIC_ATOM2, 0x4456},
 	{"Aeris",    "A300 AI",             DC_FAMILY_OCEANIC_ATOM2, 0x4457},
 	{"Sherwood", "Wisdom 3",            DC_FAMILY_OCEANIC_ATOM2, 0x4458},
@@ -162,6 +164,8 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Heinrichs Weikamp", "Frog", DC_FAMILY_HW_FROG, 0},
 	/* Cressi Edy */
 	{"Cressi", "Edy", DC_FAMILY_CRESSI_EDY, 0},
+	/* Cressi Leonardo */
+	{"Cressi", "Leonardo", DC_FAMILY_CRESSI_LEONARDO, 0},
 	/* Zeagle N2iTiON3 */
 	{"Zeagle",   "N2iTiON3",   DC_FAMILY_ZEAGLE_N2ITION3, 0},
 	{"Apeks",    "Quantum X",  DC_FAMILY_ZEAGLE_N2ITION3, 0},

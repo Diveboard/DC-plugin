@@ -9,8 +9,8 @@
 #endif
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     0,3,0,0
-PRODUCTVERSION  0,3,0,0
+FILEVERSION     0,4,0,0
+PRODUCTVERSION  0,4,0,0
 FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
 #ifdef HAVE_VERSION_SUFFIX
 FILEFLAGS       VS_FF_PRERELEASE
@@ -27,12 +27,12 @@ BEGIN
 		BEGIN
 			VALUE "CompanyName", "The libdivecomputer developers"
 			VALUE "FileDescription", "A library for communication with various dive computers."
-			VALUE "FileVersion", "0.3.0-devel"
+			VALUE "FileVersion", "0.4.0-devel"
 			VALUE "InternalName", "libdivecomputer"
 			VALUE "LegalCopyright", "Copyright © 2010 Jef Driesen"
 			VALUE "OriginalFilename", "libdivecomputer.dll"
 			VALUE "ProductName", "libdivecomputer"
-			VALUE "ProductVersion", "0.3.0-devel"
+			VALUE "ProductVersion", "0.4.0-devel"
 #ifdef HAVE_VERSION_SUFFIX
 			VALUE "Comments", DC_VERSION_REVISION
 #endif

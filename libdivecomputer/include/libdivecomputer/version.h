@@ -26,9 +26,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define DC_VERSION "0.3.0-devel"
+#define DC_VERSION "0.4.0-devel"
 #define DC_VERSION_MAJOR 0
-#define DC_VERSION_MINOR 3
+#define DC_VERSION_MINOR 4
 #define DC_VERSION_MICRO 0
 
 #define DC_VERSION_CHECK(major,minor,micro) \

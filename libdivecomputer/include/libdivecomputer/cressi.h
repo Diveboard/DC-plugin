@@ -23,5 +23,6 @@
 #define CRESSI_H
 
 #include "cressi_edy.h"
+#include "cressi_leonardo.h"
 
 #endif /* CRESSI_H */
