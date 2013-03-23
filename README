@@ -120,9 +120,10 @@ A/ IRDA INTEGRATION FOR MAC
       cd irda_mac ; make
   - Patch libdivecomputer
       cd ../libdivecomputer
+      cp ../irda_mac/irda_mac.c src/
       patch -N -p1 < ../irda_mac/libdivecomputer_irda_mac.1.patch
   - Configure libdivecomputer with the IrDA Library
-      DYLD_LIBRARY_PATH=/full_path_to_diveboard_db/irda_mac CPPFLAGS=-I/full_path_to_diveboard_db/irda_mac/ LDFLAGS=-L/full_path_to_diveboard_db/irda_mac LIBS="-lirda" ./configure
+      DYLD_LIBRARY_PATH=$(pwd)/../irda_mac CPPFLAGS=-I$(pwd)/../irda_mac/ LDFLAGS=-L$(pwd)/../irda_mac LIBS="-lirda" ./configure
   - Compile libdivecomputer
       make
   - Tell the linker where the IrDA Library will be installed

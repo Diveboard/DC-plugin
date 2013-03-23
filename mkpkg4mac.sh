@@ -47,6 +47,7 @@ make
 #applying patch for IrDA on Libdivecomputer (will be unpatched after...)
 cd "$DIR/libdivecomputer" 
 patch -N -p1 < "$DIR/irda_mac/libdivecomputer_irda_mac.1.patch"
+cp "$DIR/irda_mac/irda_mac.c" "$DIR/libdivecomputer/src/"
 
 cd "$DIR/libdivecomputer" 
 autoreconf --install 
