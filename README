@@ -116,7 +116,6 @@ ANNEXES
 
 A/ IRDA INTEGRATION FOR MAC
 
-Step by step:
   - Build IRDA library
       cd irda_mac ; make
   - Patch libdivecomputer
@@ -129,10 +128,16 @@ Step by step:
   - Tell the linker where the IrDA Library will be installed
       install_name_tool -change irda.dylib "/Library/Internet Plug-Ins/DiveBoard.plugin/Contents/MacOS/irda.dylib" src/.libs/libdivecomputer.dylib
 
+B/ CODE UPDATE FOR LIBDIVECOMPUTER
+
+  - look into git log for previous libdivecomputer commit number
+  - cd /tmp
+  - git clone git://libdivecomputer.git.sourceforge.net/gitroot/libdivecomputer/libdivecomputer
+  - cd libdivecomputer
+  - git diff previous_ldc_commit HEAD > /tmp/ldc.path
+  - cd /.../dev_env
+  - patch -N -p1 < /tmp/ldc.patch
+  - include the latest commit number from libdivecomputer into the commit comment
 
 
-
-
-
-CODE UPDATE FOR LIBDIVECOMPUTER
 
