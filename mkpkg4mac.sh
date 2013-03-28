@@ -6,6 +6,7 @@ PLUGINDIR="$DIR/build/projects/DiveBoard/Release/DiveBoard.plugin"
 BUILDDIR="$PLUGINDIR/Contents/MacOS"
 OUTDIR="$DIR/build/packages"
 LIBDIVE="$DIR/build/libdivecomputer/libdivecomputer.dylib"
+LIBIRDA="$DIR/irda_mac/irda.dylib"
 LOCTMPDIR=/tmp
 PKGNAME=diveboard.pkg
 
@@ -53,6 +54,11 @@ cd "$DIR/libdivecomputer"
 autoreconf --install 
 DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch i386' --target=i386 --prefix="$DIR/build/libdivecomputer/i386" && make clean all install
 DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch x86_64' --target=x86_64 --prefix="$DIR/build/libdivecomputer/x86_64" && make clean all install
+#Fixing the search path for IrDA Library
+for lib in "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib"
+do
+  install_name_tool -change irda.dylib "/Library/Internet Plug-Ins/DiveBoard.plugin/Contents/MacOS/irda.dylib" "$lib"
+done
 lipo -create "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib" -output "$LIBDIVE"
 
 #NOT removing patch for IrDA on Libdivecomputer
@@ -67,6 +73,7 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
 
 # Copy libdivecomputer into Diveboard.plugin directory
 cp "$LIBDIVE" "$BUILDDIR/liblibdivecomputer.dylib"
+cp "$LIBIRDA" "$BUILDDIR/irda.dylib"
 
 # Create the package
 echo "Launching packagemaker"
