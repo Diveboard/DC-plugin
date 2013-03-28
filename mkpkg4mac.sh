@@ -44,6 +44,10 @@ xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj clean
 
 cd "$DIR/irda_mac" 
 make
+if [[ $? -ne 0 ]] || [[ ! -f "$LIBIRDA"  ]]; then
+  echo "Error compiling IrDA Library"
+  exit 1
+fi
 
 #applying patch for IrDA on Libdivecomputer (will be unpatched after...)
 cd "$DIR/libdivecomputer" 
@@ -53,19 +57,39 @@ cp "$DIR/irda_mac/irda_mac.c" "$DIR/libdivecomputer/src/"
 cd "$DIR/libdivecomputer" 
 autoreconf --install 
 DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch i386' --target=i386 --prefix="$DIR/build/libdivecomputer/i386" && make clean all install
+if [[ $? -ne 0 ]]; then
+  echo "Error compiling libdivecomputer for i386"
+  exit 1
+fi
 DYLD_LIBRARY_PATH="$DIR/irda_mac" CPPFLAGS="-I$DIR/irda_mac/" LDFLAGS="-L$DIR/irda_mac" LIBS="-lirda" ./configure CFLAGS='-arch x86_64' --target=x86_64 --prefix="$DIR/build/libdivecomputer/x86_64" && make clean all install
+if [[ $? -ne 0 ]]; then
+  echo "Error compiling libdivecomputer for x86_64"
+  exit 1
+fi
 #Fixing the search path for IrDA Library
 for lib in "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib"
 do
   install_name_tool -change irda.dylib "/Library/Internet Plug-Ins/DiveBoard.plugin/Contents/MacOS/irda.dylib" "$lib"
+  if [[ $? -ne 0 ]]; then
+    echo "Error updating path for irda lib within libdivecomputer"
+    exit 1
+  fi
 done
 lipo -create "$DIR/build/libdivecomputer/"*"/lib/libdivecomputer.0.dylib" -output "$LIBDIVE"
+if [[ $? -ne 0 ]] || [[ ! -f "$LIBDIVE"  ]]; then
+  echo "Error linking libdivecomputer"
+  exit 1
+fi
 
 #NOT removing patch for IrDA on Libdivecomputer
 #cd "$DIR/libdivecomputer" 
 #patch -R -p1 < "$DIR/irda_mac/libdivecomputer_irda_mac.1.patch"
 
 xcodebuild -configuration Release -project $DIR/build/FireBreath.xcodeproj build
+if [[ $? -ne 0 ]]; then
+  echo "Error compiling FireBreath plugin"
+  exit 1
+fi
 
 ###
 ### Create package of Diveboard.plugin directory
