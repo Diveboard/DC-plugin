@@ -105,6 +105,8 @@
     <ClCompile Include="..\src\context.c" />
     <ClCompile Include="..\src\cressi_edy.c" />
     <ClCompile Include="..\src\cressi_edy_parser.c" />
+    <ClCompile Include="..\src\cressi_leonardo.c" />
+    <ClCompile Include="..\src\cressi_leonardo_parser.c" />
     <ClCompile Include="..\src\datetime.c" />
     <ClCompile Include="..\src\descriptor.c" />
     <ClCompile Include="..\src\device.c" />
@@ -164,6 +166,7 @@
     <ClInclude Include="..\include\libdivecomputer\atomics_cobalt.h" />
     <ClInclude Include="..\include\libdivecomputer\buffer.h" />
     <ClInclude Include="..\include\libdivecomputer\checksum.h" />
+    <ClInclude Include="..\include\libdivecomputer\cressi_leonardo.h" />
     <ClInclude Include="..\src\context-private.h" />
     <ClInclude Include="..\include\libdivecomputer\context.h" />
     <ClInclude Include="..\include\libdivecomputer\cressi.h" />
