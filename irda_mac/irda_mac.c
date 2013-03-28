@@ -73,6 +73,8 @@ irda_socket_open (irda_t **out, dc_context_t *context)
   irda->dlsap_sel = 1;  
   if (!irttp1_connect (&(irda->ctx), &frame, 0/*addr_p*/, 0 /*unused: IRLMP_HINT1_COMM*/, "CLASSNAME", "LSAP_NAME", MY_LSAP_SEL_VAL, &(irda->dlsap_sel))){
     printf("irttp1_connect failed\n");
+    irphy_close();
+    device->fd=-1;
     return(-1);
   }
   printf("irttp1_connect WORKED !!!\n");
