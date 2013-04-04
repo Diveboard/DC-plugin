@@ -426,7 +426,7 @@ int ComputerSuunto::_get_all_dives(std::string &xml)
 				% dive.min_temperature
 				% dive.altitude
 				% (dive.surface_hour*3600+dive.surface_min*60));
-			xml += str(boost::format("<GASES><MIX>%f</MIX></GASES>") % dive.O2);
+			xml += str(boost::format("<GASES><MIX><MIXNAME>1</MIXNAME><O2>%f</O2><N2>%f</N2><HE>0.0</HE></MIX></GASES>") % (dive.O2/100.0) % (1.0-dive.O2/100.0) );
 
 			xml += str(boost::format("<PROGRAM><PRESSTART>%f</PRESSTART><PRESEND>%f</PRESEND><TEMPEND>%f</TEMPEND><REPDIVENUM>%d</REPDIVENUM><TEMPAIR>%f</TEMPAIR></PROGRAM>")
 				% dive.start_pressure
