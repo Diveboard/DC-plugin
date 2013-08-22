@@ -31,6 +31,8 @@
 #include "ringbuffer.h"
 #include "checksum.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &oceanic_vtpro_device_vtable)
+
 #define MAXRETRIES 2
 #define MULTIPAGE  4
 
@@ -51,7 +53,7 @@ typedef struct oceanic_vtpro_device_t {
 static dc_status_t oceanic_vtpro_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
 static dc_status_t oceanic_vtpro_device_close (dc_device_t *abstract);
 
-static const device_backend_t oceanic_vtpro_device_backend = {
+static const dc_device_vtable_t oceanic_vtpro_device_vtable = {
 	DC_FAMILY_OCEANIC_VTPRO,
 	oceanic_common_device_set_fingerprint, /* set_fingerprint */
 	oceanic_vtpro_device_read, /* read */
@@ -63,9 +65,11 @@ static const device_backend_t oceanic_vtpro_device_backend = {
 
 static const oceanic_common_version_t oceanic_vtpro_version[] = {
 	{"VERSAPRO \0\0 256K"},
+	{"ATMOSTWO \0\0 256K"},
 	{"PROPLUS2 \0\0 256K"},
 	{"ATMOSAIR \0\0 256K"},
 	{"VTPRO  r\0\0  256K"},
+	{"ELITE  r\0\0  256K"},
 };
 
 static const oceanic_common_version_t oceanic_wisdom_version[] = {
@@ -97,15 +101,6 @@ static const oceanic_common_layout_t oceanic_wisdom_layout = {
 	0, /* pt_mode_global */
 	0 /* pt_mode_logbook */
 };
-
-static int
-device_is_oceanic_vtpro (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &oceanic_vtpro_device_backend;
-}
 
 
 static dc_status_t
@@ -270,7 +265,7 @@ oceanic_vtpro_device_open (dc_device_t **out, dc_context_t *context, const char 
 	}
 
 	// Initialize the base class.
-	oceanic_common_device_init (&device->base, context, &oceanic_vtpro_device_backend);
+	oceanic_common_device_init (&device->base, context, &oceanic_vtpro_device_vtable);
 
 	// Override the base class values.
 	device->base.multipage = MULTIPAGE;
@@ -364,9 +359,6 @@ oceanic_vtpro_device_close (dc_device_t *abstract)
 {
 	oceanic_vtpro_device_t *device = (oceanic_vtpro_device_t*) abstract;
 
-	if (! device_is_oceanic_vtpro (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Switch the device back to surface mode.
 	oceanic_vtpro_quit (device);
 
@@ -388,7 +380,7 @@ oceanic_vtpro_device_keepalive (dc_device_t *abstract)
 {
 	oceanic_vtpro_device_t *device = (oceanic_vtpro_device_t*) abstract;
 
-	if (! device_is_oceanic_vtpro (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	// Send the command to the dive computer.
@@ -413,7 +405,7 @@ oceanic_vtpro_device_version (dc_device_t *abstract, unsigned char data[], unsig
 {
 	oceanic_vtpro_device_t *device = (oceanic_vtpro_device_t*) abstract;
 
-	if (! device_is_oceanic_vtpro (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	if (size < PAGESIZE)
@@ -473,9 +465,6 @@ static dc_status_t
 oceanic_vtpro_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
 	oceanic_vtpro_device_t *device = (oceanic_vtpro_device_t*) abstract;
-
-	if (! device_is_oceanic_vtpro (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	if ((address % PAGESIZE != 0) ||
 		(size    % PAGESIZE != 0))

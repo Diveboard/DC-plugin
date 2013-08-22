@@ -1,7 +1,7 @@
 /*
  * libdivecomputer
  *
- * Copyright (C) 2012 Jef Driesen
+ * Copyright (C) 2013 Jef Driesen
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,47 +19,37 @@
  * MA 02110-1301 USA
  */
 
-#ifndef DC_DESCRIPTOR_H
-#define DC_DESCRIPTOR_H
+#ifndef HW_OSTC3_H
+#define HW_OSTC3_H
 
-#include "common.h"
-#include "iterator.h"
+#include "context.h"
+#include "device.h"
+#include "parser.h"
+#include "buffer.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-typedef enum dc_transport_t {
-	DC_TRANSPORT_NONE,
-	DC_TRANSPORT_SERIAL,
-	DC_TRANSPORT_USB,
-	DC_TRANSPORT_IRDA
-} dc_transport_t;
-
-typedef struct dc_descriptor_t dc_descriptor_t;
+#define HW_OSTC3_DISPLAY_SIZE    16
+#define HW_OSTC3_CUSTOMTEXT_SIZE 60
 
 dc_status_t
-dc_descriptor_iterator (dc_iterator_t **iterator);
+hw_ostc3_device_open (dc_device_t **device, dc_context_t *context, const char *name);
 
-void
-dc_descriptor_free (dc_descriptor_t *descriptor);
+dc_status_t
+hw_ostc3_device_version (dc_device_t *device, unsigned char data[], unsigned int size);
 
-const char *
-dc_descriptor_get_vendor (dc_descriptor_t *descriptor);
+dc_status_t
+hw_ostc3_device_clock (dc_device_t *device, const dc_datetime_t *datetime);
 
-const char *
-dc_descriptor_get_product (dc_descriptor_t *descriptor);
+dc_status_t
+hw_ostc3_device_display (dc_device_t *device, const char *text);
 
-dc_family_t
-dc_descriptor_get_type (dc_descriptor_t *descriptor);
-
-unsigned int
-dc_descriptor_get_model (dc_descriptor_t *descriptor);
-
-dc_transport_t
-dc_descriptor_get_transport (dc_descriptor_t *descriptor);
+dc_status_t
+hw_ostc3_device_customtext (dc_device_t *device, const char *text);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* DC_DESCRIPTOR_H */
+#endif /* HW_OSTC3_H */

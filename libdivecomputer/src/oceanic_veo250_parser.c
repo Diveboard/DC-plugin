@@ -29,6 +29,13 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &oceanic_veo250_parser_vtable)
+
+#define REACTPRO 0x4247
+#define VEO200   0x424B
+#define VEO250   0x424C
+#define REACTPROWHITE 0x4354
+
 typedef struct oceanic_veo250_parser_t oceanic_veo250_parser_t;
 
 struct oceanic_veo250_parser_t {
@@ -46,7 +53,7 @@ static dc_status_t oceanic_veo250_parser_get_field (dc_parser_t *abstract, dc_fi
 static dc_status_t oceanic_veo250_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t oceanic_veo250_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t oceanic_veo250_parser_backend = {
+static const dc_parser_vtable_t oceanic_veo250_parser_vtable = {
 	DC_FAMILY_OCEANIC_VEO250,
 	oceanic_veo250_parser_set_data, /* set_data */
 	oceanic_veo250_parser_get_datetime, /* datetime */
@@ -54,16 +61,6 @@ static const parser_backend_t oceanic_veo250_parser_backend = {
 	oceanic_veo250_parser_samples_foreach, /* samples_foreach */
 	oceanic_veo250_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_oceanic_veo250 (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &oceanic_veo250_parser_backend;
-}
 
 
 dc_status_t
@@ -80,7 +77,7 @@ oceanic_veo250_parser_create (dc_parser_t **out, dc_context_t *context, unsigned
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &oceanic_veo250_parser_backend);
+	parser_init (&parser->base, context, &oceanic_veo250_parser_vtable);
 
 	// Set the default values.
 	parser->model = model;
@@ -97,9 +94,6 @@ oceanic_veo250_parser_create (dc_parser_t **out, dc_context_t *context, unsigned
 static dc_status_t
 oceanic_veo250_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_oceanic_veo250 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.
 	free (abstract);
 
@@ -111,9 +105,6 @@ static dc_status_t
 oceanic_veo250_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	oceanic_veo250_parser_t *parser = (oceanic_veo250_parser_t *) abstract;
-
-	if (! parser_is_oceanic_veo250 (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Reset the cache.
 	parser->cached = 0;
@@ -142,8 +133,10 @@ oceanic_veo250_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *dateti
 		datetime->minute = p[2];
 		datetime->second = 0;
 
-		if (parser->model == 0x424B || parser->model == 0x424C)
+		if (parser->model == VEO200 || parser->model == VEO250)
 			datetime->year += 3;
+		else if (parser->model == REACTPRO)
+			datetime->year += 2;
 	}
 
 	return DC_STATUS_SUCCESS;
@@ -208,9 +201,7 @@ oceanic_veo250_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, un
 static dc_status_t
 oceanic_veo250_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
-	if (! parser_is_oceanic_veo250 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
+	oceanic_veo250_parser_t *parser = (oceanic_veo250_parser_t *) abstract;
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
@@ -219,7 +210,12 @@ oceanic_veo250_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback
 
 	unsigned int time = 0;
 	unsigned int interval = 0;
-	switch (data[0x27] & 0x03) {
+	unsigned int interval_idx = data[0x27] & 0x03;
+	if (parser->model == REACTPRO || parser->model == REACTPROWHITE) {
+		interval_idx += 1;
+		interval_idx %= 4;
+	}
+	switch (interval_idx) {
 	case 0:
 		interval = 2;
 		break;
@@ -261,7 +257,12 @@ oceanic_veo250_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback
 		if (callback) callback (DC_SAMPLE_DEPTH, sample, userdata);
 
 		// Temperature (°F)
-		unsigned int temperature = data[offset + 7];
+		unsigned int temperature;
+		if (parser->model == REACTPRO || parser->model == REACTPROWHITE) {
+			temperature = data[offset + 6];
+		} else {
+			temperature = data[offset + 7];
+		}
 		sample.temperature = (temperature - 32.0) * (5.0 / 9.0);
 		if (callback) callback (DC_SAMPLE_TEMPERATURE, sample, userdata);
 

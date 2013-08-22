@@ -28,6 +28,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &suunto_d9_parser_vtable)
+
 #define MAXPARAMS 3
 
 #define D9       0x0E
@@ -41,6 +43,7 @@
 #define D4i      0x19
 #define D6i      0x1A
 #define D9tx     0x1B
+#define DX       0x1C
 
 #define AIR      0
 #define NITROX   1
@@ -72,7 +75,7 @@ static dc_status_t suunto_d9_parser_get_field (dc_parser_t *abstract, dc_field_t
 static dc_status_t suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t suunto_d9_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t suunto_d9_parser_backend = {
+static const dc_parser_vtable_t suunto_d9_parser_vtable = {
 	DC_FAMILY_SUUNTO_D9,
 	suunto_d9_parser_set_data, /* set_data */
 	suunto_d9_parser_get_datetime, /* datetime */
@@ -80,16 +83,6 @@ static const parser_backend_t suunto_d9_parser_backend = {
 	suunto_d9_parser_samples_foreach, /* samples_foreach */
 	suunto_d9_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_suunto_d9 (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &suunto_d9_parser_backend;
-}
 
 
 dc_status_t
@@ -106,7 +99,7 @@ suunto_d9_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int 
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &suunto_d9_parser_backend);
+	parser_init (&parser->base, context, &suunto_d9_parser_vtable);
 
 	// Set the default values.
 	parser->model = model;
@@ -120,9 +113,6 @@ suunto_d9_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int 
 static dc_status_t
 suunto_d9_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_suunto_d9 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.	
 	free (abstract);
 
@@ -133,9 +123,6 @@ suunto_d9_parser_destroy (dc_parser_t *abstract)
 static dc_status_t
 suunto_d9_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
-	if (! parser_is_suunto_d9 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	return DC_STATUS_SUCCESS;
 }
 
@@ -146,7 +133,7 @@ suunto_d9_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 	suunto_d9_parser_t *parser = (suunto_d9_parser_t*) abstract;
 
 	unsigned int offset = 0x11;
-	if (parser->model == HELO2)
+	if (parser->model == HELO2 || parser->model == DX)
 		offset = 0x17;
 	else if (parser->model == D4i || parser->model == D6i || parser->model == D9tx)
 		offset = 0x13;
@@ -157,7 +144,8 @@ suunto_d9_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *datetime)
 	const unsigned char *p = abstract->data + offset;
 
 	if (datetime) {
-		if (parser->model == D4i || parser->model == D6i || parser->model == D9tx) {
+		if (parser->model == D4i || parser->model == D6i ||
+			parser->model == D9tx || parser->model == DX) {
 			datetime->year   = p[0] + (p[1] << 8);
 			datetime->month  = p[2];
 			datetime->day    = p[3];
@@ -203,6 +191,9 @@ suunto_d9_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigne
 	} else if (parser->model == D9tx) {
 		gasmix_offset = 0x87;
 		gasmix_count = 8;
+	} else if (parser->model == DX) {
+		gasmix_offset = 0xC1;
+		gasmix_count = 11;
 	}
 
 	// Offset to the configuration data.
@@ -210,7 +201,8 @@ suunto_d9_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigne
 	if (parser->model == D4) {
 		config += 1;
 	} else if (parser->model == HELO2 || parser->model == D4i ||
-		parser->model == D6i || parser->model == D9tx) {
+		parser->model == D6i || parser->model == D9tx ||
+		parser->model == DX) {
 		config = gasmix_offset + gasmix_count * 6;
 	}
 	if (config + 1 > size)
@@ -222,6 +214,8 @@ suunto_d9_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigne
 		gasmodel_offset = 0x1F;
 	else if (parser->model == D4i || parser->model == D6i || parser->model == D9tx)
 		gasmodel_offset = 0x1D;
+	else if (parser->model == DX)
+		gasmodel_offset = 0x21;
 	unsigned int gasmodel = data[gasmodel_offset];
 
 	dc_gasmix_t *gasmix = (dc_gasmix_t *) value;
@@ -231,7 +225,8 @@ suunto_d9_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigne
 		case DC_FIELD_DIVETIME:
 			if (parser->model == D4)
 				*((unsigned int *) value) = array_uint16_le (data + 0x0B);
-			else if (parser->model == D4i || parser->model == D6i || parser->model == D9tx)
+			else if (parser->model == D4i || parser->model == D6i ||
+				parser->model == D9tx || parser->model == DX)
 				*((unsigned int *) value) = array_uint16_le (data + 0x0D);
 			else if (parser->model == HELO2)
 				*((unsigned int *) value) = array_uint16_le (data + 0x0D) * 60;
@@ -253,7 +248,8 @@ suunto_d9_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigne
 				gasmix->helium = 0.0;
 				gasmix->oxygen = 0.21;
 			} else if (parser->model == HELO2 || parser->model == D4i ||
-				parser->model == D6i || parser->model == D9tx) {
+				parser->model == D6i || parser->model == D9tx ||
+				parser->model == DX) {
 				gasmix->helium = data[gasmix_offset + 6 * flags + 2] / 100.0;
 				gasmix->oxygen = data[gasmix_offset + 6 * flags + 1] / 100.0;
 			} else {
@@ -276,9 +272,6 @@ suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t ca
 {
 	suunto_d9_parser_t *parser = (suunto_d9_parser_t*) abstract;
 
-	if (! parser_is_suunto_d9 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
@@ -299,6 +292,9 @@ suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t ca
 	} else if (parser->model == D9tx) {
 		gasmix_offset = 0x87;
 		gasmix_count = 8;
+	} else if (parser->model == DX) {
+		gasmix_offset = 0xC1;
+		gasmix_count = 11;
 	}
 
 	// Offset to the configuration data.
@@ -306,7 +302,8 @@ suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t ca
 	if (parser->model == D4) {
 		config += 1;
 	} else if (parser->model == HELO2 || parser->model == D4i ||
-		parser->model == D6i || parser->model == D9tx) {
+		parser->model == D6i || parser->model == D9tx ||
+		parser->model == DX) {
 		config = gasmix_offset + gasmix_count * 6;
 	}
 	if (config + 1 > size)
@@ -314,7 +311,7 @@ suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t ca
 
 	// Number of parameters in the configuration data.
 	unsigned int nparams = data[config];
-	if (nparams > MAXPARAMS)
+	if (nparams == 0 || nparams > MAXPARAMS)
 		return DC_STATUS_DATAFORMAT;
 
 	// Available divisor values.
@@ -357,6 +354,8 @@ suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t ca
 	if (parser->model == HELO2 || parser->model == D4i ||
 		parser->model == D6i || parser->model == D9tx)
 		interval_sample_offset = 0x1E;
+	else if (parser->model == DX)
+		interval_sample_offset = 0x22;
 	unsigned int interval_sample = data[interval_sample_offset];
 	if (interval_sample == 0)
 		return DC_STATUS_DATAFORMAT;

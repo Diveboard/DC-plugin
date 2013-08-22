@@ -23,5 +23,6 @@
 #define SHEARWATER_H
 
 #include "shearwater_predator.h"
+#include "shearwater_petrel.h"
 
 #endif /* SHEARWATER_H */

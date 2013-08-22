@@ -32,6 +32,8 @@
 #include "array.h"
 #include "ringbuffer.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &zeagle_n2ition3_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -59,7 +61,7 @@ static dc_status_t zeagle_n2ition3_device_dump (dc_device_t *abstract, dc_buffer
 static dc_status_t zeagle_n2ition3_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t zeagle_n2ition3_device_close (dc_device_t *abstract);
 
-static const device_backend_t zeagle_n2ition3_device_backend = {
+static const dc_device_vtable_t zeagle_n2ition3_device_vtable = {
 	DC_FAMILY_ZEAGLE_N2ITION3,
 	zeagle_n2ition3_device_set_fingerprint, /* set_fingerprint */
 	zeagle_n2ition3_device_read, /* read */
@@ -68,15 +70,6 @@ static const device_backend_t zeagle_n2ition3_device_backend = {
 	zeagle_n2ition3_device_foreach, /* foreach */
 	zeagle_n2ition3_device_close /* close */
 };
-
-static int
-device_is_zeagle_n2ition3 (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &zeagle_n2ition3_device_backend;
-}
 
 
 static dc_status_t
@@ -152,7 +145,7 @@ zeagle_n2ition3_device_open (dc_device_t **out, dc_context_t *context, const cha
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, context, &zeagle_n2ition3_device_backend);
+	device_init (&device->base, context, &zeagle_n2ition3_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -199,9 +192,6 @@ zeagle_n2ition3_device_close (dc_device_t *abstract)
 {
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t*) abstract;
 
-	if (! device_is_zeagle_n2ition3 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
@@ -237,9 +227,6 @@ zeagle_n2ition3_device_read (dc_device_t *abstract, unsigned int address, unsign
 {
 	zeagle_n2ition3_device_t *device = (zeagle_n2ition3_device_t*) abstract;
 
-	if (! device_is_zeagle_n2ition3 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	unsigned int nbytes = 0;
 	while (nbytes < size) {
 		// Calculate the package size.
@@ -273,9 +260,6 @@ zeagle_n2ition3_device_read (dc_device_t *abstract, unsigned int address, unsign
 static dc_status_t
 zeagle_n2ition3_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
-	if (! device_is_zeagle_n2ition3 (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Erase the current contents of the buffer and
 	// allocate the required amount of memory.
 	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, SZ_MEMORY)) {

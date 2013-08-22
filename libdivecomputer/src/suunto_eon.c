@@ -31,6 +31,8 @@
 #include "checksum.h"
 #include "array.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &suunto_eon_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -47,7 +49,7 @@ static dc_status_t suunto_eon_device_dump (dc_device_t *abstract, dc_buffer_t *b
 static dc_status_t suunto_eon_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t suunto_eon_device_close (dc_device_t *abstract);
 
-static const device_backend_t suunto_eon_device_backend = {
+static const dc_device_vtable_t suunto_eon_device_vtable = {
 	DC_FAMILY_SUUNTO_EON,
 	suunto_common_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* read */
@@ -66,16 +68,6 @@ static const suunto_common_layout_t suunto_eon_layout = {
 };
 
 
-static int
-device_is_suunto_eon (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &suunto_eon_device_backend;
-}
-
-
 dc_status_t
 suunto_eon_device_open (dc_device_t **out, dc_context_t *context, const char *name)
 {
@@ -90,7 +82,7 @@ suunto_eon_device_open (dc_device_t **out, dc_context_t *context, const char *na
 	}
 
 	// Initialize the base class.
-	suunto_common_device_init (&device->base, context, &suunto_eon_device_backend);
+	suunto_common_device_init (&device->base, context, &suunto_eon_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -139,9 +131,6 @@ suunto_eon_device_close (dc_device_t *abstract)
 {
 	suunto_eon_device_t *device = (suunto_eon_device_t*) abstract;
 
-	if (! device_is_suunto_eon (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
@@ -159,9 +148,6 @@ static dc_status_t
 suunto_eon_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
 	suunto_eon_device_t *device = (suunto_eon_device_t*) abstract;
-
-	if (! device_is_suunto_eon (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Erase the current contents of the buffer and
 	// pre-allocate the required amount of memory.
@@ -248,7 +234,7 @@ suunto_eon_device_write_name (dc_device_t *abstract, unsigned char data[], unsig
 {
 	suunto_eon_device_t *device = (suunto_eon_device_t*) abstract;
 
-	if (! device_is_suunto_eon (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	if (size > 20)
@@ -272,7 +258,7 @@ suunto_eon_device_write_interval (dc_device_t *abstract, unsigned char interval)
 {
 	suunto_eon_device_t *device = (suunto_eon_device_t*) abstract;
 
-	if (! device_is_suunto_eon (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	// Send the command.
@@ -292,7 +278,7 @@ suunto_eon_extract_dives (dc_device_t *abstract, const unsigned char data[], uns
 {
 	suunto_common_device_t *device = (suunto_common_device_t*) abstract;
 
-	if (abstract && !device_is_suunto_eon (abstract))
+	if (abstract && !ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	if (size < SZ_MEMORY)

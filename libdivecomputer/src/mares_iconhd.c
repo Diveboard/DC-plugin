@@ -30,6 +30,8 @@
 #include "serial.h"
 #include "array.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &mares_iconhd_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -50,15 +52,16 @@
 #define ACK 0xAA
 #define EOF 0xEA
 
-#define SZ_MEMORY 0x100000
-#define SZ_PACKET 0x000100
-
-#define RB_PROFILE_BEGIN 0xA000
-#define RB_PROFILE_END   SZ_MEMORY
+typedef struct mares_iconhd_layout_t {
+	unsigned int memsize;
+	unsigned int rb_profile_begin;
+	unsigned int rb_profile_end;
+} mares_iconhd_layout_t;
 
 typedef struct mares_iconhd_device_t {
 	dc_device_t base;
 	serial_t *port;
+	const mares_iconhd_layout_t *layout;
 	unsigned char fingerprint[10];
 	unsigned char version[140];
 	unsigned int packetsize;
@@ -70,7 +73,7 @@ static dc_status_t mares_iconhd_device_dump (dc_device_t *abstract, dc_buffer_t 
 static dc_status_t mares_iconhd_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t mares_iconhd_device_close (dc_device_t *abstract);
 
-static const device_backend_t mares_iconhd_device_backend = {
+static const dc_device_vtable_t mares_iconhd_device_vtable = {
 	DC_FAMILY_MARES_ICONHD,
 	mares_iconhd_device_set_fingerprint, /* set_fingerprint */
 	mares_iconhd_device_read, /* read */
@@ -80,15 +83,17 @@ static const device_backend_t mares_iconhd_device_backend = {
 	mares_iconhd_device_close /* close */
 };
 
-static int
-device_is_mares_iconhd (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
+static const mares_iconhd_layout_t mares_iconhd_layout = {
+	0x100000, /* memsize */
+	0x00A000, /* rb_profile_begin */
+	0x100000, /* rb_profile_end */
+};
 
-    return abstract->backend == &mares_iconhd_device_backend;
-}
-
+static const mares_iconhd_layout_t mares_matrix_layout = {
+	0x40000, /* memsize */
+	0x0A000, /* rb_profile_begin */
+	0x40000, /* rb_profile_end */
+};
 
 static unsigned int
 mares_iconhd_get_model (mares_iconhd_device_t *device, unsigned int model)
@@ -250,15 +255,17 @@ mares_iconhd_device_open (dc_device_t **out, dc_context_t *context, const char *
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, context, &mares_iconhd_device_backend);
+	device_init (&device->base, context, &mares_iconhd_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
 	memset (device->fingerprint, 0, sizeof (device->fingerprint));
 	memset (device->version, 0, sizeof (device->version));
 	if (model == NEMOWIDE2 || model == MATRIX || model == PUCKPRO) {
-		device->packetsize = SZ_PACKET;
+		device->layout = &mares_matrix_layout;
+		device->packetsize = 64;
 	} else {
+		device->layout = &mares_iconhd_layout;
 		device->packetsize = 0;
 	}
 
@@ -323,9 +330,6 @@ mares_iconhd_device_close (dc_device_t *abstract)
 {
 	mares_iconhd_device_t *device = (mares_iconhd_device_t*) abstract;
 
-	if (! device_is_mares_iconhd (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
@@ -372,14 +376,14 @@ mares_iconhd_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 
 	// Erase the current contents of the buffer and
 	// pre-allocate the required amount of memory.
-	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, SZ_MEMORY)) {
+	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, device->layout->memsize)) {
 		ERROR (abstract->context, "Insufficient buffer space available.");
 		return DC_STATUS_NOMEMORY;
 	}
 
 	// Enable progress notifications.
 	dc_event_progress_t progress = EVENT_PROGRESS_INITIALIZER;
-	progress.maximum = SZ_MEMORY;
+	progress.maximum = device->layout->memsize;
 	device_event_emit (abstract, DC_EVENT_PROGRESS, &progress);
 
 	// Emit a vendor event.
@@ -398,7 +402,7 @@ mares_iconhd_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback,
 {
 	mares_iconhd_device_t *device = (mares_iconhd_device_t *) abstract;
 
-	dc_buffer_t *buffer = dc_buffer_new (SZ_MEMORY);
+	dc_buffer_t *buffer = dc_buffer_new (device->layout->memsize);
 	if (buffer == NULL)
 		return DC_STATUS_NOMEMORY;
 
@@ -431,10 +435,12 @@ mares_iconhd_extract_dives (dc_device_t *abstract, const unsigned char data[], u
 	mares_iconhd_device_t *device = (mares_iconhd_device_t *) abstract;
 	dc_context_t *context = (abstract ? abstract->context : NULL);
 
-	if (abstract && !device_is_mares_iconhd (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
-	if (size < SZ_MEMORY)
+	const mares_iconhd_layout_t *layout = device->layout;
+
+	if (size < layout->memsize)
 		return DC_STATUS_DATAFORMAT;
 
 	// Get the model code.
@@ -453,22 +459,22 @@ mares_iconhd_extract_dives (dc_device_t *abstract, const unsigned char data[], u
 		if (eop != 0xFFFFFFFF)
 			break;
 	}
-	if (eop < RB_PROFILE_BEGIN || eop >= RB_PROFILE_END) {
+	if (eop < layout->rb_profile_begin || eop >= layout->rb_profile_end) {
 		ERROR (context, "Ringbuffer pointer out of range.");
 		return DC_STATUS_DATAFORMAT;
 	}
 
 	// Make the ringbuffer linear, to avoid having to deal with the wrap point.
-	unsigned char *buffer = (unsigned char *) malloc (RB_PROFILE_END - RB_PROFILE_BEGIN);
+	unsigned char *buffer = (unsigned char *) malloc (layout->rb_profile_end - layout->rb_profile_begin);
 	if (buffer == NULL) {
 		ERROR (context, "Failed to allocate memory.");
 		return DC_STATUS_NOMEMORY;
 	}
 
-	memcpy (buffer + 0, data + eop, RB_PROFILE_END - eop);
-	memcpy (buffer + RB_PROFILE_END - eop, data + RB_PROFILE_BEGIN, eop - RB_PROFILE_BEGIN);
+	memcpy (buffer + 0, data + eop, layout->rb_profile_end - eop);
+	memcpy (buffer + layout->rb_profile_end - eop, data + layout->rb_profile_begin, eop - layout->rb_profile_begin);
 
-	unsigned int offset = RB_PROFILE_END - RB_PROFILE_BEGIN;
+	unsigned int offset = layout->rb_profile_end - layout->rb_profile_begin;
 	while (offset >= header + 4) {
 		// Get the number of samples in the profile data.
 		unsigned int nsamples = array_uint16_le (buffer + offset - header + 2);

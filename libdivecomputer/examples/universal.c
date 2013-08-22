@@ -93,11 +93,13 @@ static const backend_table_t g_backends[] = {
 	{"iconhd",      DC_FAMILY_MARES_ICONHD},
 	{"ostc",        DC_FAMILY_HW_OSTC},
 	{"frog",        DC_FAMILY_HW_FROG},
+	{"ostc3",       DC_FAMILY_HW_OSTC3},
 	{"edy",         DC_FAMILY_CRESSI_EDY},
 	{"leonardo",	DC_FAMILY_CRESSI_LEONARDO},
 	{"n2ition3",    DC_FAMILY_ZEAGLE_N2ITION3},
 	{"cobalt",      DC_FAMILY_ATOMICS_COBALT},
-	{"predator",	DC_FAMILY_SHEARWATER_PREDATOR}
+	{"predator",	DC_FAMILY_SHEARWATER_PREDATOR},
+	{"petrel",      DC_FAMILY_SHEARWATER_PETREL},
 };
 
 static dc_family_t
@@ -243,7 +245,7 @@ sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
 		"OLF", "PO2", "airtime", "rgbm", "heading", "tissue level warning",
 		"gaschange2"};
 	static const char *decostop[] = {
-		"ndl", "deco", "deep", "safety"};
+		"ndl", "safety", "deco", "deep"};
 
 	sample_data_t *sampledata = (sample_data_t *) userdata;
 
@@ -264,8 +266,16 @@ sample_cb (dc_sample_type_t type, dc_sample_value_t value, void *userdata)
 		fprintf (sampledata->fp, "   <temperature>%.2f</temperature>\n", value.temperature);
 		break;
 	case DC_SAMPLE_EVENT:
-		fprintf (sampledata->fp, "   <event type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</event>\n",
-			value.event.type, value.event.time, value.event.flags, value.event.value, events[value.event.type]);
+		if (value.event.type == SAMPLE_EVENT_GASCHANGE2) {
+			fprintf (sampledata->fp, "   <gaschange o2=\"%u\" he=\"%u\" />\n",
+				value.event.value & 0xFFFF, (value.event.value >> 16) & 0xFFFF);
+		} else if (value.event.type == SAMPLE_EVENT_GASCHANGE) {
+			fprintf (sampledata->fp, "   <gaschange o2=\"%u\" />\n",
+				value.event.value);
+		} else {
+			fprintf (sampledata->fp, "   <event type=\"%u\" time=\"%u\" flags=\"%u\" value=\"%u\">%s</event>\n",
+				value.event.type, value.event.time, value.event.flags, value.event.value, events[value.event.type]);
+		}
 		break;
 	case DC_SAMPLE_RBT:
 		fprintf (sampledata->fp, "   <rbt>%u</rbt>\n", value.rbt);
@@ -725,6 +735,10 @@ dowork (dc_context_t *context, dc_descriptor_t *descriptor, const char *devname,
 		// Open the output file.
 		divedata.fp = fopen (xmlfile, "w");
 
+		if (divedata.fp) {
+			fprintf (divedata.fp, "<device>\n");
+		}
+
 		// Download the dives.
 		message ("Downloading the dives.\n");
 		rc = dc_device_foreach (device, dive_cb, &divedata);
@@ -734,6 +748,10 @@ dowork (dc_context_t *context, dc_descriptor_t *descriptor, const char *devname,
 			if (divedata.fp) fclose (divedata.fp);
 			dc_device_close (device);
 			return rc;
+		}
+
+		if (divedata.fp) {
+			fprintf (divedata.fp, "</device>\n");
 		}
 
 		// Store the fingerprint data.

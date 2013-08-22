@@ -32,6 +32,8 @@
 #include "array.h"
 #include "ringbuffer.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &cressi_edy_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -63,7 +65,7 @@ static dc_status_t cressi_edy_device_dump (dc_device_t *abstract, dc_buffer_t *b
 static dc_status_t cressi_edy_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t cressi_edy_device_close (dc_device_t *abstract);
 
-static const device_backend_t cressi_edy_device_backend = {
+static const dc_device_vtable_t cressi_edy_device_vtable = {
 	DC_FAMILY_CRESSI_EDY,
 	cressi_edy_device_set_fingerprint, /* set_fingerprint */
 	cressi_edy_device_read, /* read */
@@ -72,15 +74,6 @@ static const device_backend_t cressi_edy_device_backend = {
 	cressi_edy_device_foreach, /* foreach */
 	cressi_edy_device_close /* close */
 };
-
-static int
-device_is_cressi_edy (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &cressi_edy_device_backend;
-}
 
 
 static dc_status_t
@@ -187,7 +180,7 @@ cressi_edy_device_open (dc_device_t **out, dc_context_t *context, const char *na
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, context, &cressi_edy_device_backend);
+	device_init (&device->base, context, &cressi_edy_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -252,9 +245,6 @@ cressi_edy_device_close (dc_device_t *abstract)
 {
 	cressi_edy_device_t *device = (cressi_edy_device_t*) abstract;
 
-	if (! device_is_cressi_edy (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Send the quit command.
 	cressi_edy_quit (device);
 
@@ -275,9 +265,6 @@ static dc_status_t
 cressi_edy_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size)
 {
 	cressi_edy_device_t *device = (cressi_edy_device_t*) abstract;
-
-	if (! device_is_cressi_edy (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	if ((address % SZ_PAGE != 0) ||
 		(size    % SZ_PACKET != 0))
@@ -326,9 +313,6 @@ cressi_edy_device_set_fingerprint (dc_device_t *abstract, const unsigned char da
 static dc_status_t
 cressi_edy_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
-	if (! device_is_cressi_edy (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Erase the current contents of the buffer and
 	// allocate the required amount of memory.
 	if (!dc_buffer_clear (buffer) || !dc_buffer_resize (buffer, SZ_MEMORY)) {

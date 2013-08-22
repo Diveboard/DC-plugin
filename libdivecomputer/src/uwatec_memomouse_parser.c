@@ -27,6 +27,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &uwatec_memomouse_parser_vtable)
+
 typedef struct uwatec_memomouse_parser_t uwatec_memomouse_parser_t;
 
 struct uwatec_memomouse_parser_t {
@@ -41,7 +43,7 @@ static dc_status_t uwatec_memomouse_parser_get_field (dc_parser_t *abstract, dc_
 static dc_status_t uwatec_memomouse_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t uwatec_memomouse_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t uwatec_memomouse_parser_backend = {
+static const dc_parser_vtable_t uwatec_memomouse_parser_vtable = {
 	DC_FAMILY_UWATEC_MEMOMOUSE,
 	uwatec_memomouse_parser_set_data, /* set_data */
 	uwatec_memomouse_parser_get_datetime, /* datetime */
@@ -49,16 +51,6 @@ static const parser_backend_t uwatec_memomouse_parser_backend = {
 	uwatec_memomouse_parser_samples_foreach, /* samples_foreach */
 	uwatec_memomouse_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_uwatec_memomouse (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &uwatec_memomouse_parser_backend;
-}
 
 
 dc_status_t
@@ -75,7 +67,7 @@ uwatec_memomouse_parser_create (dc_parser_t **out, dc_context_t *context, unsign
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &uwatec_memomouse_parser_backend);
+	parser_init (&parser->base, context, &uwatec_memomouse_parser_vtable);
 
 	// Set the default values.
 	parser->devtime = devtime;
@@ -90,9 +82,6 @@ uwatec_memomouse_parser_create (dc_parser_t **out, dc_context_t *context, unsign
 static dc_status_t
 uwatec_memomouse_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_uwatec_memomouse (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.	
 	free (abstract);
 
@@ -103,9 +92,6 @@ uwatec_memomouse_parser_destroy (dc_parser_t *abstract)
 static dc_status_t
 uwatec_memomouse_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
-	if (! parser_is_uwatec_memomouse (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	return DC_STATUS_SUCCESS;
 }
 
@@ -193,9 +179,6 @@ uwatec_memomouse_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, 
 static dc_status_t
 uwatec_memomouse_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
-	if (! parser_is_uwatec_memomouse (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 

@@ -29,6 +29,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &reefnet_sensuspro_parser_vtable)
+
 typedef struct reefnet_sensuspro_parser_t reefnet_sensuspro_parser_t;
 
 struct reefnet_sensuspro_parser_t {
@@ -51,7 +53,7 @@ static dc_status_t reefnet_sensuspro_parser_get_field (dc_parser_t *abstract, dc
 static dc_status_t reefnet_sensuspro_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t reefnet_sensuspro_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t reefnet_sensuspro_parser_backend = {
+static const dc_parser_vtable_t reefnet_sensuspro_parser_vtable = {
 	DC_FAMILY_REEFNET_SENSUSPRO,
 	reefnet_sensuspro_parser_set_data, /* set_data */
 	reefnet_sensuspro_parser_get_datetime, /* datetime */
@@ -59,16 +61,6 @@ static const parser_backend_t reefnet_sensuspro_parser_backend = {
 	reefnet_sensuspro_parser_samples_foreach, /* samples_foreach */
 	reefnet_sensuspro_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_reefnet_sensuspro (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &reefnet_sensuspro_parser_backend;
-}
 
 
 dc_status_t
@@ -85,7 +77,7 @@ reefnet_sensuspro_parser_create (dc_parser_t **out, dc_context_t *context, unsig
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &reefnet_sensuspro_parser_backend);
+	parser_init (&parser->base, context, &reefnet_sensuspro_parser_vtable);
 
 	// Set the default values.
 	parser->atmospheric = ATM;
@@ -105,9 +97,6 @@ reefnet_sensuspro_parser_create (dc_parser_t **out, dc_context_t *context, unsig
 static dc_status_t
 reefnet_sensuspro_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_reefnet_sensuspro (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.	
 	free (abstract);
 
@@ -119,9 +108,6 @@ static dc_status_t
 reefnet_sensuspro_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	reefnet_sensuspro_parser_t *parser = (reefnet_sensuspro_parser_t*) abstract;
-
-	if (! parser_is_reefnet_sensuspro (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Reset the cache.
 	parser->cached = 0;
@@ -137,7 +123,7 @@ reefnet_sensuspro_parser_set_calibration (dc_parser_t *abstract, double atmosphe
 {
 	reefnet_sensuspro_parser_t *parser = (reefnet_sensuspro_parser_t*) abstract;
 
-	if (! parser_is_reefnet_sensuspro (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	parser->atmospheric = atmospheric;
@@ -227,9 +213,6 @@ static dc_status_t
 reefnet_sensuspro_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
 	reefnet_sensuspro_parser_t *parser = (reefnet_sensuspro_parser_t*) abstract;
-
-	if (! parser_is_reefnet_sensuspro (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	const unsigned char header[4] = {0x00, 0x00, 0x00, 0x00};
 	const unsigned char footer[2] = {0xFF, 0xFF};

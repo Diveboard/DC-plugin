@@ -31,6 +31,8 @@
 #include "checksum.h"
 #include "array.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &uwatec_aladin_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -58,7 +60,7 @@ static dc_status_t uwatec_aladin_device_dump (dc_device_t *abstract, dc_buffer_t
 static dc_status_t uwatec_aladin_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t uwatec_aladin_device_close (dc_device_t *abstract);
 
-static const device_backend_t uwatec_aladin_device_backend = {
+static const dc_device_vtable_t uwatec_aladin_device_vtable = {
 	DC_FAMILY_UWATEC_ALADIN,
 	uwatec_aladin_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* read */
@@ -67,15 +69,6 @@ static const device_backend_t uwatec_aladin_device_backend = {
 	uwatec_aladin_device_foreach, /* foreach */
 	uwatec_aladin_device_close /* close */
 };
-
-static int
-device_is_uwatec_aladin (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &uwatec_aladin_device_backend;
-}
 
 
 dc_status_t
@@ -92,7 +85,7 @@ uwatec_aladin_device_open (dc_device_t **out, dc_context_t *context, const char 
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, context, &uwatec_aladin_device_backend);
+	device_init (&device->base, context, &uwatec_aladin_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -145,9 +138,6 @@ uwatec_aladin_device_close (dc_device_t *abstract)
 {
 	uwatec_aladin_device_t *device = (uwatec_aladin_device_t*) abstract;
 
-	if (! device_is_uwatec_aladin (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Close the device.
 	if (serial_close (device->port) == -1) {
 		free (device);
@@ -166,9 +156,6 @@ uwatec_aladin_device_set_fingerprint (dc_device_t *abstract, const unsigned char
 {
 	uwatec_aladin_device_t *device = (uwatec_aladin_device_t*) abstract;
 
-	if (! device_is_uwatec_aladin (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	if (size && size != 4)
 		return DC_STATUS_INVALIDARGS;
 
@@ -185,9 +172,6 @@ static dc_status_t
 uwatec_aladin_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 {
 	uwatec_aladin_device_t *device = (uwatec_aladin_device_t*) abstract;
-
-	if (! device_is_uwatec_aladin (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Erase the current contents of the buffer and
 	// pre-allocate the required amount of memory.
@@ -269,9 +253,6 @@ uwatec_aladin_device_dump (dc_device_t *abstract, dc_buffer_t *buffer)
 static dc_status_t
 uwatec_aladin_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata)
 {
-	if (! device_is_uwatec_aladin (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	dc_buffer_t *buffer = dc_buffer_new (SZ_MEMORY);
 	if (buffer == NULL)
 		return DC_STATUS_NOMEMORY;
@@ -304,7 +285,7 @@ uwatec_aladin_extract_dives (dc_device_t *abstract, const unsigned char* data, u
 {
 	uwatec_aladin_device_t *device = (uwatec_aladin_device_t*) abstract;
 
-	if (abstract && !device_is_uwatec_aladin (abstract))
+	if (abstract && !ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	if (size < SZ_MEMORY)

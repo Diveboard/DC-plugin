@@ -31,6 +31,8 @@
 #include "checksum.h"
 #include "array.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), (const dc_device_vtable_t *) &suunto_d9_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -41,6 +43,7 @@
 #define D4i      0x19
 #define D6i      0x1A
 #define D9tx     0x1B
+#define DX       0x1C
 
 typedef struct suunto_d9_device_t {
 	suunto_common2_device_t base;
@@ -50,7 +53,7 @@ typedef struct suunto_d9_device_t {
 static dc_status_t suunto_d9_device_packet (dc_device_t *abstract, const unsigned char command[], unsigned int csize, unsigned char answer[], unsigned int asize, unsigned int size);
 static dc_status_t suunto_d9_device_close (dc_device_t *abstract);
 
-static const suunto_common2_device_backend_t suunto_d9_device_backend = {
+static const suunto_common2_device_vtable_t suunto_d9_device_vtable = {
 	{
 		DC_FAMILY_SUUNTO_D9,
 		suunto_common2_device_set_fingerprint, /* set_fingerprint */
@@ -79,14 +82,13 @@ static const suunto_common2_layout_t suunto_d9tx_layout = {
 	0xEBF0 /* rb_profile_end */
 };
 
-static int
-device_is_suunto_d9 (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == (const device_backend_t *) &suunto_d9_device_backend;
-}
+static const suunto_common2_layout_t suunto_dx_layout = {
+	0x10000, /* memsize */
+	0x0017, /* fingerprint */
+	0x0024, /* serial */
+	0x019A, /* rb_profile_begin */
+	0xEBF0 /* rb_profile_end */
+};
 
 
 static dc_status_t
@@ -100,7 +102,7 @@ suunto_d9_device_autodetect (suunto_d9_device_t *device, unsigned int model)
 
 	// Use the model number as a hint to speedup the detection.
 	unsigned int hint = 0;
-	if (model == D4i || model == D6i || model == D9tx)
+	if (model == D4i || model == D6i || model == D9tx || model == DX)
 		hint = 1;
 
 	for (unsigned int i = 0; i < C_ARRAY_SIZE(baudrates); ++i) {
@@ -138,7 +140,7 @@ suunto_d9_device_open (dc_device_t **out, dc_context_t *context, const char *nam
 	}
 
 	// Initialize the base class.
-	suunto_common2_device_init (&device->base, context, &suunto_d9_device_backend);
+	suunto_common2_device_init (&device->base, context, &suunto_d9_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -195,6 +197,8 @@ suunto_d9_device_open (dc_device_t **out, dc_context_t *context, const char *nam
 	model = device->base.version[0];
 	if (model == D4i || model == D6i || model == D9tx)
 		device->base.layout = &suunto_d9tx_layout;
+	else if (model == DX)
+		device->base.layout = &suunto_dx_layout;
 	else
 		device->base.layout = &suunto_d9_layout;
 
@@ -208,9 +212,6 @@ static dc_status_t
 suunto_d9_device_close (dc_device_t *abstract)
 {
 	suunto_d9_device_t *device = (suunto_d9_device_t*) abstract;
-
-	if (! device_is_suunto_d9 (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Close the device.
 	if (serial_close (device->port) == -1) {
@@ -301,7 +302,7 @@ suunto_d9_device_packet (dc_device_t *abstract, const unsigned char command[], u
 dc_status_t
 suunto_d9_device_version (dc_device_t *abstract, unsigned char data[], unsigned int size)
 {
-	if (! device_is_suunto_d9 (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	return suunto_common2_device_version (abstract, data, size);
@@ -311,7 +312,7 @@ suunto_d9_device_version (dc_device_t *abstract, unsigned char data[], unsigned 
 dc_status_t
 suunto_d9_device_reset_maxdepth (dc_device_t *abstract)
 {
-	if (! device_is_suunto_d9 (abstract))
+	if (!ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	return suunto_common2_device_reset_maxdepth (abstract);

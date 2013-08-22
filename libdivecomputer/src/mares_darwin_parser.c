@@ -29,6 +29,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &mares_darwin_parser_vtable)
+
 #define DARWIN    0
 #define DARWINAIR 1
 
@@ -46,7 +48,7 @@ static dc_status_t mares_darwin_parser_get_field (dc_parser_t *abstract, dc_fiel
 static dc_status_t mares_darwin_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t mares_darwin_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t mares_darwin_parser_backend = {
+static const dc_parser_vtable_t mares_darwin_parser_vtable = {
 	DC_FAMILY_MARES_DARWIN,
 	mares_darwin_parser_set_data, /* set_data */
 	mares_darwin_parser_get_datetime, /* datetime */
@@ -54,16 +56,6 @@ static const parser_backend_t mares_darwin_parser_backend = {
 	mares_darwin_parser_samples_foreach, /* samples_foreach */
 	mares_darwin_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_mares_darwin (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &mares_darwin_parser_backend;
-}
 
 
 dc_status_t
@@ -80,7 +72,7 @@ mares_darwin_parser_create (dc_parser_t **out, dc_context_t *context, unsigned i
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &mares_darwin_parser_backend);
+	parser_init (&parser->base, context, &mares_darwin_parser_vtable);
 
 	if (model == DARWINAIR) {
 		parser->headersize = 60;
@@ -99,9 +91,6 @@ mares_darwin_parser_create (dc_parser_t **out, dc_context_t *context, unsigned i
 static dc_status_t
 mares_darwin_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_mares_darwin (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.
 	free (abstract);
 

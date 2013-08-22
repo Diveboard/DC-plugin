@@ -41,11 +41,14 @@ libdivecomputer_la_SOURCES = \
 	mares_iconhd.c mares_iconhd_parser.c \
 	hw_ostc.c hw_ostc_parser.c \
 	hw_frog.c \
+	hw_ostc3.c \
 	cressi_edy.c cressi_edy_parser.c \
 	cressi_leonardo.c cressi_leonardo_parser.c \
 	zeagle_n2ition3.c \
 	atomics_cobalt.c atomics_cobalt_parser.c \
+	shearwater_common.h shearwater_common.c \
 	shearwater_predator.c shearwater_predator_parser.c \
+	shearwater_petrel.c \
 	ringbuffer.h ringbuffer.c \
 	checksum.h checksum.c \
 	array.h array.c \

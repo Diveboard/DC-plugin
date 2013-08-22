@@ -31,6 +31,7 @@ dc_descriptor_get_vendor
 dc_descriptor_get_product
 dc_descriptor_get_type
 dc_descriptor_get_model
+dc_descriptor_get_transport
 
 dc_parser_new
 dc_parser_get_type
@@ -64,6 +65,7 @@ cressi_leonardo_parser_create
 atomics_cobalt_parser_create
 atomics_cobalt_parser_set_calibration
 shearwater_predator_parser_create
+shearwater_petrel_parser_create
 
 dc_device_open
 dc_device_close
@@ -143,9 +145,15 @@ hw_frog_device_version
 hw_frog_device_clock
 hw_frog_device_display
 hw_frog_device_customtext
+hw_ostc3_device_open
+hw_ostc3_device_version
+hw_ostc3_device_clock
+hw_ostc3_device_display
+hw_ostc3_device_customtext
 zeagle_n2ition3_device_open
 atomics_cobalt_device_open
 atomics_cobalt_device_version
 atomics_cobalt_device_set_simulation
 shearwater_predator_device_open
 shearwater_predator_extract_dives
+shearwater_petrel_device_open

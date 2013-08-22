@@ -69,6 +69,7 @@ typedef enum dc_family_t {
 	/* Heinrichs Weikamp */
 	DC_FAMILY_HW_OSTC = (6 << 16),
 	DC_FAMILY_HW_FROG,
+	DC_FAMILY_HW_OSTC3,
 	/* Cressi */
 	DC_FAMILY_CRESSI_EDY = (7 << 16),
 	DC_FAMILY_CRESSI_LEONARDO,
@@ -77,7 +78,8 @@ typedef enum dc_family_t {
 	/* Atomic Aquatics */
 	DC_FAMILY_ATOMICS_COBALT = (9 << 16),
 	/* Shearwater */
-	DC_FAMILY_SHEARWATER_PREDATOR = (10 << 16)
+	DC_FAMILY_SHEARWATER_PREDATOR = (10 << 16),
+	DC_FAMILY_SHEARWATER_PETREL
 } dc_family_t;
 
 #ifdef __cplusplus

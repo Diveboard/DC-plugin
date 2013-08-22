@@ -39,9 +39,9 @@
 
 
 void
-device_init (dc_device_t *device, dc_context_t *context, const device_backend_t *backend)
+device_init (dc_device_t *device, dc_context_t *context, const dc_device_vtable_t *vtable)
 {
-	device->backend = backend;
+	device->vtable = vtable;
 
 	device->context = context;
 
@@ -126,6 +126,9 @@ dc_device_open (dc_device_t **out, dc_context_t *context, dc_descriptor_t *descr
 	case DC_FAMILY_HW_FROG:
 		rc = hw_frog_device_open (&device, context, name);
 		break;
+	case DC_FAMILY_HW_OSTC3:
+		rc = hw_ostc3_device_open (&device, context, name);
+		break;
 	case DC_FAMILY_CRESSI_EDY:
 		rc = cressi_edy_device_open (&device, context, name);
 		break;
@@ -141,6 +144,9 @@ dc_device_open (dc_device_t **out, dc_context_t *context, dc_descriptor_t *descr
 	case DC_FAMILY_SHEARWATER_PREDATOR:
 		rc = shearwater_predator_device_open (&device, context, name);
 		break;
+	case DC_FAMILY_SHEARWATER_PETREL:
+		rc = shearwater_petrel_device_open (&device, context, name);
+		break;
 	default:
 		return DC_STATUS_INVALIDARGS;
 	}
@@ -150,13 +156,24 @@ dc_device_open (dc_device_t **out, dc_context_t *context, dc_descriptor_t *descr
 	return rc;
 }
 
+
+int
+dc_device_isinstance (dc_device_t *device, const dc_device_vtable_t *vtable)
+{
+	if (device == NULL)
+		return 0;
+
+	return device->vtable == vtable;
+}
+
+
 dc_family_t
 dc_device_get_type (dc_device_t *device)
 {
 	if (device == NULL)
 		return DC_FAMILY_NULL;
 
-	return device->backend->type;
+	return device->vtable->type;
 }
 
 
@@ -193,10 +210,10 @@ dc_device_set_fingerprint (dc_device_t *device, const unsigned char data[], unsi
 	if (device == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (device->backend->set_fingerprint == NULL)
+	if (device->vtable->set_fingerprint == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return device->backend->set_fingerprint (device, data, size);
+	return device->vtable->set_fingerprint (device, data, size);
 }
 
 
@@ -206,10 +223,10 @@ dc_device_read (dc_device_t *device, unsigned int address, unsigned char data[],
 	if (device == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (device->backend->read == NULL)
+	if (device->vtable->read == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return device->backend->read (device, address, data, size);
+	return device->vtable->read (device, address, data, size);
 }
 
 
@@ -219,10 +236,10 @@ dc_device_write (dc_device_t *device, unsigned int address, const unsigned char 
 	if (device == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (device->backend->write == NULL)
+	if (device->vtable->write == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return device->backend->write (device, address, data, size);
+	return device->vtable->write (device, address, data, size);
 }
 
 
@@ -232,10 +249,10 @@ dc_device_dump (dc_device_t *device, dc_buffer_t *buffer)
 	if (device == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (device->backend->dump == NULL)
+	if (device->vtable->dump == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return device->backend->dump (device, buffer);
+	return device->vtable->dump (device, buffer);
 }
 
 
@@ -245,7 +262,7 @@ device_dump_read (dc_device_t *device, unsigned char data[], unsigned int size, 
 	if (device == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (device->backend->read == NULL)
+	if (device->vtable->read == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
 	// Enable progress notifications.
@@ -261,7 +278,7 @@ device_dump_read (dc_device_t *device, unsigned char data[], unsigned int size, 
 			len = blocksize;
 
 		// Read the packet.
-		dc_status_t rc = device->backend->read (device, nbytes, data + nbytes, len);
+		dc_status_t rc = device->vtable->read (device, nbytes, data + nbytes, len);
 		if (rc != DC_STATUS_SUCCESS)
 			return rc;
 
@@ -282,10 +299,10 @@ dc_device_foreach (dc_device_t *device, dc_dive_callback_t callback, void *userd
 	if (device == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (device->backend->foreach == NULL)
+	if (device->vtable->foreach == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return device->backend->foreach (device, callback, userdata);
+	return device->vtable->foreach (device, callback, userdata);
 }
 
 
@@ -295,10 +312,10 @@ dc_device_close (dc_device_t *device)
 	if (device == NULL)
 		return DC_STATUS_SUCCESS;
 
-	if (device->backend->close == NULL)
+	if (device->vtable->close == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return device->backend->close (device);
+	return device->vtable->close (device);
 }
 
 

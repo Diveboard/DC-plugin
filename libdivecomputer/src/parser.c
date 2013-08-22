@@ -35,6 +35,8 @@
 #include "parser-private.h"
 #include "device-private.h"
 
+#define REACTPROWHITE 0x4354
+
 dc_status_t
 dc_parser_new (dc_parser_t **out, dc_device_t *device)
 {
@@ -86,7 +88,10 @@ dc_parser_new (dc_parser_t **out, dc_device_t *device)
 		rc = oceanic_veo250_parser_create (&parser, context, device->devinfo.model);
 		break;
 	case DC_FAMILY_OCEANIC_ATOM2:
-		rc = oceanic_atom2_parser_create (&parser, context, device->devinfo.model);
+		if (device->devinfo.model == REACTPROWHITE)
+			rc = oceanic_veo250_parser_create (&parser, context, device->devinfo.model);
+		else
+			rc = oceanic_atom2_parser_create (&parser, context, device->devinfo.model);
 		break;
 	case DC_FAMILY_MARES_NEMO:
 	case DC_FAMILY_MARES_PUCK:
@@ -102,6 +107,7 @@ dc_parser_new (dc_parser_t **out, dc_device_t *device)
 		rc = hw_ostc_parser_create (&parser, context, 0);
 		break;
 	case DC_FAMILY_HW_FROG:
+	case DC_FAMILY_HW_OSTC3:
 		rc = hw_ostc_parser_create (&parser, context, 1);
 		break;
 	case DC_FAMILY_CRESSI_EDY:
@@ -117,6 +123,9 @@ dc_parser_new (dc_parser_t **out, dc_device_t *device)
 	case DC_FAMILY_SHEARWATER_PREDATOR:
 		rc = shearwater_predator_parser_create (&parser, context);
 		break;
+	case DC_FAMILY_SHEARWATER_PETREL:
+		rc = shearwater_petrel_parser_create (&parser, context);
+		break;
 	default:
 		return DC_STATUS_INVALIDARGS;
 	}
@@ -128,12 +137,22 @@ dc_parser_new (dc_parser_t **out, dc_device_t *device)
 
 
 void
-parser_init (dc_parser_t *parser, dc_context_t *context, const parser_backend_t *backend)
+parser_init (dc_parser_t *parser, dc_context_t *context, const dc_parser_vtable_t *vtable)
 {
-	parser->backend = backend;
+	parser->vtable = vtable;
 	parser->context = context;
 	parser->data = NULL;
 	parser->size = 0;
+}
+
+
+int
+dc_parser_isinstance (dc_parser_t *parser, const dc_parser_vtable_t *vtable)
+{
+	if (parser == NULL)
+		return 0;
+
+	return parser->vtable == vtable;
 }
 
 
@@ -143,7 +162,7 @@ dc_parser_get_type (dc_parser_t *parser)
 	if (parser == NULL)
 		return DC_FAMILY_NULL;
 
-	return parser->backend->type;
+	return parser->vtable->type;
 }
 
 
@@ -153,13 +172,13 @@ dc_parser_set_data (dc_parser_t *parser, const unsigned char *data, unsigned int
 	if (parser == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (parser->backend->set_data == NULL)
+	if (parser->vtable->set_data == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
 	parser->data = data;
 	parser->size = size;
 
-	return parser->backend->set_data (parser, data, size);
+	return parser->vtable->set_data (parser, data, size);
 }
 
 
@@ -169,10 +188,10 @@ dc_parser_get_datetime (dc_parser_t *parser, dc_datetime_t *datetime)
 	if (parser == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (parser->backend->datetime == NULL)
+	if (parser->vtable->datetime == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return parser->backend->datetime (parser, datetime);
+	return parser->vtable->datetime (parser, datetime);
 }
 
 dc_status_t
@@ -181,10 +200,10 @@ dc_parser_get_field (dc_parser_t *parser, dc_field_type_t type, unsigned int fla
 	if (parser == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (parser->backend->field == NULL)
+	if (parser->vtable->field == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return parser->backend->field (parser, type, flags, value);
+	return parser->vtable->field (parser, type, flags, value);
 }
 
 
@@ -194,10 +213,10 @@ dc_parser_samples_foreach (dc_parser_t *parser, dc_sample_callback_t callback, v
 	if (parser == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	if (parser->backend->samples_foreach == NULL)
+	if (parser->vtable->samples_foreach == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return parser->backend->samples_foreach (parser, callback, userdata);
+	return parser->vtable->samples_foreach (parser, callback, userdata);
 }
 
 
@@ -207,10 +226,10 @@ dc_parser_destroy (dc_parser_t *parser)
 	if (parser == NULL)
 		return DC_STATUS_SUCCESS;
 
-	if (parser->backend->destroy == NULL)
+	if (parser->vtable->destroy == NULL)
 		return DC_STATUS_UNSUPPORTED;
 
-	return parser->backend->destroy (parser);
+	return parser->vtable->destroy (parser);
 }
 
 

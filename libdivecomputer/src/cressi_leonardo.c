@@ -32,6 +32,8 @@
 #include "array.h"
 #include "ringbuffer.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &cressi_leonardo_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -59,7 +61,7 @@ static dc_status_t cressi_leonardo_device_dump (dc_device_t *abstract, dc_buffer
 static dc_status_t cressi_leonardo_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t cressi_leonardo_device_close (dc_device_t *abstract);
 
-static const device_backend_t cressi_leonardo_device_backend = {
+static const dc_device_vtable_t cressi_leonardo_device_vtable = {
 	DC_FAMILY_CRESSI_LEONARDO,
 	cressi_leonardo_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* read */
@@ -68,15 +70,6 @@ static const device_backend_t cressi_leonardo_device_backend = {
 	cressi_leonardo_device_foreach, /* foreach */
 	cressi_leonardo_device_close /* close */
 };
-
-static int
-device_is_cressi_leonardo (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &cressi_leonardo_device_backend;
-}
 
 dc_status_t
 cressi_leonardo_device_open (dc_device_t **out, dc_context_t *context, const char *name)
@@ -92,7 +85,7 @@ cressi_leonardo_device_open (dc_device_t **out, dc_context_t *context, const cha
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, context, &cressi_leonardo_device_backend);
+	device_init (&device->base, context, &cressi_leonardo_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -130,6 +123,9 @@ cressi_leonardo_device_open (dc_device_t **out, dc_context_t *context, const cha
 		free (device);
 		return DC_STATUS_IO;
 	}
+
+	serial_sleep (device->port, 100);
+	serial_flush (device->port, SERIAL_QUEUE_BOTH);
 
 	*out = (dc_device_t *) device;
 
@@ -275,6 +271,13 @@ cressi_leonardo_device_foreach (dc_device_t *abstract, dc_dive_callback_t callba
 		return rc;
 	}
 
+	unsigned char *data = dc_buffer_get_data (buffer);
+	dc_event_devinfo_t devinfo;
+	devinfo.model = 0;
+	devinfo.firmware = 0;
+	devinfo.serial = array_uint32_le (data + 1);
+	device_event_emit (abstract, DC_EVENT_DEVINFO, &devinfo);
+
 	rc = cressi_leonardo_extract_dives (abstract, dc_buffer_get_data (buffer),
 		dc_buffer_get_size (buffer), callback, userdata);
 
@@ -289,7 +292,7 @@ cressi_leonardo_extract_dives (dc_device_t *abstract, const unsigned char data[]
 	cressi_leonardo_device_t *device = (cressi_leonardo_device_t *) abstract;
 	dc_context_t *context = (abstract ? abstract->context : NULL);
 
-	if (abstract && !device_is_cressi_leonardo (abstract))
+	if (abstract && !ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	if (size < SZ_MEMORY)
@@ -335,7 +338,7 @@ cressi_leonardo_extract_dives (dc_device_t *abstract, const unsigned char data[]
 		if (header < RB_PROFILE_BEGIN || header + 2 > RB_PROFILE_END ||
 			footer < RB_PROFILE_BEGIN || footer + 2 > RB_PROFILE_END)
 		{
-			ERROR (abstract->context, "Invalid ringbuffer pointer detected.");
+			ERROR (context, "Invalid ringbuffer pointer detected.");
 			free (buffer);
 			return DC_STATUS_DATAFORMAT;
 		}
@@ -344,7 +347,7 @@ cressi_leonardo_extract_dives (dc_device_t *abstract, const unsigned char data[]
 		unsigned int header2 = array_uint16_le (data + footer);
 		unsigned int footer2 = array_uint16_le (data + header);
 		if (header2 != header || footer2 != footer) {
-			ERROR (abstract->context, "Invalid ringbuffer pointer detected.");
+			ERROR (context, "Invalid ringbuffer pointer detected.");
 			free (buffer);
 			return DC_STATUS_DATAFORMAT;
 		}

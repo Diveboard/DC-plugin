@@ -133,12 +133,11 @@ B/ CODE UPDATE FOR LIBDIVECOMPUTER
 
   - look into git log for previous libdivecomputer commit number
   - cd /tmp
-  - git clone git://libdivecomputer.git.sourceforge.net/gitroot/libdivecomputer/libdivecomputer
+  - git clone git://git.libdivecomputer.org/libdivecomputer.git
   - cd libdivecomputer
   - git diff previous_ldc_commit HEAD > /tmp/ldc.path
-  - cd /.../dev_env
+  - cd /.../dev_env/libdivecomputer
   - patch -N -p1 < /tmp/ldc.patch
   - include the latest commit number from libdivecomputer into the commit comment
-
 
 

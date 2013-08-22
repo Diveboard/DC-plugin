@@ -36,6 +36,7 @@ libdivecomputer_HEADERS = 	\
 	hw.h \
 	hw_ostc.h \
 	hw_frog.h \
+	hw_ostc3.h \
 	cressi.h \
 	cressi_edy.h \
 	cressi_leonardo.h \
@@ -44,4 +45,5 @@ libdivecomputer_HEADERS = 	\
 	atomics.h \
 	atomics_cobalt.h \
 	shearwater.h \
+	shearwater_petrel.h \
 	shearwater_predator.h

@@ -1,7 +1,7 @@
 /*
  * libdivecomputer
  *
- * Copyright (C) 2009 Jef Driesen
+ * Copyright (C) 2013 Jef Driesen
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,8 +19,8 @@
  * MA 02110-1301 USA
  */
 
-#ifndef MARES_COMMON_H
-#define MARES_COMMON_H
+#ifndef SHEARWATER_COMMON_H
+#define SHEARWATER_COMMON_H
 
 #include "device-private.h"
 #include "serial.h"
@@ -29,33 +29,30 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define PACKETSIZE 0x20
+#define ID_SERIAL   0x8010
+#define ID_FIRMWARE 0x8011
 
-typedef struct mares_common_layout_t {
-	unsigned int memsize;
-	unsigned int rb_profile_begin;
-	unsigned int rb_profile_end;
-	unsigned int rb_freedives_begin;
-	unsigned int rb_freedives_end;
-} mares_common_layout_t;
-
-typedef struct mares_common_device_t {
+typedef struct shearwater_common_device_t {
 	dc_device_t base;
 	serial_t *port;
-	unsigned int echo;
-	unsigned int delay;
-} mares_common_device_t;
-
-void
-mares_common_device_init (mares_common_device_t *device, dc_context_t *context, const dc_device_vtable_t *vtable);
+} shearwater_common_device_t;
 
 dc_status_t
-mares_common_device_read (dc_device_t *abstract, unsigned int address, unsigned char data[], unsigned int size);
+shearwater_common_open (shearwater_common_device_t *device, dc_context_t *context, const char *name);
 
 dc_status_t
-mares_common_extract_dives (dc_context_t *context, const mares_common_layout_t *layout, const unsigned char fingerprint[], const unsigned char data[], dc_dive_callback_t callback, void *userdata);
+shearwater_common_close (shearwater_common_device_t *device);
+
+dc_status_t
+shearwater_common_transfer (shearwater_common_device_t *device, const unsigned char input[], unsigned int isize, unsigned char output[], unsigned int osize, unsigned int *actual);
+
+dc_status_t
+shearwater_common_download (shearwater_common_device_t *device, dc_buffer_t *buffer, unsigned int address, unsigned int size, unsigned int compression);
+
+dc_status_t
+shearwater_common_identifier (shearwater_common_device_t *device, dc_buffer_t *buffer, unsigned int id);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* MARES_COMMON_H */
+#endif /* SHEARWATER_COMMON_H */

@@ -29,6 +29,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &uwatec_smart_parser_vtable)
+
 #define NBITS 8
 #define NELEMENTS(x) ( sizeof(x) / sizeof((x)[0]) )
 
@@ -56,7 +58,7 @@ static dc_status_t uwatec_smart_parser_get_field (dc_parser_t *abstract, dc_fiel
 static dc_status_t uwatec_smart_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t uwatec_smart_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t uwatec_smart_parser_backend = {
+static const dc_parser_vtable_t uwatec_smart_parser_vtable = {
 	DC_FAMILY_UWATEC_SMART,
 	uwatec_smart_parser_set_data, /* set_data */
 	uwatec_smart_parser_get_datetime, /* datetime */
@@ -64,16 +66,6 @@ static const parser_backend_t uwatec_smart_parser_backend = {
 	uwatec_smart_parser_samples_foreach, /* samples_foreach */
 	uwatec_smart_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_uwatec_smart (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &uwatec_smart_parser_backend;
-}
 
 
 dc_status_t
@@ -90,7 +82,7 @@ uwatec_smart_parser_create (dc_parser_t **out, dc_context_t *context, unsigned i
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &uwatec_smart_parser_backend);
+	parser_init (&parser->base, context, &uwatec_smart_parser_vtable);
 
 	// Set the default values.
 	parser->model = model;
@@ -106,9 +98,6 @@ uwatec_smart_parser_create (dc_parser_t **out, dc_context_t *context, unsigned i
 static dc_status_t
 uwatec_smart_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_uwatec_smart (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.	
 	free (abstract);
 
@@ -119,9 +108,6 @@ uwatec_smart_parser_destroy (dc_parser_t *abstract)
 static dc_status_t
 uwatec_smart_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
-	if (! parser_is_uwatec_smart (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	return DC_STATUS_SUCCESS;
 }
 
@@ -451,9 +437,6 @@ uwatec_smart_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t
 {
 	uwatec_smart_parser_t *parser = (uwatec_smart_parser_t*) abstract;
 
-	if (! parser_is_uwatec_smart (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
@@ -601,7 +584,7 @@ uwatec_smart_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t
 			break;
 		case TEMPERATURE:
 			if (table[id].absolute) {
-				temperature = value / 2.5;
+				temperature = svalue / 2.5;
 				have_temperature = 1;
 			} else {
 				temperature += svalue / 2.5;

@@ -29,6 +29,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &mares_nemo_parser_vtable)
+
 #define NEMO        0
 #define NEMOWIDE    1
 #define NEMOAIR     4
@@ -58,7 +60,7 @@ static dc_status_t mares_nemo_parser_get_field (dc_parser_t *abstract, dc_field_
 static dc_status_t mares_nemo_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t mares_nemo_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t mares_nemo_parser_backend = {
+static const dc_parser_vtable_t mares_nemo_parser_vtable = {
 	DC_FAMILY_MARES_NEMO,
 	mares_nemo_parser_set_data, /* set_data */
 	mares_nemo_parser_get_datetime, /* datetime */
@@ -66,16 +68,6 @@ static const parser_backend_t mares_nemo_parser_backend = {
 	mares_nemo_parser_samples_foreach, /* samples_foreach */
 	mares_nemo_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_mares_nemo (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &mares_nemo_parser_backend;
-}
 
 
 dc_status_t
@@ -92,7 +84,7 @@ mares_nemo_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &mares_nemo_parser_backend);
+	parser_init (&parser->base, context, &mares_nemo_parser_vtable);
 
 	// Get the freedive mode for this model.
 	unsigned int freedive = 2;
@@ -118,9 +110,6 @@ mares_nemo_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int
 static dc_status_t
 mares_nemo_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_mares_nemo (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.
 	free (abstract);
 

@@ -1,6 +1,6 @@
 # Versioning.
 m4_define([dc_version_major],[0])
-m4_define([dc_version_minor],[4])
+m4_define([dc_version_minor],[5])
 m4_define([dc_version_micro],[0])
 m4_define([dc_version_suffix],[devel])
 m4_define([dc_version],dc_version_major.dc_version_minor.dc_version_micro[]m4_ifset([dc_version_suffix],-[dc_version_suffix]))
@@ -88,6 +88,10 @@ AC_CHECK_HEADERS([sys/socket.h linux/types.h linux/irda.h], [irda_linux=yes], [i
 #   include <linux/types.h>
 # endif
 ])
+
+if test "$irda_win32" = "yes" || test "$irda_linux" = "yes"; then
+	AC_DEFINE([HAVE_IRDA], [1], [IrDA support])
+fi
 
 AM_CONDITIONAL([IRDA], [test "$irda_win32" = "yes" || test "$irda_linux" = "yes"])
 

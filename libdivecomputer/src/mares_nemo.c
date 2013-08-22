@@ -31,6 +31,8 @@
 #include "checksum.h"
 #include "array.h"
 
+#define ISINSTANCE(device) dc_device_isinstance((device), &mares_nemo_device_vtable)
+
 #define EXITCODE(rc) \
 ( \
 	rc == -1 ? DC_STATUS_IO : DC_STATUS_TIMEOUT \
@@ -58,7 +60,7 @@ static dc_status_t mares_nemo_device_dump (dc_device_t *abstract, dc_buffer_t *b
 static dc_status_t mares_nemo_device_foreach (dc_device_t *abstract, dc_dive_callback_t callback, void *userdata);
 static dc_status_t mares_nemo_device_close (dc_device_t *abstract);
 
-static const device_backend_t mares_nemo_device_backend = {
+static const dc_device_vtable_t mares_nemo_device_vtable = {
 	DC_FAMILY_MARES_NEMO,
 	mares_nemo_device_set_fingerprint, /* set_fingerprint */
 	NULL, /* read */
@@ -84,15 +86,6 @@ static const mares_common_layout_t mares_nemo_apneist_layout = {
 	0x4000  /* rb_freedives_end */
 };
 
-static int
-device_is_mares_nemo (dc_device_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &mares_nemo_device_backend;
-}
-
 
 dc_status_t
 mares_nemo_device_open (dc_device_t **out, dc_context_t *context, const char *name)
@@ -108,7 +101,7 @@ mares_nemo_device_open (dc_device_t **out, dc_context_t *context, const char *na
 	}
 
 	// Initialize the base class.
-	device_init (&device->base, context, &mares_nemo_device_backend);
+	device_init (&device->base, context, &mares_nemo_device_vtable);
 
 	// Set the default values.
 	device->port = NULL;
@@ -161,9 +154,6 @@ static dc_status_t
 mares_nemo_device_close (dc_device_t *abstract)
 {
 	mares_nemo_device_t *device = (mares_nemo_device_t*) abstract;
-
-	if (! device_is_mares_nemo (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Close the device.
 	if (serial_close (device->port) == -1) {
@@ -320,7 +310,7 @@ mares_nemo_extract_dives (dc_device_t *abstract, const unsigned char data[], uns
 {
 	mares_nemo_device_t *device = (mares_nemo_device_t*) abstract;
 
-	if (abstract && !device_is_mares_nemo (abstract))
+	if (abstract && !ISINSTANCE (abstract))
 		return DC_STATUS_INVALIDARGS;
 
 	if (size < PACKETSIZE)

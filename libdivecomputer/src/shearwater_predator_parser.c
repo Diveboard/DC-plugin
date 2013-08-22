@@ -22,14 +22,20 @@
 #include <stdlib.h>
 
 #include <libdivecomputer/shearwater_predator.h>
+#include <libdivecomputer/shearwater_petrel.h>
 #include <libdivecomputer/units.h>
 
 #include "context-private.h"
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser)	( \
+	dc_parser_isinstance((parser), &shearwater_predator_parser_vtable) || \
+	dc_parser_isinstance((parser), &shearwater_petrel_parser_vtable))
+
 #define SZ_BLOCK   0x80
-#define SZ_SAMPLE  0x10
+#define SZ_SAMPLE_PREDATOR  0x10
+#define SZ_SAMPLE_PETREL    0x20
 
 #define METRIC   0
 #define IMPERIAL 1
@@ -38,6 +44,7 @@ typedef struct shearwater_predator_parser_t shearwater_predator_parser_t;
 
 struct shearwater_predator_parser_t {
 	dc_parser_t base;
+	unsigned int petrel;
 };
 
 static dc_status_t shearwater_predator_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size);
@@ -46,7 +53,7 @@ static dc_status_t shearwater_predator_parser_get_field (dc_parser_t *abstract, 
 static dc_status_t shearwater_predator_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t shearwater_predator_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t shearwater_predator_parser_backend = {
+static const dc_parser_vtable_t shearwater_predator_parser_vtable = {
 	DC_FAMILY_SHEARWATER_PREDATOR,
 	shearwater_predator_parser_set_data, /* set_data */
 	shearwater_predator_parser_get_datetime, /* datetime */
@@ -55,19 +62,18 @@ static const parser_backend_t shearwater_predator_parser_backend = {
 	shearwater_predator_parser_destroy /* destroy */
 };
 
-
-static int
-parser_is_shearwater_predator (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &shearwater_predator_parser_backend;
-}
+static const dc_parser_vtable_t shearwater_petrel_parser_vtable = {
+	DC_FAMILY_SHEARWATER_PETREL,
+	shearwater_predator_parser_set_data, /* set_data */
+	shearwater_predator_parser_get_datetime, /* datetime */
+	shearwater_predator_parser_get_field, /* fields */
+	shearwater_predator_parser_samples_foreach, /* samples_foreach */
+	shearwater_predator_parser_destroy /* destroy */
+};
 
 
 dc_status_t
-shearwater_predator_parser_create (dc_parser_t **out, dc_context_t *context)
+shearwater_common_parser_create (dc_parser_t **out, dc_context_t *context, unsigned int petrel)
 {
 	if (out == NULL)
 		return DC_STATUS_INVALIDARGS;
@@ -80,7 +86,12 @@ shearwater_predator_parser_create (dc_parser_t **out, dc_context_t *context)
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &shearwater_predator_parser_backend);
+	parser->petrel = petrel;
+	if (petrel) {
+		parser_init (&parser->base, context, &shearwater_predator_parser_vtable);
+	} else {
+		parser_init (&parser->base, context, &shearwater_predator_parser_vtable);
+	}
 
 	*out = (dc_parser_t *) parser;
 
@@ -88,12 +99,23 @@ shearwater_predator_parser_create (dc_parser_t **out, dc_context_t *context)
 }
 
 
+dc_status_t
+shearwater_predator_parser_create (dc_parser_t **out, dc_context_t *context)
+{
+	return shearwater_common_parser_create (out, context, 0);
+}
+
+
+dc_status_t
+shearwater_petrel_parser_create (dc_parser_t **out, dc_context_t *context)
+{
+	return shearwater_common_parser_create (out, context, 1);
+}
+
+
 static dc_status_t
 shearwater_predator_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_shearwater_predator (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.
 	free (abstract);
 
@@ -104,9 +126,6 @@ shearwater_predator_parser_destroy (dc_parser_t *abstract)
 static dc_status_t
 shearwater_predator_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
-	if (! parser_is_shearwater_predator (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	return DC_STATUS_SUCCESS;
 }
 
@@ -122,7 +141,7 @@ shearwater_predator_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *d
 
 	unsigned int ticks = array_uint32_be (data + 12);
 
-	if (!dc_datetime_localtime (datetime, ticks))
+	if (!dc_datetime_gmtime (datetime, ticks))
 		return DC_STATUS_DATAFORMAT;
 
 	return DC_STATUS_SUCCESS;
@@ -132,11 +151,22 @@ shearwater_predator_parser_get_datetime (dc_parser_t *abstract, dc_datetime_t *d
 static dc_status_t
 shearwater_predator_parser_get_field (dc_parser_t *abstract, dc_field_type_t type, unsigned int flags, void *value)
 {
+	shearwater_predator_parser_t *parser = (shearwater_predator_parser_t *) abstract;
+
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
 	if (size < 2 * SZ_BLOCK)
 		return DC_STATUS_DATAFORMAT;
+
+	// Get the offset to the footer record.
+	unsigned int footer = size - SZ_BLOCK;
+	if (parser->petrel || array_uint16_be (data + footer) == 0xFFFD) {
+		if (size < 3 * SZ_BLOCK)
+			return DC_STATUS_DATAFORMAT;
+
+		footer -= SZ_BLOCK;
+	}
 
 	// Get the unit system.
 	unsigned int units = data[8];
@@ -148,13 +178,13 @@ shearwater_predator_parser_get_field (dc_parser_t *abstract, dc_field_type_t typ
 	if (value) {
 		switch (type) {
 		case DC_FIELD_DIVETIME:
-			*((unsigned int *) value) = array_uint16_be (data + size - SZ_BLOCK + 6) * 60;
+			*((unsigned int *) value) = array_uint16_be (data + footer + 6) * 60;
 			break;
 		case DC_FIELD_MAXDEPTH:
 			if (units == IMPERIAL)
-				*((double *) value) = array_uint16_be (data + size - SZ_BLOCK + 4) * FEET;
+				*((double *) value) = array_uint16_be (data + footer + 4) * FEET;
 			else
-				*((double *) value) = array_uint16_be (data + size - SZ_BLOCK + 4);
+				*((double *) value) = array_uint16_be (data + footer + 4);
 			break;
 		case DC_FIELD_GASMIX_COUNT:
 			*((unsigned int *) value) = 10;
@@ -187,11 +217,28 @@ shearwater_predator_parser_get_field (dc_parser_t *abstract, dc_field_type_t typ
 static dc_status_t
 shearwater_predator_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
+	shearwater_predator_parser_t *parser = (shearwater_predator_parser_t *) abstract;
+
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;
 
 	if (size < 2 * SZ_BLOCK)
 		return DC_STATUS_DATAFORMAT;
+
+	// Get the offset to the footer record.
+	unsigned int footer = size - SZ_BLOCK;
+	if (parser->petrel || array_uint16_be (data + footer) == 0xFFFD) {
+		if (size < 3 * SZ_BLOCK)
+			return DC_STATUS_DATAFORMAT;
+
+		footer -= SZ_BLOCK;
+	}
+
+	// Get the sample size.
+	unsigned int samplesize = SZ_SAMPLE_PREDATOR;
+	if (parser->petrel) {
+		samplesize = SZ_SAMPLE_PETREL;
+	}
 
 	// Get the unit system.
 	unsigned int units = data[8];
@@ -201,12 +248,12 @@ shearwater_predator_parser_samples_foreach (dc_parser_t *abstract, dc_sample_cal
 
 	unsigned int time = 0;
 	unsigned int offset = SZ_BLOCK;
-	while (offset + SZ_BLOCK < size) {
+	while (offset < footer) {
 		dc_sample_value_t sample = {0};
 
 		// Ignore empty samples.
-		if (array_isequal (data + offset, SZ_SAMPLE, 0x00)) {
-			offset += SZ_SAMPLE;
+		if (array_isequal (data + offset, samplesize, 0x00)) {
+			offset += samplesize;
 			continue;
 		}
 
@@ -263,7 +310,7 @@ shearwater_predator_parser_samples_foreach (dc_parser_t *abstract, dc_sample_cal
 		sample.deco.time = data[offset + 9] * 60;
 		if (callback) callback (DC_SAMPLE_DECO, sample, userdata);
 
-		offset += SZ_SAMPLE;
+		offset += samplesize;
 	}
 
 	return DC_STATUS_SUCCESS;

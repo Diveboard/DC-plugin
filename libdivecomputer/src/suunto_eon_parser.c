@@ -28,6 +28,8 @@
 #include "parser-private.h"
 #include "array.h"
 
+#define ISINSTANCE(parser) dc_parser_isinstance((parser), &suunto_eon_parser_vtable)
+
 typedef struct suunto_eon_parser_t suunto_eon_parser_t;
 
 struct suunto_eon_parser_t {
@@ -45,7 +47,7 @@ static dc_status_t suunto_eon_parser_get_field (dc_parser_t *abstract, dc_field_
 static dc_status_t suunto_eon_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata);
 static dc_status_t suunto_eon_parser_destroy (dc_parser_t *abstract);
 
-static const parser_backend_t suunto_eon_parser_backend = {
+static const dc_parser_vtable_t suunto_eon_parser_vtable = {
 	DC_FAMILY_SUUNTO_EON,
 	suunto_eon_parser_set_data, /* set_data */
 	suunto_eon_parser_get_datetime, /* datetime */
@@ -53,16 +55,6 @@ static const parser_backend_t suunto_eon_parser_backend = {
 	suunto_eon_parser_samples_foreach, /* samples_foreach */
 	suunto_eon_parser_destroy /* destroy */
 };
-
-
-static int
-parser_is_suunto_eon (dc_parser_t *abstract)
-{
-	if (abstract == NULL)
-		return 0;
-
-    return abstract->backend == &suunto_eon_parser_backend;
-}
 
 
 dc_status_t
@@ -79,7 +71,7 @@ suunto_eon_parser_create (dc_parser_t **out, dc_context_t *context, int spyder)
 	}
 
 	// Initialize the base class.
-	parser_init (&parser->base, context, &suunto_eon_parser_backend);
+	parser_init (&parser->base, context, &suunto_eon_parser_vtable);
 
 	// Set the default values.
 	parser->spyder = spyder;
@@ -96,9 +88,6 @@ suunto_eon_parser_create (dc_parser_t **out, dc_context_t *context, int spyder)
 static dc_status_t
 suunto_eon_parser_destroy (dc_parser_t *abstract)
 {
-	if (! parser_is_suunto_eon (abstract))
-		return DC_STATUS_INVALIDARGS;
-
 	// Free memory.	
 	free (abstract);
 
@@ -110,9 +99,6 @@ static dc_status_t
 suunto_eon_parser_set_data (dc_parser_t *abstract, const unsigned char *data, unsigned int size)
 {
 	suunto_eon_parser_t *parser = (suunto_eon_parser_t *) abstract;
-
-	if (! parser_is_suunto_eon (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	// Reset the cache.
 	parser->cached = 0;
@@ -224,9 +210,6 @@ static dc_status_t
 suunto_eon_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t callback, void *userdata)
 {
 	suunto_eon_parser_t *parser = (suunto_eon_parser_t *) abstract;
-
-	if (! parser_is_suunto_eon (abstract))
-		return DC_STATUS_INVALIDARGS;
 
 	const unsigned char *data = abstract->data;
 	unsigned int size = abstract->size;

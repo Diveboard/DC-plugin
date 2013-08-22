@@ -19,6 +19,10 @@
  * MA 02110-1301 USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -72,29 +76,46 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Suunto", "D4i",  DC_FAMILY_SUUNTO_D9, 0x19},
 	{"Suunto", "D6i",  DC_FAMILY_SUUNTO_D9, 0x1A},
 	{"Suunto", "D9tx", DC_FAMILY_SUUNTO_D9, 0x1B},
+	{"Suunto", "DX",   DC_FAMILY_SUUNTO_D9, 0x1C},
 	/* Uwatec Aladin */
-	{"Uwatec", "Aladin", DC_FAMILY_UWATEC_ALADIN, 0},
+	{"Uwatec", "Aladin Air Twin",     DC_FAMILY_UWATEC_ALADIN, 0x1C},
+	{"Uwatec", "Aladin Sport Plus",   DC_FAMILY_UWATEC_ALADIN, 0x3E},
+	{"Uwatec", "Aladin Pro",          DC_FAMILY_UWATEC_ALADIN, 0x3F},
+	{"Uwatec", "Aladin Air Z",        DC_FAMILY_UWATEC_ALADIN, 0x44},
+	{"Uwatec", "Aladin Air Z O2",     DC_FAMILY_UWATEC_ALADIN, 0xA4},
+	{"Uwatec", "Aladin Air Z Nitrox", DC_FAMILY_UWATEC_ALADIN, 0xF4},
+	{"Uwatec", "Aladin Pro Ultra",    DC_FAMILY_UWATEC_ALADIN, 0xFF},
 	/* Uwatec Memomouse */
 	{"Uwatec", "Memomouse", DC_FAMILY_UWATEC_MEMOMOUSE, 0},
 	/* Uwatec Smart */
+#ifdef HAVE_IRDA
 	{"Uwatec", "Smart Pro",     DC_FAMILY_UWATEC_SMART, 0x10},
-	{"Uwatec", "Galileo",       DC_FAMILY_UWATEC_SMART, 0x11},
+	{"Uwatec", "Galileo Sol",   DC_FAMILY_UWATEC_SMART, 0x11},
+	{"Uwatec", "Galileo Luna",  DC_FAMILY_UWATEC_SMART, 0x11},
+	{"Uwatec", "Galileo Terra", DC_FAMILY_UWATEC_SMART, 0x11},
 	{"Uwatec", "Aladin Tec",    DC_FAMILY_UWATEC_SMART, 0x12},
+	{"Uwatec", "Aladin Prime",  DC_FAMILY_UWATEC_SMART, 0x12},
 	{"Uwatec", "Aladin Tec 2G", DC_FAMILY_UWATEC_SMART, 0x13},
+	{"Uwatec", "Aladin 2G",     DC_FAMILY_UWATEC_SMART, 0x13},
+	{"Subgear","XP-10",         DC_FAMILY_UWATEC_SMART, 0x13},
 	{"Uwatec", "Smart Com",     DC_FAMILY_UWATEC_SMART, 0x14},
 	{"Uwatec", "Smart Tec",     DC_FAMILY_UWATEC_SMART, 0x18},
 	{"Uwatec", "Galileo Trimix",DC_FAMILY_UWATEC_SMART, 0x19},
 	{"Uwatec", "Smart Z",       DC_FAMILY_UWATEC_SMART, 0x1C},
+	{"Subgear","XP Air",        DC_FAMILY_UWATEC_SMART, 0x1C},
+#endif
 	/* Reefnet */
 	{"Reefnet", "Sensus",       DC_FAMILY_REEFNET_SENSUS, 1},
 	{"Reefnet", "Sensus Pro",   DC_FAMILY_REEFNET_SENSUSPRO, 2},
 	{"Reefnet", "Sensus Ultra", DC_FAMILY_REEFNET_SENSUSULTRA, 3},
 	/* Oceanic VT Pro */
 	{"Oceanic",  "Versa Pro",  DC_FAMILY_OCEANIC_VTPRO, 0x4155},
+	{"Aeris",    "Atmos 2",    DC_FAMILY_OCEANIC_VTPRO, 0x4158},
 	{"Oceanic",  "Pro Plus 2", DC_FAMILY_OCEANIC_VTPRO, 0x4159},
 	{"Aeris",    "Atmos AI",   DC_FAMILY_OCEANIC_VTPRO, 0x4244},
 	{"Oceanic",  "VT Pro",     DC_FAMILY_OCEANIC_VTPRO, 0x4245},
 	{"Sherwood", "Wisdom",     DC_FAMILY_OCEANIC_VTPRO, 0x4246},
+	{"Aeris",    "Elite",      DC_FAMILY_OCEANIC_VTPRO, 0x424F},
 	/* Oceanic Veo 250 */
 	{"Genesis", "React Pro", DC_FAMILY_OCEANIC_VEO250, 0x4247},
 	{"Oceanic", "Veo 200",   DC_FAMILY_OCEANIC_VEO250, 0x424B},
@@ -111,12 +132,14 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Oceanic",  "Atom 2.0",            DC_FAMILY_OCEANIC_ATOM2, 0x4342},
 	{"Oceanic",  "Geo",                 DC_FAMILY_OCEANIC_ATOM2, 0x4344},
 	{"Aeris",    "Manta",               DC_FAMILY_OCEANIC_ATOM2, 0x4345},
+	{"Aeris",    "XR-1 NX",             DC_FAMILY_OCEANIC_ATOM2, 0x4346},
 	{"Oceanic",  "Datamask",            DC_FAMILY_OCEANIC_ATOM2, 0x4347},
 	{"Aeris",    "Compumask",           DC_FAMILY_OCEANIC_ATOM2, 0x4348},
 	{"Aeris",    "F10",                 DC_FAMILY_OCEANIC_ATOM2, 0x434D},
 	{"Oceanic",  "OC1",                 DC_FAMILY_OCEANIC_ATOM2, 0x434E},
 	{"Sherwood", "Wisdom 2",            DC_FAMILY_OCEANIC_ATOM2, 0x4350},
 	{"Sherwood", "Insight 2",           DC_FAMILY_OCEANIC_ATOM2, 0x4353},
+	{"Genesis",  "React Pro White",     DC_FAMILY_OCEANIC_ATOM2, 0x4354},
 	{"Tusa",     "Element II (IQ-750)", DC_FAMILY_OCEANIC_ATOM2, 0x4357},
 	{"Oceanic",  "Veo 1.0",             DC_FAMILY_OCEANIC_ATOM2, 0x4358},
 	{"Oceanic",  "Veo 2.0",             DC_FAMILY_OCEANIC_ATOM2, 0x4359},
@@ -131,14 +154,18 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Oceanic",  "Atom 3.0",            DC_FAMILY_OCEANIC_ATOM2, 0x444C},
 	{"Hollis",   "DG03",                DC_FAMILY_OCEANIC_ATOM2, 0x444D},
 	{"Oceanic",  "OCS",                 DC_FAMILY_OCEANIC_ATOM2, 0x4450},
+	{"Oceanic",  "OC1",                 DC_FAMILY_OCEANIC_ATOM2, 0x4451},
 	{"Oceanic",  "VT 4.1",              DC_FAMILY_OCEANIC_ATOM2, 0x4452},
 	{"Aeris",    "Epic",                DC_FAMILY_OCEANIC_ATOM2, 0x4453},
 	{"Aeris",    "Elite T3",            DC_FAMILY_OCEANIC_ATOM2, 0x4455},
 	{"Oceanic",  "Atom 3.1",            DC_FAMILY_OCEANIC_ATOM2, 0x4456},
 	{"Aeris",    "A300 AI",             DC_FAMILY_OCEANIC_ATOM2, 0x4457},
 	{"Sherwood", "Wisdom 3",            DC_FAMILY_OCEANIC_ATOM2, 0x4458},
+	{"Oceanic",  "Pro Plus 3",          DC_FAMILY_OCEANIC_ATOM2, 0x4548},
 	/* Mares Nemo */
 	{"Mares", "Nemo",         DC_FAMILY_MARES_NEMO, 0},
+	{"Mares", "Nemo Steel",   DC_FAMILY_MARES_NEMO, 0},
+	{"Mares", "Nemo Titanium",DC_FAMILY_MARES_NEMO, 0},
 	{"Mares", "Nemo Excel",   DC_FAMILY_MARES_NEMO, 17},
 	{"Mares", "Nemo Apneist", DC_FAMILY_MARES_NEMO, 18},
 	/* Mares Puck */
@@ -161,7 +188,8 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Heinrichs Weikamp", "OSTC",     DC_FAMILY_HW_OSTC, 0},
 	{"Heinrichs Weikamp", "OSTC Mk2", DC_FAMILY_HW_OSTC, 1},
 	{"Heinrichs Weikamp", "OSTC 2N",  DC_FAMILY_HW_OSTC, 2},
-	{"Heinrichs Weikamp", "Frog", DC_FAMILY_HW_FROG, 0},
+	{"Heinrichs Weikamp", "Frog",     DC_FAMILY_HW_FROG, 0},
+	{"Heinrichs Weikamp", "OSTC 3",   DC_FAMILY_HW_OSTC3, 0},
 	/* Cressi Edy */
 	{"Cressi", "Edy", DC_FAMILY_CRESSI_EDY, 0},
 	/* Cressi Leonardo */
@@ -171,10 +199,13 @@ static const dc_descriptor_t g_descriptors[] = {
 	{"Apeks",    "Quantum X",  DC_FAMILY_ZEAGLE_N2ITION3, 0},
 	{"DiveRite", "NiTek Trio", DC_FAMILY_ZEAGLE_N2ITION3, 0},
 	/* Atomic Aquatics Cobalt */
+#ifdef HAVE_LIBUSB
 	{"Atomic Aquatics", "Cobalt", DC_FAMILY_ATOMICS_COBALT, 0},
+#endif
 	/* Shearwater Predator */
 	{"Shearwater", "Predator", DC_FAMILY_SHEARWATER_PREDATOR, 2},
-	{"Shearwater", "Petrel",   DC_FAMILY_SHEARWATER_PREDATOR, 3},
+	/* Shearwater Petrel */
+	{"Shearwater", "Petrel",   DC_FAMILY_SHEARWATER_PETREL, 3},
 };
 
 typedef struct dc_descriptor_iterator_t {
@@ -279,4 +310,18 @@ dc_descriptor_get_model (dc_descriptor_t *descriptor)
 		return 0;
 
 	return descriptor->model;
+}
+
+dc_transport_t
+dc_descriptor_get_transport (dc_descriptor_t *descriptor)
+{
+	if (descriptor == NULL)
+		return DC_TRANSPORT_NONE;
+
+	if (descriptor->type == DC_FAMILY_ATOMICS_COBALT)
+		return DC_TRANSPORT_USB;
+	else if (descriptor->type == DC_FAMILY_UWATEC_SMART)
+		return DC_TRANSPORT_IRDA;
+	else
+		return DC_TRANSPORT_SERIAL;
 }
