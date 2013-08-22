@@ -174,8 +174,6 @@ irda_socket_set_timeout (irda_t *device, long timeout)
 	if (device == NULL)
 		return -1; // EINVAL (Invalid argument)
 
-	INFO (device->context, "Timeout: value=%li", timeout);
-
 	device->timeout = timeout;
 
 	return 0;
@@ -250,17 +248,9 @@ irda_socket_discover (irda_t *device, irda_callback_t callback, void *userdata)
 	if (callback) {
 #ifdef _WIN32
 		for (unsigned int i = 0; i < list->numDevice; ++i) {
-			unsigned int address = array_uint32_le (list->Device[i].irdaDeviceID);
+			unsigned int address = array_uint32_be (list->Device[i].irdaDeviceID);
 			unsigned int hints = (list->Device[i].irdaDeviceHints1 << 8) + 
 									list->Device[i].irdaDeviceHints2;
-
-			INFO (device->context,
-				"Discover: address=%08x, name=%s, charset=%02x, hints=%04x",
-				address,
-				list->Device[i].irdaDeviceName,
-				list->Device[i].irdaCharSet,
-				hints);
-
 			callback (address, 
 				list->Device[i].irdaDeviceName,
 				list->Device[i].irdaCharSet,
@@ -270,14 +260,6 @@ irda_socket_discover (irda_t *device, irda_callback_t callback, void *userdata)
 #else
 		for (unsigned int i = 0; i < list->len; ++i) {
 			unsigned int hints = array_uint16_be (list->dev[i].hints);
-
-			INFO (device->context,
-				"Discover: address=%08x, name=%s, charset=%02x, hints=%04x",
-				list->dev[i].daddr,
-				list->dev[i].info,
-				list->dev[i].charset,
-				hints);
-
 			callback (list->dev[i].daddr, 
 				list->dev[i].info, 
 				list->dev[i].charset, 
@@ -297,15 +279,13 @@ irda_socket_connect_name (irda_t *device, unsigned int address, const char *name
 	if (device == NULL)
 		return -1;
 
-	INFO (device->context, "Connect: address=%08x, name=%s", address, name ? name : "");
-
 #ifdef _WIN32
 	SOCKADDR_IRDA peer;
 	peer.irdaAddressFamily = AF_IRDA;
-	peer.irdaDeviceID[0] = (address      ) & 0xFF;
-	peer.irdaDeviceID[1] = (address >>  8) & 0xFF;
-	peer.irdaDeviceID[2] = (address >> 16) & 0xFF;
-	peer.irdaDeviceID[3] = (address >> 24) & 0xFF;
+	peer.irdaDeviceID[0] = (address >> 24) & 0xFF;
+	peer.irdaDeviceID[1] = (address >> 16) & 0xFF;
+	peer.irdaDeviceID[2] = (address >>  8) & 0xFF;
+	peer.irdaDeviceID[3] = (address      ) & 0xFF;
     if (name)
 		strncpy (peer.irdaServiceName, name, 25);
 	else
@@ -334,15 +314,13 @@ irda_socket_connect_lsap (irda_t *device, unsigned int address, unsigned int lsa
 	if (device == NULL)
 		return -1;
 
-	INFO (device->context, "Connect: address=%08x, lsap=%u", address, lsap);
-
 #ifdef _WIN32
 	SOCKADDR_IRDA peer;
 	peer.irdaAddressFamily = AF_IRDA;
-	peer.irdaDeviceID[0] = (address      ) & 0xFF;
-	peer.irdaDeviceID[1] = (address >>  8) & 0xFF;
-	peer.irdaDeviceID[2] = (address >> 16) & 0xFF;
-	peer.irdaDeviceID[3] = (address >> 24) & 0xFF;
+	peer.irdaDeviceID[0] = (address >> 24) & 0xFF;
+	peer.irdaDeviceID[1] = (address >> 16) & 0xFF;
+	peer.irdaDeviceID[2] = (address >>  8) & 0xFF;
+	peer.irdaDeviceID[3] = (address      ) & 0xFF;
 	snprintf (peer.irdaServiceName, 25, "LSAP-SEL%u", lsap);
 #else
 	struct sockaddr_irda peer;
@@ -419,8 +397,6 @@ irda_socket_read (irda_t *device, void *data, unsigned int size)
 		nbytes += n;
 	}
 
-	HEXDUMP (device->context, DC_LOGLEVEL_INFO, "Read", (unsigned char *) data, nbytes);
-
 	return nbytes;
 }
 
@@ -441,8 +417,6 @@ irda_socket_write (irda_t *device, const void *data, unsigned int size)
 
 		nbytes += n;
 	}
-
-	HEXDUMP (device->context, DC_LOGLEVEL_INFO, "Write", (unsigned char *) data, nbytes);
 
 	return nbytes;
 }
