@@ -571,17 +571,20 @@ suunto_d9_parser_samples_foreach (dc_parser_t *abstract, dc_sample_callback_t ca
 					offset += 2;
 					break;
 				case 0x06: // Gas Change
-					if (offset + 4 > size)
+					if (offset + 5 > size)
 						return DC_STATUS_DATAFORMAT;
 					unknown = data[offset + 0];
 					he = data[offset + 1];
 					o2 = data[offset + 2];
 					seconds = data[offset + 3];
+					if (unknown && offset + 8 > size)
+						return DC_STATUS_DATAFORMAT;
 					sample.event.type = SAMPLE_EVENT_GASCHANGE2;
 					sample.event.time = seconds;
 					sample.event.value = o2 | (he << 16);
 					if (callback) callback (DC_SAMPLE_EVENT, sample, userdata);
-					offset += 4;
+					offset += 5;
+					if (unknown) offset += 3;
 					break;
 				default:
 					WARNING (abstract->context, "Unknown event");
